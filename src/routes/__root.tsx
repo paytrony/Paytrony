@@ -40,9 +40,9 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "ReferNFT — Earn 100% referral rewards" },
+      { title: "PayTrony — Earn 100% referral rewards" },
       { name: "description", content: "Buy an NFT tier, refer friends, and earn instant wallet credits equal to their purchase. Demo simulation." },
-      { property: "og:title", content: "ReferNFT — Earn 100% referral rewards" },
+      { property: "og:title", content: "PayTrony — Earn 100% referral rewards" },
       { property: "og:description", content: "Buy an NFT tier, refer friends, and earn instant wallet credits equal to their purchase." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },

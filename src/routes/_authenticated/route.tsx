@@ -32,7 +32,7 @@ function AuthedLayout() {
       <header className="border-b border-border">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
           <Link to="/dashboard" className="font-mono text-lg font-semibold">
-            <span className="text-primary">◆</span> ReferNFT
+            <span className="text-primary">◆</span> PayTrony
           </Link>
           <nav className="flex items-center gap-4 text-sm">
             <Link to="/dashboard" className="text-muted-foreground hover:text-foreground" activeProps={{ className: "text-foreground" }}>Dashboard</Link>
