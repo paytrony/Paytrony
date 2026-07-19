@@ -115,10 +115,6 @@ function Packages() {
           </div>
         ))}
       </div>
-
-      <div className="rounded-lg border border-border bg-card/50 p-4 text-center text-xs text-muted-foreground">
-        Demo: clicking "Mint" simulates successful payments instantly. No card is charged. Each NFT gets a unique idempotency key.
-      </div>
     </div>
   );
 }
