@@ -36,9 +36,16 @@ function Withdraw() {
   const [signError, setSignError] = useState<string | null>(null);
   const [receipt, setReceipt] = useState<{ id: string; amount: number; fee: number; net: number; method: string; createdAt: string } | null>(null);
   const confirmBtnRef = useRef<HTMLButtonElement>(null);
-  const [newKind, setNewKind] = useState<"bank" | "upi" | "crypto" | "paypal">("upi");
+  type KindKey = "binance" | "bybit" | "wallet_address" | "upi" | "paypal" | "bank";
+  const [newKind, setNewKind] = useState<KindKey>("binance");
   const [newLabel, setNewLabel] = useState("");
-  const [newDetails, setNewDetails] = useState("");
+  // Per-kind fields
+  const [exUid, setExUid] = useState("");
+  const [exEmail, setExEmail] = useState("");
+  const [exPhone, setExPhone] = useState("");
+  const [walletChain, setWalletChain] = useState("ETH");
+  const [walletAddress, setWalletAddress] = useState("");
+  const COMING_SOON: KindKey[] = ["upi", "paypal", "bank"];
   const amountKey = `paytrony:withdraw-amount:${user.id}`;
 
   useEffect(() => {
