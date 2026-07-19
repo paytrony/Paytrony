@@ -1,9 +1,11 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { requestWithdrawal } from "@/lib/wallet.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/_authenticated/withdraw")({
   component: Withdraw,
@@ -29,6 +31,10 @@ function Withdraw() {
   const [emailVerified, setEmailVerified] = useState(false);
   const [kycStatus, setKycStatus] = useState<string>("none");
   const [addOpen, setAddOpen] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [signing, setSigning] = useState(false);
+  const [signError, setSignError] = useState<string | null>(null);
+  const confirmBtnRef = useRef<HTMLButtonElement>(null);
   const [newKind, setNewKind] = useState<"bank" | "upi" | "crypto" | "paypal">("upi");
   const [newLabel, setNewLabel] = useState("");
   const [newDetails, setNewDetails] = useState("");
@@ -103,20 +109,29 @@ function Withdraw() {
     if (!amt || amt <= 0) return toast.error("Enter a positive amount");
     if (!methodId) return toast.error("Select a payout method");
     if (amt + FEE > available) return toast.error(`Insufficient balance (need $${(amt + FEE).toFixed(2)} incl. $${FEE} fee)`);
-    setLoading(true);
+    setConfirmOpen(true);
+  }
+
+  async function confirmWithdraw() {
+    if (signing) return;
+    setSigning(true);
+    setSignError(null);
+    const amt = Number(amount);
     try {
       const idempotencyKey = (crypto as any).randomUUID?.() ?? `wd-${Date.now()}-${Math.random()}`;
       await req({ data: { amount: amt, note, idempotencyKey, payoutMethodId: methodId } });
       toast.success(`Instant payout sent — $${amt.toFixed(2)} (fee $${FEE})`);
       setAmount(""); setNote("");
+      setConfirmOpen(false);
       await load();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Failed");
-    } finally { setLoading(false); }
+      setSignError(e instanceof Error ? e.message : "Failed");
+    } finally { setSigning(false); }
   }
 
   const gated = !emailVerified;
   const kycNeeded = limits && Number(amount) > limits.kyc_threshold && kycStatus !== "approved";
+  const selectedMethod = methods.find((m) => m.id === methodId);
 
   return (
     <div className="space-y-8">
@@ -180,7 +195,7 @@ function Withdraw() {
             </div>
             <button type="submit" disabled={loading || available <= FEE || gated || methods.length === 0}
               className="w-full rounded-md bg-primary py-2.5 font-medium text-primary-foreground disabled:opacity-50">
-              {loading ? "Processing…" : "Withdraw instantly"}
+              {loading ? "Processing…" : "Review & withdraw"}
             </button>
           </form>
         </div>
@@ -261,6 +276,83 @@ function Withdraw() {
           </div>
         </div>
       </div>
+
+      <Dialog open={confirmOpen} onOpenChange={(open) => {
+        if (!signing) setConfirmOpen(open);
+      }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Confirm instant withdrawal</DialogTitle>
+            <DialogDescription>
+              Review the exact amount that will be deducted from your wallet and sent to your payout method.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="rounded-xl border border-border bg-muted/30 p-4 text-sm">
+              <div className="mb-3 text-[10px] font-mono uppercase text-muted-foreground">Final payout summary</div>
+              <div className="space-y-2 font-mono">
+                <div className="flex justify-between text-xs">
+                  <span className="text-muted-foreground">Requested amount</span>
+                  <span className="text-foreground">${Number(amount || 0).toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span className="text-muted-foreground">Withdrawal fee</span>
+                  <span className="text-destructive">- ${FEE.toFixed(2)}</span>
+                </div>
+                <div className="my-1 border-t border-border" />
+                <div className="flex justify-between text-xs">
+                  <span className="text-muted-foreground">Total debited from wallet</span>
+                  <span className="font-semibold text-foreground">${((Number(amount || 0)) + FEE).toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-foreground">Net payout to you</span>
+                  <span className="font-semibold text-primary">${Number(amount || 0).toFixed(2)}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-border p-3 text-sm">
+              <div className="text-[10px] font-mono uppercase text-muted-foreground mb-1">Payout destination</div>
+              <div className="flex items-center gap-2">
+                <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-mono uppercase">
+                  {selectedMethod?.kind.toUpperCase() ?? "-"}
+                </span>
+                <span className="text-foreground">{selectedMethod?.label ?? "No method selected"}</span>
+              </div>
+            </div>
+
+            {note && (
+              <div className="text-xs text-muted-foreground">
+                Note: {note}
+              </div>
+            )}
+
+            {signError && (
+              <div className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive">
+                {signError}
+              </div>
+            )}
+          </div>
+          <div className="flex gap-3">
+            <Button
+              variant="outline"
+              className="flex-1"
+              onClick={() => setConfirmOpen(false)}
+              disabled={signing}
+            >
+              Cancel
+            </Button>
+            <Button
+              ref={confirmBtnRef}
+              className="flex-1"
+              onClick={confirmWithdraw}
+              disabled={signing}
+            >
+              {signing ? "Processing…" : "Confirm withdrawal"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
