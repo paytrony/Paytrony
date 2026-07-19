@@ -6,6 +6,21 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import {
+  Landmark,
+  Wallet,
+  CreditCard,
+  ArrowRightLeft,
+  CircleDollarSign,
+  Clock,
+  CheckCircle2,
+  AlertCircle,
+  Loader2,
+} from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/withdraw")({
   component: Withdraw,
@@ -17,15 +32,30 @@ type W = { id: string; amount: number; status: string; payout_note: string | nul
 type Limits = { min_amount: number; daily_cap: number; kyc_threshold: number; cooldown_minutes: number };
 type KindKey = "binance" | "bybit" | "wallet_address" | "upi" | "paypal" | "bank";
 
-const METHODS: { k: KindKey; label: string }[] = [
-  { k: "binance", label: "Binance" },
-  { k: "bybit", label: "Bybit" },
-  { k: "wallet_address", label: "Wallet Address" },
-  { k: "upi", label: "UPI" },
-  { k: "paypal", label: "PayPal" },
-  { k: "bank", label: "Bank" },
+type MethodDef = {
+  k: KindKey;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+};
+
+const METHODS: MethodDef[] = [
+  { k: "binance", label: "Binance", icon: ArrowRightLeft },
+  { k: "bybit", label: "Bybit", icon: ArrowRightLeft },
+  { k: "wallet_address", label: "Wallet Address", icon: Wallet },
+  { k: "upi", label: "UPI", icon: CreditCard },
+  { k: "paypal", label: "PayPal", icon: CircleDollarSign },
+  { k: "bank", label: "Bank", icon: Landmark },
 ];
 const COMING_SOON: KindKey[] = ["upi", "paypal", "bank"];
+
+const CHAINS = [
+  { value: "BSC", label: "BNB Smart Chain (BEP-20)" },
+  { value: "POLYGON", label: "Polygon" },
+  { value: "ARBITRUM", label: "Arbitrum" },
+  { value: "OPTIMISM", label: "Optimism" },
+  { value: "TRON", label: "Tron (TRC-20)" },
+  { value: "SOLANA", label: "Solana" },
+];
 
 function Withdraw() {
   const { user } = Route.useRouteContext();
@@ -188,7 +218,6 @@ function Withdraw() {
     if (!built) { setSigning(false); return; }
     const methodLabel = `[${kind.toUpperCase()}] ${built.label}`;
     try {
-      // Create an ephemeral payout method for this withdrawal
       const { data: pm, error: pmErr } = await supabase.from("payout_methods").insert({
         user_id: user.id, kind, label: built.label, details: built.details, is_default: false,
       }).select("id").single();
@@ -213,171 +242,276 @@ function Withdraw() {
   const gated = !emailVerified;
   const kycNeeded = limits && Number(amount) > limits.kyc_threshold && kycStatus !== "approved";
   const methodReady = (kind === "binance" || kind === "bybit") ? !!(exUid.trim() || exEmail.trim() || exPhone.trim()) : kind === "wallet_address" ? !!walletAddress.trim() : false;
+  const amt = Number(amount) || 0;
+  const net = amt; // user receives the full requested amount; fee is debited separately
+  const totalDebit = amt + FEE;
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold">Instant Withdraw</h1>
-        <p className="text-muted-foreground">Payouts settle instantly to your chosen method. A flat <span className="text-foreground font-semibold">${FEE} fee</span> applies to every withdrawal.</p>
+    <div className="mx-auto max-w-6xl space-y-8">
+      <div className="flex flex-col gap-2">
+        <h1 className="text-3xl font-bold tracking-tight">Instant Withdraw</h1>
+        <p className="text-muted-foreground">
+          Payouts settle instantly to your chosen method. A flat <span className="font-medium text-foreground">${FEE} fee</span> applies to every withdrawal.
+        </p>
       </div>
 
       {gated && (
-        <div className="rounded-md border border-accent/40 bg-accent/10 p-4 text-sm">
-          Verify your email before withdrawing. <Link to="/settings" className="text-primary underline">Go to settings</Link>
+        <div className="flex items-center gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm">
+          <AlertCircle className="h-4 w-4 shrink-0 text-amber-400" />
+          <span className="flex-1">Verify your email before withdrawing.</span>
+          <Link to="/settings" className="text-sm font-medium text-primary hover:underline">Go to settings</Link>
         </div>
       )}
 
       {limits && (
-        <div className="grid gap-3 md:grid-cols-4 text-xs font-mono">
-          <Stat label="Min" v={`$${limits.min_amount}`} />
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <Stat label="Minimum" v={`$${limits.min_amount}`} />
           <Stat label="Daily cap" v={`$${limits.daily_cap}`} />
           <Stat label="KYC over" v={`$${limits.kyc_threshold}`} />
           <Stat label="Cooldown" v={`${limits.cooldown_minutes}m`} />
         </div>
       )}
 
-      <div className="grid gap-6 md:grid-cols-2">
-        <div className="rounded-2xl border border-border bg-card p-6">
-          <div className="font-mono text-xs uppercase text-muted-foreground">Available to withdraw</div>
-          <div className="mt-2 text-4xl font-bold text-primary">${available.toFixed(2)}</div>
+      <div className="grid gap-6 lg:grid-cols-5">
+        <div className="lg:col-span-3">
+          <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
+            <div className="mb-6">
+              <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Available balance</div>
+              <div className="mt-1 text-4xl font-bold text-primary">${available.toFixed(2)}</div>
+            </div>
 
-          <form onSubmit={onSubmit} className="mt-6 space-y-4">
-            <div>
-              <label className="text-sm font-medium">Amount ($)</label>
-              <input type="number" step="0.01" min={limits?.min_amount ?? 0.01} max={Math.max(0, available - FEE)} required value={amount} onChange={(e) => { setAmount(e.target.value); clearError("amount"); }}
-                className={`mt-1 w-full rounded-md border bg-input px-3 py-2 text-sm ${errors.amount ? "border-destructive" : "border-input"}`} />
-              {errors.amount && <p className="mt-1 text-xs text-destructive">{errors.amount}</p>}
-              {kycNeeded && (
-                <p className="mt-1 text-xs text-accent">KYC approval required above ${limits!.kyc_threshold}. <Link to="/settings" className="underline">Submit KYC</Link></p>
+            <form onSubmit={onSubmit} className="space-y-6">
+              <div className="space-y-2">
+                <Label htmlFor="amount">Amount to withdraw</Label>
+                <div className="relative">
+                  <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
+                  <Input
+                    id="amount"
+                    type="number"
+                    step="0.01"
+                    min={limits?.min_amount ?? 0.01}
+                    max={Math.max(0, available - FEE)}
+                    required
+                    value={amount}
+                    onChange={(e) => { setAmount(e.target.value); clearError("amount"); }}
+                    className={`pl-7 text-base ${errors.amount ? "border-destructive focus-visible:ring-destructive" : ""}`}
+                    placeholder="0.00"
+                  />
+                </div>
+                {errors.amount && <p className="text-xs text-destructive">{errors.amount}</p>}
+                {kycNeeded && (
+                  <p className="text-xs text-accent">KYC approval required above ${limits!.kyc_threshold}. <Link to="/settings" className="underline">Submit KYC</Link></p>
+                )}
+              </div>
+
+              <div className="rounded-xl border border-border bg-muted/30 p-4">
+                <div className="mb-3 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Payout summary</div>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Amount</span>
+                    <span className="font-medium">${amt.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Withdrawal fee</span>
+                    <span className="font-medium text-destructive">- ${FEE.toFixed(2)}</span>
+                  </div>
+                  <Separator className="my-2" />
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Total debited</span>
+                    <span className="font-semibold">${totalDebit.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-foreground">You receive</span>
+                    <span className="font-semibold text-primary">${net.toFixed(2)}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <Label>Payout method</Label>
+                <div className="grid grid-cols-3 gap-3">
+                  {METHODS.map(({ k, label, icon: Icon }) => {
+                    const soon = COMING_SOON.includes(k);
+                    const active = kind === k;
+                    return (
+                      <button
+                        key={k}
+                        type="button"
+                        disabled={soon}
+                        onClick={() => {
+                          setKind(k);
+                          clearError("method");
+                          clearError("uid");
+                          clearError("email");
+                          clearError("phone");
+                          clearError("chain");
+                          clearError("address");
+                        }}
+                        className={`group relative flex flex-col items-center justify-center gap-1.5 rounded-xl border px-2 py-3 text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                          active
+                            ? "border-primary bg-primary/10 text-primary shadow-[0_0_0_1px_hsl(var(--primary))]"
+                            : "border-border bg-card text-foreground hover:border-primary/40 hover:bg-muted/50"
+                        } ${soon ? "cursor-not-allowed opacity-60" : ""}`}
+                      >
+                        <Icon className={`h-4 w-4 ${active ? "text-primary" : "text-muted-foreground group-hover:text-foreground"}`} />
+                        <span className="flex items-center gap-1">
+                          {label}
+                          {soon && (
+                            <Badge variant="secondary" className="h-4 px-1 text-[9px] font-medium uppercase">soon</Badge>
+                          )}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+                {errors.method && <p className="text-xs text-destructive">{errors.method}</p>}
+              </div>
+
+              {(kind === "binance" || kind === "bybit") && (
+                <div className="space-y-3 rounded-xl border border-border bg-muted/20 p-4">
+                  <div className="text-sm font-medium">{kind === "binance" ? "Binance" : "Bybit"} account details</div>
+                  <div className="space-y-3">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="exUid" className="text-xs text-muted-foreground">{kind === "binance" ? "Binance" : "Bybit"} UID</Label>
+                      <Input
+                        id="exUid"
+                        value={exUid}
+                        onChange={(e) => { setExUid(e.target.value); clearError("uid"); }}
+                        placeholder={`${kind === "binance" ? "Binance" : "Bybit"} UID`}
+                        className={errors.uid ? "border-destructive focus-visible:ring-destructive" : ""}
+                      />
+                      {errors.uid && <p className="text-xs text-destructive">{errors.uid}</p>}
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="exEmail" className="text-xs text-muted-foreground">Registered email</Label>
+                      <Input
+                        id="exEmail"
+                        type="email"
+                        value={exEmail}
+                        onChange={(e) => { setExEmail(e.target.value); clearError("email"); }}
+                        placeholder="Registered email"
+                        className={errors.email ? "border-destructive focus-visible:ring-destructive" : ""}
+                      />
+                      {errors.email && <p className="text-xs text-destructive">{errors.email}</p>}
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="exPhone" className="text-xs text-muted-foreground">Registered phone number</Label>
+                      <Input
+                        id="exPhone"
+                        value={exPhone}
+                        onChange={(e) => { setExPhone(e.target.value); clearError("phone"); }}
+                        placeholder="Registered phone number"
+                        className={errors.phone ? "border-destructive focus-visible:ring-destructive" : ""}
+                      />
+                      {errors.phone && <p className="text-xs text-destructive">{errors.phone}</p>}
+                    </div>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">Provide at least one identifier. Payout is sent to your exchange account.</p>
+                </div>
               )}
-            </div>
 
-            <FeeBreakdown amount={Number(amount) || 0} fee={FEE} />
+              {kind === "wallet_address" && (
+                <div className="space-y-3 rounded-xl border border-border bg-muted/20 p-4">
+                  <div className="text-sm font-medium">Wallet destination</div>
+                  <div className="space-y-3">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="chain" className="text-xs text-muted-foreground">Destination chain</Label>
+                      <select
+                        id="chain"
+                        value={walletChain}
+                        onChange={(e) => { setWalletChain(e.target.value); clearError("chain"); }}
+                        className={`w-full rounded-md border bg-input px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${errors.chain ? "border-destructive" : "border-input"}`}
+                      >
+                        {CHAINS.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
+                      </select>
+                      {errors.chain && <p className="text-xs text-destructive">{errors.chain}</p>}
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="walletAddress" className="text-xs text-muted-foreground">Wallet address</Label>
+                      <Input
+                        id="walletAddress"
+                        value={walletAddress}
+                        onChange={(e) => { setWalletAddress(e.target.value); clearError("address"); }}
+                        placeholder="Destination wallet address"
+                        className={`font-mono text-xs ${errors.address ? "border-destructive focus-visible:ring-destructive" : ""}`}
+                      />
+                      {errors.address && <p className="text-xs text-destructive">{errors.address}</p>}
+                    </div>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">Double-check the chain matches your address. Wrong-chain transfers cannot be recovered.</p>
+                </div>
+              )}
 
-            <div>
-              <label className="mb-1 block text-sm font-medium">Payout method</label>
-              <div className="grid grid-cols-3 gap-2">
-                {METHODS.map(({ k, label }) => {
-                  const soon = COMING_SOON.includes(k);
-                  const active = kind === k;
-                  return (
-                    <button
-                      key={k}
-                      type="button"
-                      disabled={soon}
-                      onClick={() => { setKind(k); clearError("method"); clearError("uid"); clearError("email"); clearError("phone"); clearError("chain"); clearError("address"); }}
-                      className={`relative rounded-md border px-2 py-2 text-xs font-medium transition ${
-                        active ? "border-primary bg-primary/10 text-primary" : "border-border bg-card text-foreground hover:border-primary/50"
-                      } ${soon ? "cursor-not-allowed opacity-60" : ""}`}
-                    >
-                      {label}
-                      {soon && <span className="ml-1 rounded bg-muted px-1 py-0.5 text-[8px] uppercase text-muted-foreground">soon</span>}
-                    </button>
-                  );
-                })}
-              </div>
-              {errors.method && <p className="mt-1 text-xs text-destructive">{errors.method}</p>}
-            </div>
+              {COMING_SOON.includes(kind) && (
+                <div className="flex items-center gap-3 rounded-xl border border-accent/30 bg-accent/10 p-4 text-sm text-accent">
+                  <Clock className="h-4 w-4 shrink-0" />
+                  {kind === "upi" ? "UPI" : kind === "paypal" ? "PayPal" : "Bank"} withdrawals are coming soon.
+                </div>
+              )}
 
-            {(kind === "binance" || kind === "bybit") && (
               <div className="space-y-2">
-                <div>
-                  <input value={exUid} onChange={(e) => { setExUid(e.target.value); clearError("uid"); }} placeholder={`${kind === "binance" ? "Binance" : "Bybit"} UID`}
-                    className={`w-full rounded-md border bg-input px-3 py-2 text-sm ${errors.uid ? "border-destructive" : "border-input"}`} />
-                  {errors.uid && <p className="mt-1 text-xs text-destructive">{errors.uid}</p>}
-                </div>
-                <div>
-                  <input value={exEmail} onChange={(e) => { setExEmail(e.target.value); clearError("email"); }} type="email" placeholder="Registered email"
-                    className={`w-full rounded-md border bg-input px-3 py-2 text-sm ${errors.email ? "border-destructive" : "border-input"}`} />
-                  {errors.email && <p className="mt-1 text-xs text-destructive">{errors.email}</p>}
-                </div>
-                <div>
-                  <input value={exPhone} onChange={(e) => { setExPhone(e.target.value); clearError("phone"); }} placeholder="Registered phone number"
-                    className={`w-full rounded-md border bg-input px-3 py-2 text-sm ${errors.phone ? "border-destructive" : "border-input"}`} />
-                  {errors.phone && <p className="mt-1 text-xs text-destructive">{errors.phone}</p>}
-                </div>
-                <p className="text-[10px] text-muted-foreground">Provide at least one identifier. Payout is sent to your exchange account.</p>
+                <Label htmlFor="note" className="text-xs text-muted-foreground">Note <span className="text-muted-foreground/70">(optional)</span></Label>
+                <textarea
+                  id="note"
+                  rows={2}
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                  className="w-full rounded-md border border-input bg-input px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                />
               </div>
-            )}
 
-            {kind === "wallet_address" && (
-              <div className="space-y-2">
-                <div>
-                  <select value={walletChain} onChange={(e) => { setWalletChain(e.target.value); clearError("chain"); }}
-                    className={`w-full rounded-md border bg-input px-3 py-2 text-sm ${errors.chain ? "border-destructive" : "border-input"}`}>
-                    <option value="BSC">BNB Smart Chain (BEP-20)</option>
-                    <option value="POLYGON">Polygon</option>
-                    <option value="ARBITRUM">Arbitrum</option>
-                    <option value="OPTIMISM">Optimism</option>
-                    <option value="TRON">Tron (TRC-20)</option>
-                    <option value="SOLANA">Solana</option>
-                  </select>
-                  {errors.chain && <p className="mt-1 text-xs text-destructive">{errors.chain}</p>}
-                </div>
-                <div>
-                  <input value={walletAddress} onChange={(e) => { setWalletAddress(e.target.value); clearError("address"); }} placeholder="Destination wallet address"
-                    className={`w-full rounded-md border bg-input px-3 py-2 text-sm font-mono ${errors.address ? "border-destructive" : "border-input"}`} />
-                  {errors.address && <p className="mt-1 text-xs text-destructive">{errors.address}</p>}
-                </div>
-                <p className="text-[10px] text-muted-foreground">Double-check the chain matches your address. Wrong-chain transfers can't be recovered.</p>
-              </div>
-            )}
-
-            {COMING_SOON.includes(kind) && (
-              <div className="rounded-md border border-accent/40 bg-accent/10 p-3 text-xs text-accent">
-                This payout method is coming soon.
-              </div>
-            )}
-
-            <div>
-              <label className="text-sm font-medium">Note <span className="text-muted-foreground">(optional)</span></label>
-              <textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)}
-                className="mt-1 w-full rounded-md border border-input bg-input px-3 py-2 text-sm" />
-            </div>
-
-            <button type="submit" disabled={signing || available <= FEE || gated || !methodReady || COMING_SOON.includes(kind)}
-              aria-live="polite"
-              className="w-full rounded-md bg-primary py-2.5 font-medium text-primary-foreground disabled:opacity-50">
-              {signing ? "Processing…" : "Review & withdraw"}
-            </button>
-          </form>
+              <Button
+                type="submit"
+                disabled={signing || available <= FEE || gated || !methodReady || COMING_SOON.includes(kind)}
+                className="w-full py-5 text-base font-medium"
+              >
+                {signing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                {signing ? "Processing…" : "Review & withdraw"}
+              </Button>
+            </form>
+          </div>
         </div>
 
-        <div className="space-y-4">
+        <div className="space-y-6 lg:col-span-2">
           {receipt && (
             <div className="rounded-2xl border border-primary/40 bg-primary/10 p-5" role="status" aria-live="polite">
-              <div className="mb-3 flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-primary">Withdrawal confirmed</h2>
-                <span className="rounded-full bg-primary/20 px-2 py-0.5 text-[10px] font-mono uppercase text-primary">{receipt.id.slice(0, 8)}</span>
+              <div className="mb-4 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="h-5 w-5 text-primary" />
+                  <h2 className="text-lg font-semibold text-primary">Withdrawal confirmed</h2>
+                </div>
+                <Badge variant="outline" className="font-mono text-[10px] uppercase">{receipt.id.slice(0, 8)}</Badge>
               </div>
-              <div className="space-y-2 text-sm font-mono">
-                <div className="flex justify-between"><span className="text-muted-foreground">Requested</span><span>${receipt.amount.toFixed(2)}</span></div>
-                <div className="flex justify-between"><span className="text-muted-foreground">Fee</span><span className="text-destructive">- ${receipt.fee.toFixed(2)}</span></div>
-                <div className="my-1 border-t border-border" />
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between"><span className="text-muted-foreground">Requested</span><span className="font-medium">${receipt.amount.toFixed(2)}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Fee</span><span className="font-medium text-destructive">- ${receipt.fee.toFixed(2)}</span></div>
+                <Separator />
                 <div className="flex justify-between"><span className="text-muted-foreground">Net payout</span><span className="font-semibold text-primary">${receipt.net.toFixed(2)}</span></div>
-                <div className="flex justify-between"><span className="text-muted-foreground">Destination</span><span className="text-foreground">{receipt.method}</span></div>
-                <div className="flex justify-between"><span className="text-muted-foreground">Time</span><span className="text-foreground">{new Date(receipt.createdAt).toLocaleString()}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Destination</span><span className="truncate max-w-[160px]" title={receipt.method}>{receipt.method}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Time</span><span>{new Date(receipt.createdAt).toLocaleString()}</span></div>
               </div>
-              <button onClick={() => setReceipt(null)} className="mt-4 w-full rounded-md border border-border bg-card py-2 text-sm font-medium hover:bg-muted">Dismiss receipt</button>
+              <Button onClick={() => setReceipt(null)} variant="outline" className="mt-4 w-full">Dismiss receipt</Button>
             </div>
           )}
 
-          <div className="rounded-2xl border border-border bg-card p-6">
+          <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
             <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-lg font-semibold">History</h2>
-              <span className="flex items-center gap-1.5 text-[10px] font-mono uppercase text-muted-foreground">
+              <h2 className="text-lg font-semibold">Withdrawal history</h2>
+              <span className="flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
                 <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary" /> live
               </span>
             </div>
             {history.length === 0 ? (
-              <div className="text-sm text-muted-foreground">No withdrawals yet.</div>
+              <div className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+                No withdrawals yet. Submit your first request above.
+              </div>
             ) : (
-              <div className="space-y-5">
+              <div className="space-y-4">
                 {history.map((w) => (
-                  <div key={w.id} className="rounded-lg border border-border p-4">
-                    <div className="flex items-center justify-between">
+                  <div key={w.id} className="rounded-xl border border-border p-4">
+                    <div className="flex items-center justify-between gap-3">
                       <div>
-                        <div className="font-mono text-lg font-semibold">${Number(w.amount).toFixed(2)}</div>
+                        <div className="text-lg font-semibold">${Number(w.amount).toFixed(2)}</div>
                         <div className="text-[11px] text-muted-foreground">{new Date(w.created_at).toLocaleString()}</div>
                       </div>
                       <StatusBadge s={w.status} />
@@ -392,9 +526,7 @@ function Withdraw() {
         </div>
       </div>
 
-      <Dialog open={confirmOpen} onOpenChange={(open) => {
-        if (!signing) setConfirmOpen(open);
-      }}>
+      <Dialog open={confirmOpen} onOpenChange={(open) => { if (!signing) setConfirmOpen(open); }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Confirm instant withdrawal</DialogTitle>
@@ -403,23 +535,23 @@ function Withdraw() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
-            <div className="rounded-xl border border-border bg-muted/30 p-4 text-sm">
-              <div className="mb-3 text-[10px] font-mono uppercase text-muted-foreground">Final payout summary</div>
-              <div className="space-y-2 font-mono">
-                <div className="flex justify-between text-xs">
+            <div className="rounded-xl border border-border bg-muted/30 p-4">
+              <div className="mb-3 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Final payout summary</div>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
                   <span className="text-muted-foreground">Requested amount</span>
-                  <span className="text-foreground">${Number(amount || 0).toFixed(2)}</span>
+                  <span className="font-medium">${Number(amount || 0).toFixed(2)}</span>
                 </div>
-                <div className="flex justify-between text-xs">
+                <div className="flex justify-between">
                   <span className="text-muted-foreground">Withdrawal fee</span>
-                  <span className="text-destructive">- ${FEE.toFixed(2)}</span>
+                  <span className="font-medium text-destructive">- ${FEE.toFixed(2)}</span>
                 </div>
-                <div className="my-1 border-t border-border" />
-                <div className="flex justify-between text-xs">
+                <Separator />
+                <div className="flex justify-between">
                   <span className="text-muted-foreground">Total debited from wallet</span>
-                  <span className="font-semibold text-foreground">${((Number(amount || 0)) + FEE).toFixed(2)}</span>
+                  <span className="font-semibold">${totalDebit.toFixed(2)}</span>
                 </div>
-                <div className="flex justify-between text-sm">
+                <div className="flex justify-between">
                   <span className="text-foreground">Net payout to you</span>
                   <span className="font-semibold text-primary">${Number(amount || 0).toFixed(2)}</span>
                 </div>
@@ -427,10 +559,10 @@ function Withdraw() {
             </div>
 
             <div className="rounded-lg border border-border p-3 text-sm">
-              <div className="text-[10px] font-mono uppercase text-muted-foreground mb-1">Payout destination</div>
+              <div className="mb-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Payout destination</div>
               <div className="flex items-center gap-2">
-                <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-mono uppercase">{kind}</span>
-                <span className="text-foreground truncate">
+                <Badge variant="secondary" className="text-[10px] uppercase">{kind}</Badge>
+                <span className="truncate text-foreground">
                   {kind === "wallet_address"
                     ? `${walletChain} · ${walletAddress}`
                     : (exUid || exEmail || exPhone)}
@@ -438,11 +570,7 @@ function Withdraw() {
               </div>
             </div>
 
-            {note && (
-              <div className="text-xs text-muted-foreground">
-                Note: {note}
-              </div>
-            )}
+            {note && <div className="text-xs text-muted-foreground">Note: {note}</div>}
 
             {signError && (
               <div className="rounded-md border border-destructive/30 bg-destructive/10 p-3" role="alert" aria-live="assertive">
@@ -451,7 +579,7 @@ function Withdraw() {
                   type="button"
                   onClick={confirmWithdraw}
                   disabled={signing}
-                  className="mt-2 text-xs font-medium underline text-destructive hover:text-destructive/80 disabled:opacity-50"
+                  className="mt-2 text-xs font-medium text-destructive underline hover:text-destructive/80 disabled:opacity-50"
                 >
                   Retry withdrawal
                 </button>
@@ -459,20 +587,9 @@ function Withdraw() {
             )}
           </div>
           <div className="flex gap-3">
-            <Button
-              variant="outline"
-              className="flex-1"
-              onClick={() => setConfirmOpen(false)}
-              disabled={signing}
-            >
-              Cancel
-            </Button>
-            <Button
-              ref={confirmBtnRef}
-              className="flex-1"
-              onClick={confirmWithdraw}
-              disabled={signing}
-            >
+            <Button variant="outline" className="flex-1" onClick={() => setConfirmOpen(false)} disabled={signing}>Cancel</Button>
+            <Button ref={confirmBtnRef} className="flex-1" onClick={confirmWithdraw} disabled={signing}>
+              {signing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
               {signing ? "Processing…" : "Confirm withdrawal"}
             </Button>
           </div>
@@ -484,40 +601,25 @@ function Withdraw() {
 
 function Stat({ label, v }: { label: string; v: string }) {
   return (
-    <div className="rounded-md border border-border bg-card px-3 py-2">
-      <div className="text-[10px] uppercase text-muted-foreground">{label}</div>
-      <div className="text-sm text-foreground">{v}</div>
+    <div className="rounded-xl border border-border bg-card px-4 py-3">
+      <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">{label}</div>
+      <div className="mt-1 text-sm font-semibold text-foreground">{v}</div>
     </div>
   );
 }
 
 function StatusBadge({ s }: { s: string }) {
-  const c = s === "approved" ? "bg-primary/20 text-primary" : s === "rejected" ? "bg-destructive/20 text-destructive" : "bg-accent/20 text-accent animate-pulse";
-  return <span className={`rounded-full px-2 py-0.5 text-xs font-mono uppercase ${c}`}>{s}</span>;
-}
-
-function FeeBreakdown({ amount, fee }: { amount: number; fee: number }) {
-  const debited = amount > 0 ? amount + fee : 0;
+  const variants: Record<string, { className: string; icon: React.ReactNode }> = {
+    approved: { className: "bg-primary/20 text-primary border-primary/30", icon: <CheckCircle2 className="h-3 w-3" /> },
+    rejected: { className: "bg-destructive/20 text-destructive border-destructive/30", icon: <AlertCircle className="h-3 w-3" /> },
+    pending: { className: "bg-accent/20 text-accent border-accent/30 animate-pulse", icon: <Clock className="h-3 w-3" /> },
+  };
+  const v = variants[s] ?? variants.pending;
   return (
-    <div className="rounded-lg border border-border bg-muted/30 p-3 text-sm">
-      <div className="mb-2 text-[10px] font-mono uppercase text-muted-foreground">Payout summary</div>
-      <div className="space-y-1.5 font-mono">
-        <Row label="Requested amount" value={`$${amount.toFixed(2)}`} />
-        <Row label="Withdrawal fee" value={`- $${fee.toFixed(2)}`} />
-        <div className="my-1 border-t border-border" />
-        <Row label="Total debited from wallet" value={`$${debited.toFixed(2)}`} strong />
-        <Row label="Net payout to you" value={`$${amount.toFixed(2)}`} accent />
-      </div>
-    </div>
-  );
-}
-
-function Row({ label, value, strong, accent }: { label: string; value: string; strong?: boolean; accent?: boolean }) {
-  return (
-    <div className="flex items-center justify-between text-xs">
-      <span className="text-muted-foreground">{label}</span>
-      <span className={accent ? "text-primary font-semibold" : strong ? "text-foreground font-semibold" : "text-foreground"}>{value}</span>
-    </div>
+    <Badge variant="outline" className={`gap-1 text-[10px] font-medium uppercase ${v.className}`}>
+      {v.icon}
+      {s}
+    </Badge>
   );
 }
 
@@ -541,7 +643,7 @@ function WithdrawalTimeline({ w }: { w: { status: string; created_at: string; re
         <li key={s.key} className="flex items-start gap-3">
           <div className="relative flex flex-col items-center">
             <span className={
-              "flex h-5 w-5 items-center justify-center rounded-full border text-[10px] font-mono " +
+              "flex h-5 w-5 items-center justify-center rounded-full border text-[10px] font-medium " +
               (s.bad
                 ? "border-destructive bg-destructive/20 text-destructive"
                 : s.done
