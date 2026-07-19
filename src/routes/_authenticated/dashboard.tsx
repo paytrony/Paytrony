@@ -9,6 +9,13 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
 
 type Profile = { referral_code: string; nft_tier: number | null; email: string };
 type Txn = { id: string; amount: number; type: string; note: string | null; created_at: string };
+type NftRow = { id: string; nft_tier: number; created_at: string };
+
+const TIER_META: Record<number, { name: string; tag: string; glyph: string; grad: string; ring: string; badge: string }> = {
+  10: { name: "Starter", tag: "Common", glyph: "◆", grad: "from-emerald-400 via-teal-400 to-cyan-500", ring: "shadow-[inset_0_0_60px_-20px_rgb(45,212,191,0.55)]", badge: "bg-teal-500/15 text-teal-300 border-teal-500/30" },
+  50: { name: "Pro", tag: "Rare", glyph: "◈", grad: "from-violet-500 via-fuchsia-500 to-pink-500", ring: "shadow-[inset_0_0_60px_-20px_rgb(217,70,239,0.55)]", badge: "bg-fuchsia-500/15 text-fuchsia-300 border-fuchsia-500/30" },
+  100: { name: "Elite", tag: "Legendary", glyph: "✦", grad: "from-amber-400 via-orange-500 to-rose-500", ring: "shadow-[inset_0_0_60px_-20px_rgb(251,146,60,0.6)]", badge: "bg-amber-500/15 text-amber-300 border-amber-500/30" },
+};
 
 function Dashboard() {
   const { user } = Route.useRouteContext();
