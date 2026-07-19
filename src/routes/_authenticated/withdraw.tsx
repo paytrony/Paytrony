@@ -47,8 +47,17 @@ function Withdraw() {
   const [exUid, setExUid] = useState("");
   const [exEmail, setExEmail] = useState("");
   const [exPhone, setExPhone] = useState("");
-  const [walletChain, setWalletChain] = useState("ETH");
+  const [walletChain, setWalletChain] = useState("BSC");
   const [walletAddress, setWalletAddress] = useState("");
+  const [errors, setErrors] = useState<{
+    amount?: string;
+    method?: string;
+    uid?: string;
+    email?: string;
+    phone?: string;
+    chain?: string;
+    address?: string;
+  }>({});
 
   const amountKey = `paytrony:withdraw-amount:${user.id}`;
 
@@ -102,29 +111,71 @@ function Withdraw() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user.id]);
 
-  function buildDetails(): { details: Record<string, string>; label: string } | null {
-    if (kind === "binance" || kind === "bybit") {
-      if (!exUid && !exEmail && !exPhone) {
-        toast.error("Enter UID, email or phone");
-        return null;
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+  function validateForm(): boolean {
+    const next: typeof errors = {};
+    const amt = Number(amount);
+    const min = limits?.min_amount ?? 0.01;
+
+    if (!amount || Number.isNaN(amt)) {
+      next.amount = "Enter an amount";
+    } else if (amt <= 0) {
+      next.amount = "Amount must be greater than $0";
+    } else if (amt < min) {
+      next.amount = `Minimum withdrawal is $${min.toFixed(2)}`;
+    } else if (amt + FEE > available) {
+      next.amount = `Insufficient balance (need $${(amt + FEE).toFixed(2)} including $${FEE} fee)`;
+    }
+
+    if (COMING_SOON.includes(kind)) {
+      next.method = "This payout method is coming soon";
+    } else if (kind === "binance" || kind === "bybit") {
+      if (!exUid.trim() && !exEmail.trim() && !exPhone.trim()) {
+        next.uid = "Enter at least one identifier (UID, email or phone)";
       }
-      const label = exUid || exEmail || exPhone;
-      return { details: { uid: exUid, email: exEmail, phone: exPhone }, label };
+      if (exEmail.trim() && !emailRegex.test(exEmail.trim())) {
+        next.email = "Enter a valid email address";
+      }
+      if (exPhone.trim() && !/^\+?[\d\s\-()]{7,20}$/.test(exPhone.trim())) {
+        next.phone = "Enter a valid phone number";
+      }
+    } else if (kind === "wallet_address") {
+      if (!walletChain) next.chain = "Select a chain";
+      if (!walletAddress.trim()) {
+        next.address = "Enter a destination wallet address";
+      } else if (walletAddress.trim().length < 10) {
+        next.address = "Address looks too short";
+      }
+    }
+
+    setErrors(next);
+    return Object.keys(next).length === 0;
+  }
+
+  function clearError(key: keyof typeof errors) {
+    setErrors((prev) => {
+      if (!prev[key]) return prev;
+      const { [key]: _, ...rest } = prev;
+      return rest;
+    });
+  }
+
+  function buildDetails(): { details: Record<string, string>; label: string } | null {
+    if (!validateForm()) return null;
+    if (kind === "binance" || kind === "bybit") {
+      const label = exUid.trim() || exEmail.trim() || exPhone.trim();
+      return { details: { uid: exUid.trim(), email: exEmail.trim(), phone: exPhone.trim() }, label };
     }
     if (kind === "wallet_address") {
-      if (!walletAddress) { toast.error("Enter a wallet address"); return null; }
-      return { details: { chain: walletChain, address: walletAddress }, label: `${walletChain} ${walletAddress.slice(0, 6)}…${walletAddress.slice(-4)}` };
+      return { details: { chain: walletChain, address: walletAddress.trim() }, label: `${walletChain} ${walletAddress.trim().slice(0, 6)}…${walletAddress.trim().slice(-4)}` };
     }
     return null;
   }
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const amt = Number(amount);
-    if (!amt || amt <= 0) return toast.error("Enter a positive amount");
-    if (COMING_SOON.includes(kind)) return toast.error("This method is coming soon");
-    if (!buildDetails()) return;
-    if (amt + FEE > available) return toast.error(`Insufficient balance (need $${(amt + FEE).toFixed(2)} incl. $${FEE} fee)`);
+    if (!validateForm()) return;
     setConfirmOpen(true);
   }
 
@@ -148,6 +199,7 @@ function Withdraw() {
       toast.success(`Instant payout sent — $${amt.toFixed(2)} (fee $${FEE})`);
       setReceipt({ id: res.id, amount: amt, fee: FEE, net: amt, method: methodLabel, createdAt: new Date().toISOString() });
       setAmount(""); setNote(""); setExUid(""); setExEmail(""); setExPhone(""); setWalletAddress("");
+      setErrors({});
       setConfirmOpen(false);
       if (typeof window !== "undefined") {
         try { window.localStorage.removeItem(amountKey); } catch {}
@@ -160,7 +212,7 @@ function Withdraw() {
 
   const gated = !emailVerified;
   const kycNeeded = limits && Number(amount) > limits.kyc_threshold && kycStatus !== "approved";
-  const methodReady = (kind === "binance" || kind === "bybit") ? !!(exUid || exEmail || exPhone) : kind === "wallet_address" ? !!walletAddress : false;
+  const methodReady = (kind === "binance" || kind === "bybit") ? !!(exUid.trim() || exEmail.trim() || exPhone.trim()) : kind === "wallet_address" ? !!walletAddress.trim() : false;
 
   return (
     <div className="space-y-8">
@@ -192,8 +244,9 @@ function Withdraw() {
           <form onSubmit={onSubmit} className="mt-6 space-y-4">
             <div>
               <label className="text-sm font-medium">Amount ($)</label>
-              <input type="number" step="0.01" min={limits?.min_amount ?? 0.01} max={Math.max(0, available - FEE)} required value={amount} onChange={(e) => setAmount(e.target.value)}
-                className="mt-1 w-full rounded-md border border-input bg-input px-3 py-2 text-sm" />
+              <input type="number" step="0.01" min={limits?.min_amount ?? 0.01} max={Math.max(0, available - FEE)} required value={amount} onChange={(e) => { setAmount(e.target.value); clearError("amount"); }}
+                className={`mt-1 w-full rounded-md border bg-input px-3 py-2 text-sm ${errors.amount ? "border-destructive" : "border-input"}`} />
+              {errors.amount && <p className="mt-1 text-xs text-destructive">{errors.amount}</p>}
               {kycNeeded && (
                 <p className="mt-1 text-xs text-accent">KYC approval required above ${limits!.kyc_threshold}. <Link to="/settings" className="underline">Submit KYC</Link></p>
               )}
@@ -212,7 +265,7 @@ function Withdraw() {
                       key={k}
                       type="button"
                       disabled={soon}
-                      onClick={() => setKind(k)}
+                      onClick={() => { setKind(k); clearError("method"); clearError("uid"); clearError("email"); clearError("phone"); clearError("chain"); clearError("address"); }}
                       className={`relative rounded-md border px-2 py-2 text-xs font-medium transition ${
                         active ? "border-primary bg-primary/10 text-primary" : "border-border bg-card text-foreground hover:border-primary/50"
                       } ${soon ? "cursor-not-allowed opacity-60" : ""}`}
@@ -223,33 +276,49 @@ function Withdraw() {
                   );
                 })}
               </div>
+              {errors.method && <p className="mt-1 text-xs text-destructive">{errors.method}</p>}
             </div>
 
             {(kind === "binance" || kind === "bybit") && (
               <div className="space-y-2">
-                <input value={exUid} onChange={(e) => setExUid(e.target.value)} placeholder={`${kind === "binance" ? "Binance" : "Bybit"} UID`}
-                  className="w-full rounded-md border border-input bg-input px-3 py-2 text-sm" />
-                <input value={exEmail} onChange={(e) => setExEmail(e.target.value)} type="email" placeholder="Registered email"
-                  className="w-full rounded-md border border-input bg-input px-3 py-2 text-sm" />
-                <input value={exPhone} onChange={(e) => setExPhone(e.target.value)} placeholder="Registered phone number"
-                  className="w-full rounded-md border border-input bg-input px-3 py-2 text-sm" />
+                <div>
+                  <input value={exUid} onChange={(e) => { setExUid(e.target.value); clearError("uid"); }} placeholder={`${kind === "binance" ? "Binance" : "Bybit"} UID`}
+                    className={`w-full rounded-md border bg-input px-3 py-2 text-sm ${errors.uid ? "border-destructive" : "border-input"}`} />
+                  {errors.uid && <p className="mt-1 text-xs text-destructive">{errors.uid}</p>}
+                </div>
+                <div>
+                  <input value={exEmail} onChange={(e) => { setExEmail(e.target.value); clearError("email"); }} type="email" placeholder="Registered email"
+                    className={`w-full rounded-md border bg-input px-3 py-2 text-sm ${errors.email ? "border-destructive" : "border-input"}`} />
+                  {errors.email && <p className="mt-1 text-xs text-destructive">{errors.email}</p>}
+                </div>
+                <div>
+                  <input value={exPhone} onChange={(e) => { setExPhone(e.target.value); clearError("phone"); }} placeholder="Registered phone number"
+                    className={`w-full rounded-md border bg-input px-3 py-2 text-sm ${errors.phone ? "border-destructive" : "border-input"}`} />
+                  {errors.phone && <p className="mt-1 text-xs text-destructive">{errors.phone}</p>}
+                </div>
                 <p className="text-[10px] text-muted-foreground">Provide at least one identifier. Payout is sent to your exchange account.</p>
               </div>
             )}
 
             {kind === "wallet_address" && (
               <div className="space-y-2">
-                <select value={walletChain} onChange={(e) => setWalletChain(e.target.value)}
-                  className="w-full rounded-md border border-input bg-input px-3 py-2 text-sm">
-                  <option value="BSC">BNB Smart Chain (BEP-20)</option>
-                  <option value="POLYGON">Polygon</option>
-                  <option value="ARBITRUM">Arbitrum</option>
-                  <option value="OPTIMISM">Optimism</option>
-                  <option value="TRON">Tron (TRC-20)</option>
-                  <option value="SOLANA">Solana</option>
-                </select>
-                <input value={walletAddress} onChange={(e) => setWalletAddress(e.target.value)} placeholder="Destination wallet address"
-                  className="w-full rounded-md border border-input bg-input px-3 py-2 text-sm font-mono" />
+                <div>
+                  <select value={walletChain} onChange={(e) => { setWalletChain(e.target.value); clearError("chain"); }}
+                    className={`w-full rounded-md border bg-input px-3 py-2 text-sm ${errors.chain ? "border-destructive" : "border-input"}`}>
+                    <option value="BSC">BNB Smart Chain (BEP-20)</option>
+                    <option value="POLYGON">Polygon</option>
+                    <option value="ARBITRUM">Arbitrum</option>
+                    <option value="OPTIMISM">Optimism</option>
+                    <option value="TRON">Tron (TRC-20)</option>
+                    <option value="SOLANA">Solana</option>
+                  </select>
+                  {errors.chain && <p className="mt-1 text-xs text-destructive">{errors.chain}</p>}
+                </div>
+                <div>
+                  <input value={walletAddress} onChange={(e) => { setWalletAddress(e.target.value); clearError("address"); }} placeholder="Destination wallet address"
+                    className={`w-full rounded-md border bg-input px-3 py-2 text-sm font-mono ${errors.address ? "border-destructive" : "border-input"}`} />
+                  {errors.address && <p className="mt-1 text-xs text-destructive">{errors.address}</p>}
+                </div>
                 <p className="text-[10px] text-muted-foreground">Double-check the chain matches your address. Wrong-chain transfers can't be recovered.</p>
               </div>
             )}
