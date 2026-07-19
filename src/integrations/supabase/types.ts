@@ -315,26 +315,16 @@ export type Database = {
         Args: { _user_id: string }
         Returns: undefined
       }
-      request_withdrawal:
-        | {
-            Args: {
-              _amount: number
-              _idempotency_key?: string
-              _note: string
-              _user_id: string
-            }
-            Returns: string
-          }
-        | {
-            Args: {
-              _amount: number
-              _idempotency_key?: string
-              _note: string
-              _payout_method_id?: string
-              _user_id: string
-            }
-            Returns: string
-          }
+      request_withdrawal: {
+        Args: {
+          _amount: number
+          _idempotency_key?: string
+          _note: string
+          _payout_method_id?: string
+          _user_id: string
+        }
+        Returns: string
+      }
       resolve_kyc: {
         Args: { _admin_id: string; _approve: boolean; _user_id: string }
         Returns: undefined
