@@ -46,10 +46,40 @@ function makeSvg(tier: number, variant: Variant): string {
   );
 }
 
+// ---- Cache versioning ------------------------------------------------------
+//
+// Every derived cache (SVG URLs, decoded images, metadata LRU, persisted blob)
+// is keyed by a monotonic version. Bumping invalidates everything at once so
+// artwork or ownership changes never serve stale thumbnails/metadata.
+
+const VERSION_STORAGE_KEY = "paytrony:nft-cache-version";
+let cacheVersion = 1;
+if (typeof window !== "undefined") {
+  try {
+    const raw = window.localStorage.getItem(VERSION_STORAGE_KEY);
+    const n = raw ? parseInt(raw, 10) : NaN;
+    if (Number.isFinite(n) && n > 0) cacheVersion = n;
+  } catch { /* ignore */ }
+}
+function persistVersion() {
+  if (typeof window === "undefined") return;
+  try { window.localStorage.setItem(VERSION_STORAGE_KEY, String(cacheVersion)); } catch { /* ignore */ }
+}
+export function getCacheVersion(): number { return cacheVersion; }
+
+const versionListeners = new Set<(v: number) => void>();
+export function onCacheVersionChange(fn: (v: number) => void): () => void {
+  versionListeners.add(fn);
+  return () => { versionListeners.delete(fn); };
+}
+function notifyVersion() {
+  for (const l of versionListeners) { try { l(cacheVersion); } catch { /* ignore */ } }
+}
+
 const svgUrlCache = new Map<string, string>();
 
 export function nftThumb(tier: number, variant: Variant = "card"): string {
-  const key = `${tier}:${variant}`;
+  const key = `v${cacheVersion}:${tier}:${variant}`;
   let url = svgUrlCache.get(key);
   if (url) return url;
   const svg = makeSvg(tier, variant);
