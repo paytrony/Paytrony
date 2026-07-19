@@ -103,17 +103,36 @@ function Withdraw() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user.id]);
 
+  function buildDetails(): Record<string, string> | null {
+    if (newKind === "binance" || newKind === "bybit") {
+      if (!exUid && !exEmail && !exPhone) {
+        toast.error("Fill at least one identifier (UID / Email / Phone)");
+        return null;
+      }
+      return { uid: exUid, email: exEmail, phone: exPhone };
+    }
+    if (newKind === "wallet_address") {
+      if (!walletAddress) { toast.error("Enter a wallet address"); return null; }
+      return { chain: walletChain, address: walletAddress };
+    }
+    return {};
+  }
+
   async function addMethod() {
+    if (COMING_SOON.includes(newKind)) return toast.error("This method is coming soon");
     if (!newLabel) return toast.error("Add a label");
+    const details = buildDetails();
+    if (!details) return;
     setLoading(true);
     try {
       const { error } = await supabase.from("payout_methods").insert({
         user_id: user.id, kind: newKind, label: newLabel,
-        details: { value: newDetails }, is_default: methods.length === 0,
+        details, is_default: methods.length === 0,
       });
       if (error) throw error;
       toast.success("Payout method added");
-      setAddOpen(false); setNewLabel(""); setNewDetails("");
+      setAddOpen(false);
+      setNewLabel(""); setExUid(""); setExEmail(""); setExPhone(""); setWalletAddress("");
       await load();
     } catch (e) { toast.error(e instanceof Error ? e.message : "Failed"); }
     finally { setLoading(false); }
