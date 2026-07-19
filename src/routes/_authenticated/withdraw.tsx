@@ -107,16 +107,24 @@ function Withdraw() {
     if (!amt || amt <= 0) return toast.error("Enter a positive amount");
     if (!methodId) return toast.error("Select a payout method");
     if (amt + FEE > available) return toast.error(`Insufficient balance (need $${(amt + FEE).toFixed(2)} incl. $${FEE} fee)`);
-    setLoading(true);
+    setConfirmOpen(true);
+  }
+
+  async function confirmWithdraw() {
+    if (signing) return;
+    setSigning(true);
+    setSignError(null);
+    const amt = Number(amount);
     try {
       const idempotencyKey = (crypto as any).randomUUID?.() ?? `wd-${Date.now()}-${Math.random()}`;
       await req({ data: { amount: amt, note, idempotencyKey, payoutMethodId: methodId } });
       toast.success(`Instant payout sent — $${amt.toFixed(2)} (fee $${FEE})`);
       setAmount(""); setNote("");
+      setConfirmOpen(false);
       await load();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Failed");
-    } finally { setLoading(false); }
+      setSignError(e instanceof Error ? e.message : "Failed");
+    } finally { setSigning(false); }
   }
 
   const gated = !emailVerified;
