@@ -95,6 +95,7 @@ function Dashboard() {
           <div className="font-mono text-xs uppercase text-muted-foreground">Referrals</div>
           <div className="mt-2 text-4xl font-bold">{refCount}</div>
           <div className="mt-1 text-xs text-muted-foreground">users signed up with your code</div>
+          <Link to="/referrals" className="mt-4 inline-block text-sm text-primary hover:underline">View analytics →</Link>
         </div>
       </div>
 
