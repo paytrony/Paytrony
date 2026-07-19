@@ -138,8 +138,12 @@ function Withdraw() {
           <form onSubmit={onSubmit} className="mt-6 space-y-4">
             <div>
               <label className="text-sm font-medium">Amount ($)</label>
-              <input type="number" step="0.01" min={limits?.min_amount ?? 0.01} max={available} required value={amount} onChange={(e) => setAmount(e.target.value)}
+              <input type="number" step="0.01" min={limits?.min_amount ?? 0.01} max={Math.max(0, available - FEE)} required value={amount} onChange={(e) => setAmount(e.target.value)}
                 className="mt-1 w-full rounded-md border border-input bg-input px-3 py-2 text-sm" />
+              <div className="mt-1 flex justify-between text-xs text-muted-foreground">
+                <span>Fee: <span className="text-foreground">${FEE.toFixed(2)}</span></span>
+                <span>You'll receive: <span className="text-primary font-mono">${Number(amount || 0).toFixed(2)}</span> · Debited: <span className="font-mono">${(Number(amount || 0) + (Number(amount) > 0 ? FEE : 0)).toFixed(2)}</span></span>
+              </div>
               {kycNeeded && (
                 <p className="mt-1 text-xs text-accent">KYC approval required above ${limits!.kyc_threshold}. <Link to="/settings" className="underline">Submit KYC</Link></p>
               )}
