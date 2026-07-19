@@ -609,6 +609,11 @@ function Withdraw() {
             <p className="text-center text-[11px] text-muted-foreground">
               By submitting, you confirm the destination details are correct. Incorrect crypto addresses or exchange IDs cannot be recovered.
             </p>
+            <p className="text-center text-[11px]">
+              <Link to="/withdrawals" className="text-primary underline-offset-2 hover:underline">
+                View withdrawal status page →
+              </Link>
+            </p>
           </div>
         </DialogContent>
       </Dialog>
