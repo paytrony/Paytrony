@@ -663,35 +663,48 @@ function NFTModal({
   const previousActive = useRef<Element | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
 
-  // Progressive rendering: show the low-res card thumbnail immediately (it's
-  // already decoded from the grid), then swap in the modal-resolution art
-  // once the browser has decoded it. Abortable so switching NFTs cancels a
-  // still-decoding prior image.
+  // Progressive rendering: show the low-res card thumbnail immediately, then
+  // swap in the modal-resolution art once decoded. On failure we surface a
+  // fallback UI with a Retry button that re-runs *only* the latest
+  // selection's prefetch.
   const [hiResReady, setHiResReady] = useState<boolean>(() => isModalThumbReady(nft.nft_tier));
+  const [hiResError, setHiResError] = useState<string | null>(null);
+  const [retryTick, setRetryTick] = useState(0);
+
   useEffect(() => {
     if (isModalThumbReady(nft.nft_tier)) {
       setHiResReady(true);
+      setHiResError(null);
       return;
     }
     setHiResReady(false);
+    setHiResError(null);
     let cancelled = false;
     const img = new window.Image();
     img.decoding = "async";
     img.src = nftThumb(nft.nft_tier, "modal");
-    const finish = () => { if (!cancelled) setHiResReady(true); };
+    const succeed = () => { if (!cancelled) { setHiResReady(true); setHiResError(null); } };
+    const fail = (msg: string) => { if (!cancelled) { setHiResReady(false); setHiResError(msg); } };
     if (typeof img.decode === "function") {
-      img.decode().then(finish).catch(finish);
+      img.decode().then(succeed).catch((e: unknown) => fail(e instanceof Error ? e.message : "Artwork failed to load."));
     } else {
-      img.onload = finish;
-      img.onerror = finish;
+      img.onload = succeed;
+      img.onerror = () => fail("Artwork failed to load.");
     }
     return () => {
       cancelled = true;
       img.onload = null;
       img.onerror = null;
-      img.src = ""; // abort in-flight decode
+      img.src = "";
     };
-  }, [nft.nft_tier]);
+  }, [nft.nft_tier, retryTick]);
+
+  const retryPrefetch = useCallback(() => {
+    invalidateMeta(nft.id);
+    const handle = prefetchNextLikelyNFT({ id: nft.id, nft_tier: nft.nft_tier, mintNumber: nft.mintNumber });
+    void handle.ready;
+    setRetryTick((t) => t + 1);
+  }, [nft.id, nft.nft_tier, nft.mintNumber]);
 
 
   // Capture opener once, on first mount.
