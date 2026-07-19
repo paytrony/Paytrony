@@ -115,6 +115,15 @@ class LRU<V> {
   values(): IterableIterator<V> {
     return this.m.values();
   }
+  delete(k: string): boolean {
+    return this.m.delete(k);
+  }
+  keys(): IterableIterator<string> {
+    return this.m.keys();
+  }
+  clear(): void {
+    this.m.clear();
+  }
 }
 
 // ---- Decoded-image LRU ------------------------------------------------------
