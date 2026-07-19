@@ -3,6 +3,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import React, { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
@@ -28,6 +30,7 @@ function AuthedLayout() {
   const [confirmWithdraw, setConfirmWithdraw] = useState(false);
   const [confirmSignOut, setConfirmSignOut] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
+  const [signOutError, setSignOutError] = useState<string | null>(null);
 
   useEffect(() => {
     supabase.from("user_roles").select("role").eq("user_id", user.id).eq("role", "admin")
@@ -102,14 +105,17 @@ function AuthedLayout() {
   async function handleSignOut() {
     if (signingOut) return;
     setSigningOut(true);
+    setSignOutError(null);
     setMenuOpen(false);
     try {
       await queryClient.cancelQueries();
       queryClient.clear();
-      await supabase.auth.signOut();
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
       navigate({ to: "/auth", search: { mode: "signin" }, replace: true });
     } catch (e) {
-      toast.error("Sign out failed. Please try again.");
+      const message = e instanceof Error ? e.message : "Sign out failed. Please try again.";
+      setSignOutError(message);
       setSigningOut(false);
     }
   }
@@ -206,7 +212,7 @@ function AuthedLayout() {
                   {isAdmin && <><div className="mt-1 border-t border-border" />{menuItem("/admin", "Admin", <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>, { accent: true })}</>}
                   <div className="mt-1 border-t border-border" />
                   <button
-                    onClick={(e) => { e.stopPropagation(); setMenuOpen(false); setConfirmSignOut(true); }}
+                    onClick={(e) => { e.stopPropagation(); setMenuOpen(false); setSignOutError(null); setConfirmSignOut(true); }}
                     className={`${baseLink} ${idle} w-full text-left`}
                   >
                     <span className="flex items-center gap-2">
@@ -258,45 +264,52 @@ function AuthedLayout() {
         </div>
       )}
 
-      {confirmSignOut && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4"
-          onClick={() => !signingOut && setConfirmSignOut(false)}
-        >
-          <div
-            className="w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3 className="text-lg font-semibold">Sign out?</h3>
-            <p className="mt-2 text-sm text-muted-foreground">
+      <Dialog
+        open={confirmSignOut}
+        onOpenChange={(open) => {
+          if (!open && !signingOut) {
+            setConfirmSignOut(false);
+            setSignOutError(null);
+          }
+        }}
+      >
+        <DialogContent className="max-w-md" aria-describedby="sign-out-description">
+          <DialogHeader>
+            <DialogTitle>Sign out?</DialogTitle>
+            <DialogDescription id="sign-out-description">
               This will end your session on this device and clear your cached account data. You'll need to sign in again to access your wallet, NFTs, and referrals.
-            </p>
-            <div className="mt-6 flex justify-end gap-2">
-              <button
-                onClick={() => setConfirmSignOut(false)}
-                disabled={signingOut}
-                className={`rounded-md border border-border px-4 py-2 text-sm ${signingOut ? "opacity-50 cursor-not-allowed" : ""}`}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSignOut}
-                disabled={signingOut}
-                className="rounded-md bg-destructive px-4 py-2 text-sm font-medium text-destructive-foreground disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {signingOut ? (
-                  <span className="flex items-center gap-2">
-                    <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
-                    Signing out…
-                  </span>
-                ) : (
-                  "Sign out"
-                )}
-              </button>
+            </DialogDescription>
+          </DialogHeader>
+          {signOutError && (
+            <div className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive" role="alert">
+              {signOutError}
             </div>
-          </div>
-        </div>
-      )}
+          )}
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => { setConfirmSignOut(false); setSignOutError(null); }}
+              disabled={signingOut}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleSignOut}
+              disabled={signingOut}
+            >
+              {signingOut ? (
+                <span className="flex items-center gap-2">
+                  <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+                  Signing out…
+                </span>
+              ) : (
+                "Sign out"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
