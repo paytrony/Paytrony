@@ -265,7 +265,7 @@ function Withdraw() {
                       key={k}
                       type="button"
                       disabled={soon}
-                      onClick={() => setKind(k)}
+                      onClick={() => { setKind(k); clearError("method"); clearError("uid"); clearError("email"); clearError("phone"); clearError("chain"); clearError("address"); }}
                       className={`relative rounded-md border px-2 py-2 text-xs font-medium transition ${
                         active ? "border-primary bg-primary/10 text-primary" : "border-border bg-card text-foreground hover:border-primary/50"
                       } ${soon ? "cursor-not-allowed opacity-60" : ""}`}
@@ -276,6 +276,7 @@ function Withdraw() {
                   );
                 })}
               </div>
+              {errors.method && <p className="mt-1 text-xs text-destructive">{errors.method}</p>}
             </div>
 
             {(kind === "binance" || kind === "bybit") && (
