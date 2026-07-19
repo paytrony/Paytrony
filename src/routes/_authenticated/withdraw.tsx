@@ -92,14 +92,26 @@ function Withdraw() {
   }>({});
 
   const amountKey = `paytrony:withdraw-amount:${user.id}`;
+  const formKey = `paytrony:withdraw-form:${user.id}`;
 
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
       const saved = window.localStorage.getItem(amountKey);
       if (saved !== null) setAmount(saved);
+      const savedForm = window.localStorage.getItem(formKey);
+      if (savedForm) {
+        const parsed = JSON.parse(savedForm);
+        if (parsed.kind && METHODS.some((m) => m.k === parsed.kind)) setKind(parsed.kind);
+        if (parsed.idType) setIdType(parsed.idType);
+        if (parsed.exUid !== undefined) setExUid(parsed.exUid);
+        if (parsed.exEmail !== undefined) setExEmail(parsed.exEmail);
+        if (parsed.exPhone !== undefined) setExPhone(parsed.exPhone);
+        if (parsed.walletChain) setWalletChain(parsed.walletChain);
+        if (parsed.walletAddress !== undefined) setWalletAddress(parsed.walletAddress);
+      }
     } catch {}
-  }, [amountKey]);
+  }, [amountKey, formKey]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -108,6 +120,23 @@ function Withdraw() {
       else window.localStorage.setItem(amountKey, amount);
     } catch {}
   }, [amount, amountKey]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const payload = {
+        kind,
+        idType,
+        exUid,
+        exEmail,
+        exPhone,
+        walletChain,
+        walletAddress,
+      };
+      window.localStorage.setItem(formKey, JSON.stringify(payload));
+    } catch {}
+  }, [kind, idType, exUid, exEmail, exPhone, walletChain, walletAddress, formKey]);
+
 
   async function load() {
     const [{ data: t }, { data: w }, { data: lim }, { data: u }, { data: prof }] = await Promise.all([
