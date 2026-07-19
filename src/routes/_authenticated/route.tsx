@@ -99,9 +99,19 @@ function AuthedLayout() {
     return () => window.removeEventListener("click", close);
   }, [menuOpen]);
 
-  async function signOut() {
-    await supabase.auth.signOut();
-    navigate({ to: "/", replace: true });
+  async function handleSignOut() {
+    if (signingOut) return;
+    setSigningOut(true);
+    setMenuOpen(false);
+    try {
+      await queryClient.cancelQueries();
+      queryClient.clear();
+      await supabase.auth.signOut();
+      navigate({ to: "/auth", search: { mode: "signin" }, replace: true });
+    } catch (e) {
+      toast.error("Sign out failed. Please try again.");
+      setSigningOut(false);
+    }
   }
 
   const referralUrl = useMemo(
