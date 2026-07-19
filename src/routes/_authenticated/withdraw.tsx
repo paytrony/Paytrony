@@ -281,12 +281,21 @@ function Withdraw() {
 
             {(kind === "binance" || kind === "bybit") && (
               <div className="space-y-2">
-                <input value={exUid} onChange={(e) => setExUid(e.target.value)} placeholder={`${kind === "binance" ? "Binance" : "Bybit"} UID`}
-                  className="w-full rounded-md border border-input bg-input px-3 py-2 text-sm" />
-                <input value={exEmail} onChange={(e) => setExEmail(e.target.value)} type="email" placeholder="Registered email"
-                  className="w-full rounded-md border border-input bg-input px-3 py-2 text-sm" />
-                <input value={exPhone} onChange={(e) => setExPhone(e.target.value)} placeholder="Registered phone number"
-                  className="w-full rounded-md border border-input bg-input px-3 py-2 text-sm" />
+                <div>
+                  <input value={exUid} onChange={(e) => { setExUid(e.target.value); clearError("uid"); }} placeholder={`${kind === "binance" ? "Binance" : "Bybit"} UID`}
+                    className={`w-full rounded-md border bg-input px-3 py-2 text-sm ${errors.uid ? "border-destructive" : "border-input"}`} />
+                  {errors.uid && <p className="mt-1 text-xs text-destructive">{errors.uid}</p>}
+                </div>
+                <div>
+                  <input value={exEmail} onChange={(e) => { setExEmail(e.target.value); clearError("email"); }} type="email" placeholder="Registered email"
+                    className={`w-full rounded-md border bg-input px-3 py-2 text-sm ${errors.email ? "border-destructive" : "border-input"}`} />
+                  {errors.email && <p className="mt-1 text-xs text-destructive">{errors.email}</p>}
+                </div>
+                <div>
+                  <input value={exPhone} onChange={(e) => { setExPhone(e.target.value); clearError("phone"); }} placeholder="Registered phone number"
+                    className={`w-full rounded-md border bg-input px-3 py-2 text-sm ${errors.phone ? "border-destructive" : "border-input"}`} />
+                  {errors.phone && <p className="mt-1 text-xs text-destructive">{errors.phone}</p>}
+                </div>
                 <p className="text-[10px] text-muted-foreground">Provide at least one identifier. Payout is sent to your exchange account.</p>
               </div>
             )}
