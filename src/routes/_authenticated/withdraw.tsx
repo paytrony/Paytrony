@@ -14,38 +14,42 @@ export const Route = createFileRoute("/_authenticated/withdraw")({
 const FEE = 1;
 
 type W = { id: string; amount: number; status: string; payout_note: string | null; admin_note: string | null; created_at: string; resolved_at: string | null };
-type PM = { id: string; kind: string; label: string; is_default: boolean };
 type Limits = { min_amount: number; daily_cap: number; kyc_threshold: number; cooldown_minutes: number };
+type KindKey = "binance" | "bybit" | "wallet_address" | "upi" | "paypal" | "bank";
+
+const METHODS: { k: KindKey; label: string }[] = [
+  { k: "binance", label: "Binance" },
+  { k: "bybit", label: "Bybit" },
+  { k: "wallet_address", label: "Wallet Address" },
+  { k: "upi", label: "UPI" },
+  { k: "paypal", label: "PayPal" },
+  { k: "bank", label: "Bank" },
+];
+const COMING_SOON: KindKey[] = ["upi", "paypal", "bank"];
 
 function Withdraw() {
   const { user } = Route.useRouteContext();
   const req = useServerFn(requestWithdrawal);
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
-  const [loading, setLoading] = useState(false);
   const [available, setAvailable] = useState(0);
   const [history, setHistory] = useState<W[]>([]);
-  const [methods, setMethods] = useState<PM[]>([]);
-  const [methodId, setMethodId] = useState<string>("");
   const [limits, setLimits] = useState<Limits | null>(null);
   const [emailVerified, setEmailVerified] = useState(false);
   const [kycStatus, setKycStatus] = useState<string>("none");
-  const [addOpen, setAddOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [signing, setSigning] = useState(false);
   const [signError, setSignError] = useState<string | null>(null);
   const [receipt, setReceipt] = useState<{ id: string; amount: number; fee: number; net: number; method: string; createdAt: string } | null>(null);
   const confirmBtnRef = useRef<HTMLButtonElement>(null);
-  type KindKey = "binance" | "bybit" | "wallet_address" | "upi" | "paypal" | "bank";
-  const [newKind, setNewKind] = useState<KindKey>("binance");
-  const [newLabel, setNewLabel] = useState("");
-  // Per-kind fields
+
+  const [kind, setKind] = useState<KindKey>("binance");
   const [exUid, setExUid] = useState("");
   const [exEmail, setExEmail] = useState("");
   const [exPhone, setExPhone] = useState("");
   const [walletChain, setWalletChain] = useState("ETH");
   const [walletAddress, setWalletAddress] = useState("");
-  const COMING_SOON: KindKey[] = ["upi", "paypal", "bank"];
+
   const amountKey = `paytrony:withdraw-amount:${user.id}`;
 
   useEffect(() => {
@@ -65,10 +69,9 @@ function Withdraw() {
   }, [amount, amountKey]);
 
   async function load() {
-    const [{ data: t }, { data: w }, { data: pm }, { data: lim }, { data: u }, { data: prof }] = await Promise.all([
+    const [{ data: t }, { data: w }, { data: lim }, { data: u }, { data: prof }] = await Promise.all([
       supabase.from("wallet_transactions").select("amount,type").eq("user_id", user.id),
       supabase.from("withdrawals").select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
-      supabase.from("payout_methods").select("id,kind,label,is_default").eq("user_id", user.id).order("created_at"),
       supabase.from("withdrawal_limits").select("*").eq("id", true).maybeSingle(),
       supabase.auth.getUser(),
       supabase.from("profiles").select("kyc_status").eq("id", user.id).maybeSingle(),
@@ -77,12 +80,9 @@ function Withdraw() {
     const pen = (w ?? []).filter((r: any) => r.status === "pending").reduce((s, r: any) => s + Number(r.amount), 0);
     setAvailable(bal - pen);
     setHistory((w ?? []) as W[]);
-    setMethods((pm ?? []) as PM[]);
     setLimits(lim as Limits | null);
     setEmailVerified(!!u.user?.email_confirmed_at);
     setKycStatus((prof as any)?.kyc_status ?? "none");
-    const def = (pm ?? []).find((m: any) => m.is_default) ?? (pm ?? [])[0];
-    if (def && !methodId) setMethodId(def.id);
   }
   useEffect(() => { load(); }, [user.id]);
 
@@ -91,7 +91,6 @@ function Withdraw() {
       setTimeout(() => confirmBtnRef.current?.focus(), 50);
     }
   }, [confirmOpen, signing]);
-
 
   useEffect(() => {
     const ch = supabase
@@ -103,62 +102,28 @@ function Withdraw() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user.id]);
 
-  function buildDetails(): Record<string, string> | null {
-    if (newKind === "binance" || newKind === "bybit") {
+  function buildDetails(): { details: Record<string, string>; label: string } | null {
+    if (kind === "binance" || kind === "bybit") {
       if (!exUid && !exEmail && !exPhone) {
-        toast.error("Fill at least one identifier (UID / Email / Phone)");
+        toast.error("Enter UID, email or phone");
         return null;
       }
-      return { uid: exUid, email: exEmail, phone: exPhone };
+      const label = exUid || exEmail || exPhone;
+      return { details: { uid: exUid, email: exEmail, phone: exPhone }, label };
     }
-    if (newKind === "wallet_address") {
+    if (kind === "wallet_address") {
       if (!walletAddress) { toast.error("Enter a wallet address"); return null; }
-      return { chain: walletChain, address: walletAddress };
+      return { details: { chain: walletChain, address: walletAddress }, label: `${walletChain} ${walletAddress.slice(0, 6)}…${walletAddress.slice(-4)}` };
     }
-    return {};
-  }
-
-  async function addMethod() {
-    if (COMING_SOON.includes(newKind)) return toast.error("This method is coming soon");
-    if (!newLabel) return toast.error("Add a label");
-    const details = buildDetails();
-    if (!details) return;
-    setLoading(true);
-    try {
-      const { error } = await supabase.from("payout_methods").insert({
-        user_id: user.id, kind: newKind, label: newLabel,
-        details, is_default: methods.length === 0,
-      });
-      if (error) throw error;
-      toast.success("Payout method added");
-      setAddOpen(false);
-      setNewLabel(""); setExUid(""); setExEmail(""); setExPhone(""); setWalletAddress("");
-      await load();
-    } catch (e) { toast.error(e instanceof Error ? e.message : "Failed"); }
-    finally { setLoading(false); }
-  }
-
-  async function makeDefault(id: string) {
-    setLoading(true);
-    try {
-      await supabase.from("payout_methods").update({ is_default: false }).eq("user_id", user.id);
-      await supabase.from("payout_methods").update({ is_default: true }).eq("id", id);
-      await load();
-    } finally { setLoading(false); }
-  }
-
-  async function removeMethod(id: string) {
-    if (!confirm("Remove this payout method?")) return;
-    await supabase.from("payout_methods").delete().eq("id", id);
-    if (methodId === id) setMethodId("");
-    await load();
+    return null;
   }
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     const amt = Number(amount);
     if (!amt || amt <= 0) return toast.error("Enter a positive amount");
-    if (!methodId) return toast.error("Select a payout method");
+    if (COMING_SOON.includes(kind)) return toast.error("This method is coming soon");
+    if (!buildDetails()) return;
     if (amt + FEE > available) return toast.error(`Insufficient balance (need $${(amt + FEE).toFixed(2)} incl. $${FEE} fee)`);
     setConfirmOpen(true);
   }
@@ -168,13 +133,21 @@ function Withdraw() {
     setSigning(true);
     setSignError(null);
     const amt = Number(amount);
-    const methodLabel = selectedMethod ? `[${selectedMethod.kind.toUpperCase()}] ${selectedMethod.label}` : "Unknown";
+    const built = buildDetails();
+    if (!built) { setSigning(false); return; }
+    const methodLabel = `[${kind.toUpperCase()}] ${built.label}`;
     try {
+      // Create an ephemeral payout method for this withdrawal
+      const { data: pm, error: pmErr } = await supabase.from("payout_methods").insert({
+        user_id: user.id, kind, label: built.label, details: built.details, is_default: false,
+      }).select("id").single();
+      if (pmErr || !pm) throw pmErr ?? new Error("Failed to save method");
+
       const idempotencyKey = (crypto as any).randomUUID?.() ?? `wd-${Date.now()}-${Math.random()}`;
-      const res = await req({ data: { amount: amt, note, idempotencyKey, payoutMethodId: methodId } });
+      const res = await req({ data: { amount: amt, note, idempotencyKey, payoutMethodId: pm.id } });
       toast.success(`Instant payout sent — $${amt.toFixed(2)} (fee $${FEE})`);
       setReceipt({ id: res.id, amount: amt, fee: FEE, net: amt, method: methodLabel, createdAt: new Date().toISOString() });
-      setAmount(""); setNote("");
+      setAmount(""); setNote(""); setExUid(""); setExEmail(""); setExPhone(""); setWalletAddress("");
       setConfirmOpen(false);
       if (typeof window !== "undefined") {
         try { window.localStorage.removeItem(amountKey); } catch {}
@@ -187,7 +160,7 @@ function Withdraw() {
 
   const gated = !emailVerified;
   const kycNeeded = limits && Number(amount) > limits.kyc_threshold && kycStatus !== "approved";
-  const selectedMethod = methods.find((m) => m.id === methodId);
+  const methodReady = (kind === "binance" || kind === "bybit") ? !!(exUid || exEmail || exPhone) : kind === "wallet_address" ? !!walletAddress : false;
 
   return (
     <div className="space-y-8">
@@ -229,27 +202,73 @@ function Withdraw() {
             <FeeBreakdown amount={Number(amount) || 0} fee={FEE} />
 
             <div>
-              <label className="text-sm font-medium">Payout method</label>
-              {methods.length === 0 ? (
-                <div className="mt-1 rounded-md border border-dashed border-border p-3 text-xs text-muted-foreground">
-                  No payout methods yet. Add one below.
-                </div>
-              ) : (
-                <select value={methodId} onChange={(e) => setMethodId(e.target.value)}
-                  className="mt-1 w-full rounded-md border border-input bg-input px-3 py-2 text-sm">
-                  {methods.map((m) => (
-                    <option key={m.id} value={m.id}>[{m.kind.toUpperCase()}] {m.label}{m.is_default ? " ★" : ""}</option>
-                  ))}
-                </select>
-              )}
+              <label className="mb-1 block text-sm font-medium">Payout method</label>
+              <div className="grid grid-cols-3 gap-2">
+                {METHODS.map(({ k, label }) => {
+                  const soon = COMING_SOON.includes(k);
+                  const active = kind === k;
+                  return (
+                    <button
+                      key={k}
+                      type="button"
+                      disabled={soon}
+                      onClick={() => setKind(k)}
+                      className={`relative rounded-md border px-2 py-2 text-xs font-medium transition ${
+                        active ? "border-primary bg-primary/10 text-primary" : "border-border bg-card text-foreground hover:border-primary/50"
+                      } ${soon ? "cursor-not-allowed opacity-60" : ""}`}
+                    >
+                      {label}
+                      {soon && <span className="ml-1 rounded bg-muted px-1 py-0.5 text-[8px] uppercase text-muted-foreground">soon</span>}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
+
+            {(kind === "binance" || kind === "bybit") && (
+              <div className="space-y-2">
+                <input value={exUid} onChange={(e) => setExUid(e.target.value)} placeholder={`${kind === "binance" ? "Binance" : "Bybit"} UID`}
+                  className="w-full rounded-md border border-input bg-input px-3 py-2 text-sm" />
+                <input value={exEmail} onChange={(e) => setExEmail(e.target.value)} type="email" placeholder="Registered email"
+                  className="w-full rounded-md border border-input bg-input px-3 py-2 text-sm" />
+                <input value={exPhone} onChange={(e) => setExPhone(e.target.value)} placeholder="Registered phone number"
+                  className="w-full rounded-md border border-input bg-input px-3 py-2 text-sm" />
+                <p className="text-[10px] text-muted-foreground">Provide at least one identifier. Payout is sent to your exchange account.</p>
+              </div>
+            )}
+
+            {kind === "wallet_address" && (
+              <div className="space-y-2">
+                <select value={walletChain} onChange={(e) => setWalletChain(e.target.value)}
+                  className="w-full rounded-md border border-input bg-input px-3 py-2 text-sm">
+                  <option value="ETH">Ethereum (ERC-20)</option>
+                  <option value="BSC">BNB Smart Chain (BEP-20)</option>
+                  <option value="POLYGON">Polygon</option>
+                  <option value="ARBITRUM">Arbitrum</option>
+                  <option value="OPTIMISM">Optimism</option>
+                  <option value="TRON">Tron (TRC-20)</option>
+                  <option value="SOLANA">Solana</option>
+                  <option value="BITCOIN">Bitcoin</option>
+                </select>
+                <input value={walletAddress} onChange={(e) => setWalletAddress(e.target.value)} placeholder="Destination wallet address"
+                  className="w-full rounded-md border border-input bg-input px-3 py-2 text-sm font-mono" />
+                <p className="text-[10px] text-muted-foreground">Double-check the chain matches your address. Wrong-chain transfers can't be recovered.</p>
+              </div>
+            )}
+
+            {COMING_SOON.includes(kind) && (
+              <div className="rounded-md border border-accent/40 bg-accent/10 p-3 text-xs text-accent">
+                This payout method is coming soon.
+              </div>
+            )}
 
             <div>
               <label className="text-sm font-medium">Note <span className="text-muted-foreground">(optional)</span></label>
               <textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)}
                 className="mt-1 w-full rounded-md border border-input bg-input px-3 py-2 text-sm" />
             </div>
-            <button type="submit" disabled={loading || signing || available <= FEE || gated || methods.length === 0}
+
+            <button type="submit" disabled={signing || available <= FEE || gated || !methodReady || COMING_SOON.includes(kind)}
               aria-live="polite"
               className="w-full rounded-md bg-primary py-2.5 font-medium text-primary-foreground disabled:opacity-50">
               {signing ? "Processing…" : "Review & withdraw"}
@@ -278,115 +297,11 @@ function Withdraw() {
 
           <div className="rounded-2xl border border-border bg-card p-6">
             <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-lg font-semibold">Payout methods</h2>
-              <button onClick={() => setAddOpen((v) => !v)} className="text-xs text-primary hover:underline">
-                {addOpen ? "Close" : "+ Add"}
-              </button>
+              <h2 className="text-lg font-semibold">History</h2>
+              <span className="flex items-center gap-1.5 text-[10px] font-mono uppercase text-muted-foreground">
+                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary" /> live
+              </span>
             </div>
-            {methods.length === 0 && !addOpen && (
-              <div className="text-sm text-muted-foreground">Add a payout method to request a withdrawal.</div>
-            )}
-            <div className="space-y-2">
-              {methods.map((m) => (
-                <div key={m.id} className="flex items-center justify-between rounded-md border border-border p-3">
-                  <div>
-                    <div className="text-sm">
-                      <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-mono uppercase mr-2">{m.kind}</span>
-                      {m.label}
-                      {m.is_default && <span className="ml-2 text-[10px] font-mono uppercase text-primary">default</span>}
-                    </div>
-                  </div>
-                  <div className="flex gap-2 text-xs">
-                    {!m.is_default && <button onClick={() => makeDefault(m.id)} className="text-muted-foreground hover:text-foreground">Make default</button>}
-                    <button onClick={() => removeMethod(m.id)} className="text-destructive">Remove</button>
-                  </div>
-                </div>
-              ))}
-            </div>
-            {addOpen && (
-              <div className="mt-4 space-y-3 rounded-md border border-dashed border-border p-3">
-                <div>
-                  <label className="mb-1 block text-[10px] font-mono uppercase text-muted-foreground">Method type</label>
-                  <div className="grid grid-cols-3 gap-2">
-                    {([
-                      { k: "binance", label: "Binance" },
-                      { k: "bybit", label: "Bybit" },
-                      { k: "wallet_address", label: "Wallet Address" },
-                      { k: "upi", label: "UPI" },
-                      { k: "paypal", label: "PayPal" },
-                      { k: "bank", label: "Bank" },
-                    ] as { k: KindKey; label: string }[]).map(({ k, label }) => {
-                      const soon = COMING_SOON.includes(k);
-                      const active = newKind === k;
-                      return (
-                        <button
-                          key={k}
-                          type="button"
-                          disabled={soon}
-                          onClick={() => setNewKind(k)}
-                          className={`relative rounded-md border px-2 py-2 text-xs font-medium transition ${
-                            active ? "border-primary bg-primary/10 text-primary" : "border-border bg-card text-foreground hover:border-primary/50"
-                          } ${soon ? "cursor-not-allowed opacity-60" : ""}`}
-                        >
-                          {label}
-                          {soon && <span className="ml-1 rounded bg-muted px-1 py-0.5 text-[8px] uppercase text-muted-foreground">soon</span>}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                <input value={newLabel} onChange={(e) => setNewLabel(e.target.value)}
-                  placeholder="Label (e.g. Main Binance)"
-                  className="w-full rounded-md border border-input bg-input px-2 py-2 text-sm" />
-
-                {(newKind === "binance" || newKind === "bybit") && (
-                  <div className="space-y-2">
-                    <input value={exUid} onChange={(e) => setExUid(e.target.value)} placeholder={`${newKind === "binance" ? "Binance" : "Bybit"} UID`}
-                      className="w-full rounded-md border border-input bg-input px-2 py-2 text-sm" />
-                    <input value={exEmail} onChange={(e) => setExEmail(e.target.value)} type="email" placeholder="Registered email"
-                      className="w-full rounded-md border border-input bg-input px-2 py-2 text-sm" />
-                    <input value={exPhone} onChange={(e) => setExPhone(e.target.value)} placeholder="Registered phone number"
-                      className="w-full rounded-md border border-input bg-input px-2 py-2 text-sm" />
-                    <p className="text-[10px] text-muted-foreground">Provide at least one identifier. Payout is sent to your exchange account.</p>
-                  </div>
-                )}
-
-                {newKind === "wallet_address" && (
-                  <div className="space-y-2">
-                    <select value={walletChain} onChange={(e) => setWalletChain(e.target.value)}
-                      className="w-full rounded-md border border-input bg-input px-2 py-2 text-sm">
-                      <option value="ETH">Ethereum (ERC-20)</option>
-                      <option value="BSC">BNB Smart Chain (BEP-20)</option>
-                      <option value="POLYGON">Polygon</option>
-                      <option value="ARBITRUM">Arbitrum</option>
-                      <option value="OPTIMISM">Optimism</option>
-                      <option value="TRON">Tron (TRC-20)</option>
-                      <option value="SOLANA">Solana</option>
-                      <option value="BITCOIN">Bitcoin</option>
-                    </select>
-                    <input value={walletAddress} onChange={(e) => setWalletAddress(e.target.value)} placeholder="Destination wallet address"
-                      className="w-full rounded-md border border-input bg-input px-2 py-2 text-sm font-mono" />
-                    <p className="text-[10px] text-muted-foreground">Double-check the chain matches your address. Wrong-chain transfers can't be recovered.</p>
-                  </div>
-                )}
-
-                {COMING_SOON.includes(newKind) && (
-                  <div className="rounded-md border border-accent/40 bg-accent/10 p-3 text-xs text-accent">
-                    This payout method is coming soon.
-                  </div>
-                )}
-
-                <button onClick={addMethod} disabled={loading || !newLabel || COMING_SOON.includes(newKind)}
-                  className="w-full rounded-md bg-primary py-2 text-sm text-primary-foreground disabled:opacity-50">
-                  Save method
-                </button>
-              </div>
-            )}
-          </div>
-
-          <div className="rounded-2xl border border-border bg-card p-6">
-            <h2 className="mb-4 text-lg font-semibold">History</h2>
             {history.length === 0 ? (
               <div className="text-sm text-muted-foreground">No withdrawals yet.</div>
             ) : (
@@ -447,10 +362,12 @@ function Withdraw() {
             <div className="rounded-lg border border-border p-3 text-sm">
               <div className="text-[10px] font-mono uppercase text-muted-foreground mb-1">Payout destination</div>
               <div className="flex items-center gap-2">
-                <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-mono uppercase">
-                  {selectedMethod?.kind.toUpperCase() ?? "-"}
+                <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-mono uppercase">{kind}</span>
+                <span className="text-foreground truncate">
+                  {kind === "wallet_address"
+                    ? `${walletChain} · ${walletAddress}`
+                    : (exUid || exEmail || exPhone)}
                 </span>
-                <span className="text-foreground">{selectedMethod?.label ?? "No method selected"}</span>
               </div>
             </div>
 
@@ -508,7 +425,7 @@ function Stat({ label, v }: { label: string; v: string }) {
 }
 
 function StatusBadge({ s }: { s: string }) {
-  const c = s === "approved" ? "bg-primary/20 text-primary" : s === "rejected" ? "bg-destructive/20 text-destructive" : "bg-muted text-muted-foreground";
+  const c = s === "approved" ? "bg-primary/20 text-primary" : s === "rejected" ? "bg-destructive/20 text-destructive" : "bg-accent/20 text-accent animate-pulse";
   return <span className={`rounded-full px-2 py-0.5 text-xs font-mono uppercase ${c}`}>{s}</span>;
 }
 
@@ -546,7 +463,7 @@ function WithdrawalTimeline({ w }: { w: { status: string; created_at: string; re
 
   const steps = [
     { key: "requested", label: "Requested", at: requestedAt, done: true, active: pending && !approved && !rejected },
-    { key: "approved", label: rejected ? "Rejected" : "Auto-approved", at: resolvedAt, done: approved || rejected, active: false, bad: rejected },
+    { key: "approved", label: rejected ? "Rejected" : "Auto-approved", at: resolvedAt, done: approved || rejected, active: pending, bad: rejected },
     { key: "sent", label: "Payout sent", at: resolvedAt, done: approved, active: false },
     { key: "completed", label: "Completed", at: resolvedAt, done: approved, active: false },
   ];
