@@ -853,11 +853,28 @@ function NFTModal({
               alt=""
               aria-hidden="true"
               decoding="async"
-              onLoad={() => setHiResReady(true)}
-              className={`relative h-full w-full object-cover transition-opacity duration-300 ${hiResReady ? "opacity-100" : "opacity-0"}`}
+              onLoad={() => { setHiResReady(true); setHiResError(null); }}
+              onError={() => setHiResError("Artwork failed to load.")}
+              className={`relative h-full w-full object-cover transition-opacity duration-300 ${hiResReady && !hiResError ? "opacity-100" : "opacity-0"}`}
             />
-            {!hiResReady && (
+            {!hiResReady && !hiResError && (
               <span className="sr-only" aria-live="polite">Loading high-resolution artwork…</span>
+            )}
+            {hiResError && (
+              <div
+                role="alert"
+                className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/70 p-6 text-center backdrop-blur-sm"
+              >
+                <div className="text-4xl" aria-hidden="true">⚠︎</div>
+                <div className="text-sm font-medium text-white">Couldn't load artwork</div>
+                <div className="max-w-xs text-xs text-white/70">{hiResError}</div>
+                <button
+                  onClick={retryPrefetch}
+                  className="rounded-md bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-white"
+                >
+                  Retry
+                </button>
+              </div>
             )}
             <div className="absolute left-4 bottom-4 rounded-full bg-black/50 px-3 py-1 font-mono text-xs uppercase tracking-wider text-white backdrop-blur">
               #{String(nft.mintNumber).padStart(4, "0")}
