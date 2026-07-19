@@ -17,5 +17,6 @@ run_case() {
 
 run_case "purchase_package idempotency"   "public.test_purchase_idempotency()"
 run_case "withdrawal idempotency"          "public.test_withdrawal_idempotency()"
+run_case "webhook idempotency"             "public.test_webhook_idempotency()"
 
 echo "All tests passed."
