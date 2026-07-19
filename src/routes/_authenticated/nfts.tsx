@@ -546,6 +546,7 @@ function NFTs() {
 
       {selected && (
         <NFTModal
+          key={`${selected.id}:v${cacheVer}`}
           nft={selected}
           isFav={favs.has(selected.id)}
           onClose={closeNFT}
