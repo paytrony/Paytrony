@@ -158,75 +158,79 @@ function AuthedLayout() {
     );
   };
 
+  const pageLocked = confirmSignOut || signingOut;
+
   return (
     <div className="min-h-screen">
-      <header className="border-b border-border">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-          <Link to="/dashboard" className="font-mono text-lg font-semibold">
-            <span className="text-primary">◆</span> PayTrony
-          </Link>
-          <nav className="flex items-center gap-3 text-sm">
-            <div className="relative" onClick={(e) => e.stopPropagation()}>
-              <button
-                onClick={() => !signingOut && !confirmSignOut && setMenuOpen((v) => !v)}
-                aria-label="Menu"
-                aria-expanded={menuOpen}
-                disabled={signingOut || confirmSignOut}
-                className={`relative flex h-9 w-9 items-center justify-center rounded-md border border-border text-foreground hover:bg-muted ${signingOut || confirmSignOut ? "opacity-50 cursor-not-allowed" : ""}`}
-              >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.75"/><circle cx="12" cy="12" r="1.75"/><circle cx="12" cy="19" r="1.75"/></svg>
-                {(pendingWithdrawals + recentEarnings + recentNfts) > 0 && (
-                  <span className="absolute -top-0.5 -right-0.5 flex h-2.5 w-2.5">
-                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-75" />
-                    <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-primary" />
-                  </span>
-                )}
-              </button>
-              {menuOpen && (
-                <div className="absolute right-0 z-50 mt-2 w-64 overflow-hidden rounded-md border border-border bg-background shadow-lg">
-                  <div className="px-3 py-2 text-[10px] font-mono uppercase text-muted-foreground">Explore</div>
-                  {menuItem("/dashboard", "Dashboard", <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>)}
-                  {menuItem("/packages", "Buy packages", <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>)}
-                  {menuItem("/marketplace", "Marketplace", <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 9h18l-1.5 10a2 2 0 0 1-2 1.7H6.5a2 2 0 0 1-2-1.7L3 9Z"/><path d="M8 9V6a4 4 0 0 1 8 0v3"/></svg>, { badge: <span className="rounded-full border border-primary/40 bg-primary/10 px-1.5 py-0.5 text-[9px] font-mono uppercase text-primary">Soon</span> })}
-                  {menuItem("/withdraw", "Withdraw", <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 3v18"/><path d="m17 8-5-5-5 5"/><path d="m17 16-5 5-5-5"/></svg>, {
-                    badge: <Badge n={pendingWithdrawals} tone="muted" />,
-                    onClick: (e) => { e.preventDefault(); setMenuOpen(false); setConfirmWithdraw(true); },
-                  })}
-                  {menuItem("/settings", "Account settings", <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c.36.16.68.4.94.71"/></svg>)}
-                  <div className="mt-1 border-t border-border px-3 py-2 text-[10px] font-mono uppercase text-muted-foreground">Quick access</div>
-                  {menuItem("/notifications", "Notifications", <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>, { badge: <Badge n={recentNfts + recentEarnings + pendingWithdrawals} tone="primary" /> })}
-                  {menuItem("/nfts", "My NFTs", <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>, { badge: <Badge n={recentNfts} tone="accent" /> })}
-                  {menuItem("/ledger", "Wallet", <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12V7H3v11a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-3"/><path d="M21 7V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v2"/><path d="M16 12h.01"/></svg>, { badge: <Badge n={recentEarnings} tone="primary" /> })}
-                  {menuItem("/referrals", "Referral dashboard", <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>, { badge: <Badge n={recentEarnings} tone="primary" /> })}
-                  {referralUrl && (
+      <div inert={pageLocked ? true : undefined}>
+        <header className="border-b border-border">
+          <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
+            <Link to="/dashboard" className="font-mono text-lg font-semibold">
+              <span className="text-primary">◆</span> PayTrony
+            </Link>
+            <nav className="flex items-center gap-3 text-sm">
+              <div className="relative" onClick={(e) => e.stopPropagation()}>
+                <button
+                  onClick={() => !pageLocked && setMenuOpen((v) => !v)}
+                  aria-label="Menu"
+                  aria-expanded={menuOpen}
+                  disabled={pageLocked}
+                  className={`relative flex h-9 w-9 items-center justify-center rounded-md border border-border text-foreground hover:bg-muted ${pageLocked ? "opacity-50 cursor-not-allowed" : ""}`}
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.75"/><circle cx="12" cy="12" r="1.75"/><circle cx="12" cy="19" r="1.75"/></svg>
+                  {(pendingWithdrawals + recentEarnings + recentNfts) > 0 && (
+                    <span className="absolute -top-0.5 -right-0.5 flex h-2.5 w-2.5">
+                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-75" />
+                      <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-primary" />
+                    </span>
+                  )}
+                </button>
+                {menuOpen && (
+                  <div className="absolute right-0 z-50 mt-2 w-64 overflow-hidden rounded-md border border-border bg-background shadow-lg">
+                    <div className="px-3 py-2 text-[10px] font-mono uppercase text-muted-foreground">Explore</div>
+                    {menuItem("/dashboard", "Dashboard", <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>)}
+                    {menuItem("/packages", "Buy packages", <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>)}
+                    {menuItem("/marketplace", "Marketplace", <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 9h18l-1.5 10a2 2 0 0 1-2 1.7H6.5a2 2 0 0 1-2-1.7L3 9Z"/><path d="M8 9V6a4 4 0 0 1 8 0v3"/></svg>, { badge: <span className="rounded-full border border-primary/40 bg-primary/10 px-1.5 py-0.5 text-[9px] font-mono uppercase text-primary">Soon</span> })}
+                    {menuItem("/withdraw", "Withdraw", <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 3v18"/><path d="m17 8-5-5-5 5"/><path d="m17 16-5 5-5-5"/></svg>, {
+                      badge: <Badge n={pendingWithdrawals} tone="muted" />,
+                      onClick: (e) => { e.preventDefault(); setMenuOpen(false); setConfirmWithdraw(true); },
+                    })}
+                    {menuItem("/settings", "Account settings", <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c.36.16.68.4.94.71"/></svg>)}
+                    <div className="mt-1 border-t border-border px-3 py-2 text-[10px] font-mono uppercase text-muted-foreground">Quick access</div>
+                    {menuItem("/notifications", "Notifications", <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>, { badge: <Badge n={recentNfts + recentEarnings + pendingWithdrawals} tone="primary" /> })}
+                    {menuItem("/nfts", "My NFTs", <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>, { badge: <Badge n={recentNfts} tone="accent" /> })}
+                    {menuItem("/ledger", "Wallet", <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12V7H3v11a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-3"/><path d="M21 7V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v2"/><path d="M16 12h.01"/></svg>, { badge: <Badge n={recentEarnings} tone="primary" /> })}
+                    {menuItem("/referrals", "Referral dashboard", <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>, { badge: <Badge n={recentEarnings} tone="primary" /> })}
+                    {referralUrl && (
+                      <button
+                        onClick={copyReferral}
+                        className={`${baseLink} ${idle} w-full text-left`}
+                      >
+                        <span className="flex items-center gap-2">
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                          <span>Copy referral link</span>
+                        </span>
+                      </button>
+                    )}
+                    {isAdmin && <><div className="mt-1 border-t border-border" />{menuItem("/admin", "Admin", <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>, { accent: true })}</>}
+                    <div className="mt-1 border-t border-border" />
                     <button
-                      onClick={copyReferral}
+                      onClick={(e) => { e.stopPropagation(); setMenuOpen(false); setSignOutError(null); setConfirmSignOut(true); }}
                       className={`${baseLink} ${idle} w-full text-left`}
                     >
                       <span className="flex items-center gap-2">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-                        <span>Copy referral link</span>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>
+                        <span>Sign out</span>
                       </span>
                     </button>
-                  )}
-                  {isAdmin && <><div className="mt-1 border-t border-border" />{menuItem("/admin", "Admin", <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>, { accent: true })}</>}
-                  <div className="mt-1 border-t border-border" />
-                  <button
-                    onClick={(e) => { e.stopPropagation(); setMenuOpen(false); setSignOutError(null); setConfirmSignOut(true); }}
-                    className={`${baseLink} ${idle} w-full text-left`}
-                  >
-                    <span className="flex items-center gap-2">
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>
-                      <span>Sign out</span>
-                    </span>
-                  </button>
-                </div>
-              )}
-            </div>
-          </nav>
-        </div>
-      </header>
-      <main className="mx-auto max-w-6xl px-6 py-8"><Outlet /></main>
+                  </div>
+                )}
+              </div>
+            </nav>
+          </div>
+        </header>
+        <main className="mx-auto max-w-6xl px-6 py-8"><Outlet /></main>
+      </div>
 
       {confirmWithdraw && (
         <div
