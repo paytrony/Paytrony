@@ -24,9 +24,10 @@ export const purchasePackage = createServerFn({ method: "POST" })
     const { data: res, error } = await supabaseAdmin.rpc("purchase_package", {
       _user_id: context.userId,
       _amount: data.amount,
+      _idempotency_key: data.idempotencyKey,
     });
     if (error) throw new Error(error.message);
-    return res as { purchase_id: string; tier: number };
+    return res as { purchase_id: string; tier: number; idempotent: boolean };
   });
 
 export const requestWithdrawal = createServerFn({ method: "POST" })
