@@ -56,8 +56,30 @@ function AuthedLayout() {
     loadBadges();
     const channel = supabase
       .channel(`badges:${user.id}`)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "wallet_transactions", filter: `user_id=eq.${user.id}` }, (payload) => {
+        const row: any = payload.new;
+        const amt = Number(row.amount).toFixed(2);
+        if (row.type === "referral_credit") {
+          toast.success(`+$${amt} referral credit added to your wallet`);
+        } else if (row.type === "withdrawal") {
+          const isFee = String(row.note ?? "").toLowerCase().includes("fee");
+          toast(isFee ? `Withdrawal fee $${amt} debited` : `Withdrawal $${amt} sent to your payout method`);
+        }
+        loadBadges();
+      })
       .on("postgres_changes", { event: "*", schema: "public", table: "wallet_transactions", filter: `user_id=eq.${user.id}` }, () => loadBadges())
-      .on("postgres_changes", { event: "*", schema: "public", table: "withdrawals", filter: `user_id=eq.${user.id}` }, () => loadBadges())
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "withdrawals", filter: `user_id=eq.${user.id}` }, (payload) => {
+        const row: any = payload.new;
+        if (row.status === "approved") toast.success(`Withdrawal of $${Number(row.amount).toFixed(2)} approved — payout sent`);
+        if (row.status === "rejected") toast.error(`Withdrawal of $${Number(row.amount).toFixed(2)} rejected`);
+        loadBadges();
+      })
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "withdrawals", filter: `user_id=eq.${user.id}` }, () => loadBadges())
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "purchases", filter: `user_id=eq.${user.id}` }, (payload) => {
+        const row: any = payload.new;
+        toast.success(`Purchase confirmed — Tier $${row.nft_tier} NFT minted`);
+        loadBadges();
+      })
       .on("postgres_changes", { event: "*", schema: "public", table: "purchases", filter: `user_id=eq.${user.id}` }, () => loadBadges())
       .on("postgres_changes", { event: "*", schema: "public", table: "notification_reads", filter: `user_id=eq.${user.id}` }, () => loadBadges())
       .subscribe();

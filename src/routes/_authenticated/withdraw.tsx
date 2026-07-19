@@ -11,7 +11,7 @@ export const Route = createFileRoute("/_authenticated/withdraw")({
 
 const FEE = 1;
 
-type W = { id: string; amount: number; status: string; payout_note: string | null; admin_note: string | null; created_at: string };
+type W = { id: string; amount: number; status: string; payout_note: string | null; admin_note: string | null; created_at: string; resolved_at: string | null };
 type PM = { id: string; kind: string; label: string; is_default: boolean };
 type Limits = { min_amount: number; daily_cap: number; kyc_threshold: number; cooldown_minutes: number };
 
@@ -54,6 +54,16 @@ function Withdraw() {
     if (def && !methodId) setMethodId(def.id);
   }
   useEffect(() => { load(); }, [user.id]);
+
+  useEffect(() => {
+    const ch = supabase
+      .channel(`withdraw-page:${user.id}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "withdrawals", filter: `user_id=eq.${user.id}` }, () => load())
+      .on("postgres_changes", { event: "*", schema: "public", table: "wallet_transactions", filter: `user_id=eq.${user.id}` }, () => load())
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user.id]);
 
   async function addMethod() {
     if (!newLabel) return toast.error("Add a label");
@@ -140,14 +150,12 @@ function Withdraw() {
               <label className="text-sm font-medium">Amount ($)</label>
               <input type="number" step="0.01" min={limits?.min_amount ?? 0.01} max={Math.max(0, available - FEE)} required value={amount} onChange={(e) => setAmount(e.target.value)}
                 className="mt-1 w-full rounded-md border border-input bg-input px-3 py-2 text-sm" />
-              <div className="mt-1 flex justify-between text-xs text-muted-foreground">
-                <span>Fee: <span className="text-foreground">${FEE.toFixed(2)}</span></span>
-                <span>You'll receive: <span className="text-primary font-mono">${Number(amount || 0).toFixed(2)}</span> · Debited: <span className="font-mono">${(Number(amount || 0) + (Number(amount) > 0 ? FEE : 0)).toFixed(2)}</span></span>
-              </div>
               {kycNeeded && (
                 <p className="mt-1 text-xs text-accent">KYC approval required above ${limits!.kyc_threshold}. <Link to="/settings" className="underline">Submit KYC</Link></p>
               )}
             </div>
+
+            <FeeBreakdown amount={Number(amount) || 0} fee={FEE} />
 
             <div>
               <label className="text-sm font-medium">Payout method</label>
@@ -234,15 +242,18 @@ function Withdraw() {
             {history.length === 0 ? (
               <div className="text-sm text-muted-foreground">No withdrawals yet.</div>
             ) : (
-              <div className="divide-y divide-border">
+              <div className="space-y-5">
                 {history.map((w) => (
-                  <div key={w.id} className="py-3">
+                  <div key={w.id} className="rounded-lg border border-border p-4">
                     <div className="flex items-center justify-between">
-                      <div className="font-mono font-semibold">${Number(w.amount).toFixed(2)}</div>
+                      <div>
+                        <div className="font-mono text-lg font-semibold">${Number(w.amount).toFixed(2)}</div>
+                        <div className="text-[11px] text-muted-foreground">{new Date(w.created_at).toLocaleString()}</div>
+                      </div>
                       <StatusBadge s={w.status} />
                     </div>
-                    <div className="text-xs text-muted-foreground">{new Date(w.created_at).toLocaleString()}</div>
-                    {w.admin_note && <div className="mt-1 text-xs text-muted-foreground">Admin: {w.admin_note}</div>}
+                    <WithdrawalTimeline w={w} />
+                    {w.admin_note && <div className="mt-2 text-xs text-muted-foreground">Note: {w.admin_note}</div>}
                   </div>
                 ))}
               </div>
@@ -266,4 +277,76 @@ function Stat({ label, v }: { label: string; v: string }) {
 function StatusBadge({ s }: { s: string }) {
   const c = s === "approved" ? "bg-primary/20 text-primary" : s === "rejected" ? "bg-destructive/20 text-destructive" : "bg-muted text-muted-foreground";
   return <span className={`rounded-full px-2 py-0.5 text-xs font-mono uppercase ${c}`}>{s}</span>;
+}
+
+function FeeBreakdown({ amount, fee }: { amount: number; fee: number }) {
+  const debited = amount > 0 ? amount + fee : 0;
+  return (
+    <div className="rounded-lg border border-border bg-muted/30 p-3 text-sm">
+      <div className="mb-2 text-[10px] font-mono uppercase text-muted-foreground">Payout summary</div>
+      <div className="space-y-1.5 font-mono">
+        <Row label="Requested amount" value={`$${amount.toFixed(2)}`} />
+        <Row label="Withdrawal fee" value={`- $${fee.toFixed(2)}`} />
+        <div className="my-1 border-t border-border" />
+        <Row label="Total debited from wallet" value={`$${debited.toFixed(2)}`} strong />
+        <Row label="Net payout to you" value={`$${amount.toFixed(2)}`} accent />
+      </div>
+    </div>
+  );
+}
+
+function Row({ label, value, strong, accent }: { label: string; value: string; strong?: boolean; accent?: boolean }) {
+  return (
+    <div className="flex items-center justify-between text-xs">
+      <span className="text-muted-foreground">{label}</span>
+      <span className={accent ? "text-primary font-semibold" : strong ? "text-foreground font-semibold" : "text-foreground"}>{value}</span>
+    </div>
+  );
+}
+
+function WithdrawalTimeline({ w }: { w: { status: string; created_at: string; resolved_at: string | null } }) {
+  const requestedAt = w.created_at;
+  const resolvedAt = w.resolved_at;
+  const rejected = w.status === "rejected";
+  const approved = w.status === "approved";
+  const pending = w.status === "pending";
+
+  const steps = [
+    { key: "requested", label: "Requested", at: requestedAt, done: true, active: pending && !approved && !rejected },
+    { key: "approved", label: rejected ? "Rejected" : "Auto-approved", at: resolvedAt, done: approved || rejected, active: false, bad: rejected },
+    { key: "sent", label: "Payout sent", at: resolvedAt, done: approved, active: false },
+    { key: "completed", label: "Completed", at: resolvedAt, done: approved, active: false },
+  ];
+
+  return (
+    <ol className="mt-3 space-y-2">
+      {steps.map((s, i) => (
+        <li key={s.key} className="flex items-start gap-3">
+          <div className="relative flex flex-col items-center">
+            <span className={
+              "flex h-5 w-5 items-center justify-center rounded-full border text-[10px] font-mono " +
+              (s.bad
+                ? "border-destructive bg-destructive/20 text-destructive"
+                : s.done
+                ? "border-primary bg-primary/20 text-primary"
+                : s.active
+                ? "border-accent bg-accent/20 text-accent animate-pulse"
+                : "border-border bg-muted text-muted-foreground")
+            }>{s.bad ? "!" : s.done ? "✓" : i + 1}</span>
+            {i < steps.length - 1 && (
+              <span className={"mt-0.5 h-6 w-px " + (steps[i + 1].done ? "bg-primary/50" : "bg-border")} />
+            )}
+          </div>
+          <div className="pb-2">
+            <div className={"text-xs font-medium " + (s.bad ? "text-destructive" : s.done ? "text-foreground" : s.active ? "text-accent" : "text-muted-foreground")}>
+              {s.label}
+            </div>
+            {s.done && s.at && (
+              <div className="text-[10px] text-muted-foreground">{new Date(s.at).toLocaleString()}</div>
+            )}
+          </div>
+        </li>
+      ))}
+    </ol>
+  );
 }
