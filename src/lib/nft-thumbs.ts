@@ -1,7 +1,11 @@
-// Client-side thumbnail cache for NFT tier art.
-// Art is procedural (SVG data URLs), so caching = generate once per (tier,size) and reuse.
-// We also warm the browser's decoded-image cache via `new Image()` so subsequent
-// <img src=...> reuses the same decoded bitmap immediately.
+// Client-side thumbnail + metadata cache for NFT tier art.
+//
+// - SVG data URLs per (tier, variant) — 6 entries max, generated once.
+// - LRU of decoded HTMLImageElements to bound memory across long sessions.
+// - Persistent LRU of per-NFT metadata to `localStorage` so returning to an
+//   NFT modal restores instantly.
+// - Abortable "next likely selection" prefetch: only the latest call keeps
+//   loading; previous in-flight images are cancelled.
 
 type Variant = "card" | "modal";
 
@@ -15,9 +19,6 @@ const SIZES: Record<Variant, { w: number; h: number; glyphPx: number }> = {
   card: { w: 480, h: 384, glyphPx: 220 },
   modal: { w: 960, h: 960, glyphPx: 520 },
 };
-
-const cache = new Map<string, string>();
-const decoded = new Map<string, HTMLImageElement>();
 
 function makeSvg(tier: number, variant: Variant): string {
   const art = TIER_ART[tier] ?? TIER_ART[10];
@@ -45,46 +46,62 @@ function makeSvg(tier: number, variant: Variant): string {
   );
 }
 
+const svgUrlCache = new Map<string, string>();
+
 export function nftThumb(tier: number, variant: Variant = "card"): string {
   const key = `${tier}:${variant}`;
-  let url = cache.get(key);
+  let url = svgUrlCache.get(key);
   if (url) return url;
   const svg = makeSvg(tier, variant);
   url = `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
-  cache.set(key, url);
+  svgUrlCache.set(key, url);
   return url;
 }
 
-/** Warm the browser image cache. Safe to call repeatedly; cheap and idempotent. */
-export function prefetchThumb(tier: number, variant: Variant = "card"): void {
-  if (typeof window === "undefined") return;
-  const key = `${tier}:${variant}`;
-  if (decoded.has(key)) return;
-  const url = nftThumb(tier, variant);
-  const img = new window.Image();
-  img.decoding = "async";
-  img.src = url;
-  // Try `.decode()` where supported to fully warm the pipeline.
-  if (typeof img.decode === "function") {
-    img.decode().catch(() => { /* ignore */ });
+// ---- LRU utility ------------------------------------------------------------
+
+class LRU<V> {
+  private m = new Map<string, V>();
+  constructor(private max: number) {}
+  get(k: string): V | undefined {
+    const v = this.m.get(k);
+    if (v === undefined) return undefined;
+    this.m.delete(k);
+    this.m.set(k, v);
+    return v;
   }
-  decoded.set(key, img);
+  has(k: string): boolean {
+    return this.m.has(k);
+  }
+  set(k: string, v: V): void {
+    if (this.m.has(k)) this.m.delete(k);
+    this.m.set(k, v);
+    while (this.m.size > this.max) {
+      const oldest = this.m.keys().next().value;
+      if (oldest === undefined) break;
+      this.m.delete(oldest);
+    }
+  }
+  values(): IterableIterator<V> {
+    return this.m.values();
+  }
 }
 
-/** Prefetch a set of tiers in the card variant only (cheap, blanket warm). */
-export function prefetchTiers(tiers: Iterable<number>): void {
-  for (const t of new Set(tiers)) {
-    prefetchThumb(t, "card");
-  }
+// ---- Decoded-image LRU ------------------------------------------------------
+
+const DECODED_MAX = 24;
+const decodedLRU = new LRU<HTMLImageElement>(DECODED_MAX);
+
+function decodedKey(tier: number, variant: Variant) {
+  return `${tier}:${variant}`;
 }
 
-// ---- Targeted "next likely selection" prefetch ------------------------------
-// Precomputes and caches per-NFT metadata (mint address, padded mint #) and
-// warms ONLY the modal-resolution thumbnail for that specific NFT. Callers
-// should invoke this for at most ~2 candidates (arrow-left / arrow-right, or
-// the first visible card) to keep bandwidth and decode cost bounded.
+export function isModalThumbReady(tier: number): boolean {
+  return decodedLRU.has(decodedKey(tier, "modal"));
+}
 
-export type NFTLike = { id: string; nft_tier: number; mintNumber: number };
+// ---- Persistent metadata LRU -----------------------------------------------
+
 export type NFTPrefetchMeta = {
   id: string;
   tier: number;
@@ -93,10 +110,52 @@ export type NFTPrefetchMeta = {
   mintAddress: string;
 };
 
-const metaCache = new Map<string, NFTPrefetchMeta>();
+const META_STORAGE_KEY = "paytrony:nft-meta-lru";
+const META_MAX = 200;
+const metaLRU = new LRU<NFTPrefetchMeta>(META_MAX);
+
+let metaLoaded = false;
+function ensureMetaLoaded() {
+  if (metaLoaded) return;
+  metaLoaded = true;
+  if (typeof window === "undefined") return;
+  try {
+    const raw = window.localStorage.getItem(META_STORAGE_KEY);
+    if (!raw) return;
+    const arr = JSON.parse(raw);
+    if (!Array.isArray(arr)) return;
+    for (const m of arr as NFTPrefetchMeta[]) {
+      if (m && typeof m.id === "string") metaLRU.set(m.id, m);
+    }
+  } catch {
+    /* ignore */
+  }
+}
+
+let persistScheduled = false;
+function schedulePersist() {
+  if (typeof window === "undefined" || persistScheduled) return;
+  persistScheduled = true;
+  const flush = () => {
+    persistScheduled = false;
+    try {
+      const arr = Array.from(metaLRU.values());
+      window.localStorage.setItem(META_STORAGE_KEY, JSON.stringify(arr));
+    } catch {
+      /* ignore quota */
+    }
+  };
+  // Coalesce bursts.
+  const w = window as typeof window & { requestIdleCallback?: (cb: () => void) => void };
+  if (typeof w.requestIdleCallback === "function") w.requestIdleCallback(flush);
+  else setTimeout(flush, 250);
+}
+
+export type NFTLike = { id: string; nft_tier: number; mintNumber: number };
 
 function computeMeta(nft: NFTLike): NFTPrefetchMeta {
-  const cached = metaCache.get(nft.id);
+  ensureMetaLoaded();
+  const cached = metaLRU.get(nft.id);
   if (cached) return cached;
   const meta: NFTPrefetchMeta = {
     id: nft.id,
@@ -105,22 +164,114 @@ function computeMeta(nft: NFTLike): NFTPrefetchMeta {
     mintLabel: `#${String(nft.mintNumber).padStart(4, "0")}`,
     mintAddress: `mint_${nft.id.replace(/-/g, "").slice(0, 24)}`,
   };
-  metaCache.set(nft.id, meta);
+  metaLRU.set(nft.id, meta);
+  schedulePersist();
   return meta;
 }
 
 export function getPrefetchedMeta(id: string): NFTPrefetchMeta | undefined {
-  return metaCache.get(id);
+  ensureMetaLoaded();
+  return metaLRU.get(id);
+}
+
+// ---- Basic thumbnail prefetch (card-size, blanket-safe) --------------------
+
+export function prefetchThumb(tier: number, variant: Variant = "card"): void {
+  if (typeof window === "undefined") return;
+  const key = decodedKey(tier, variant);
+  if (decodedLRU.has(key)) {
+    decodedLRU.get(key); // bump recency
+    return;
+  }
+  const url = nftThumb(tier, variant);
+  const img = new window.Image();
+  img.decoding = "async";
+  img.src = url;
+  if (typeof img.decode === "function") img.decode().catch(() => {});
+  decodedLRU.set(key, img);
+}
+
+export function prefetchTiers(tiers: Iterable<number>): void {
+  for (const t of new Set(tiers)) prefetchThumb(t, "card");
+}
+
+// ---- Abortable next-likely-selection prefetch ------------------------------
+
+let currentToken = 0;
+let inFlightImg: HTMLImageElement | null = null;
+
+export type NFTPrefetchHandle = {
+  token: number;
+  ready: Promise<NFTPrefetchMeta | null>;
+  cancel: () => void;
+};
+
+/**
+ * Cancel any in-flight modal-resolution prefetch. Setting `src=""` aborts the
+ * pending decode/fetch in modern browsers.
+ */
+export function cancelActivePrefetch(): void {
+  currentToken++;
+  if (inFlightImg) {
+    inFlightImg.onload = null;
+    inFlightImg.onerror = null;
+    inFlightImg.src = "";
+    inFlightImg = null;
+  }
 }
 
 /**
- * Preload metadata + the highest-resolution thumbnail for a single NFT that is
- * the *next likely* modal selection. No-op when passed null/undefined so
- * callers can pass `filtered[i+1]` without branching.
+ * Preload metadata + the highest-resolution thumbnail for a single NFT that
+ * is the *next likely* modal selection. Any previous outstanding prefetch is
+ * aborted so only the latest call continues loading.
  */
-export function prefetchNextLikelyNFT(nft: NFTLike | null | undefined): void {
-  if (!nft) return;
-  computeMeta(nft);
-  prefetchThumb(nft.nft_tier, "modal");
-}
+export function prefetchNextLikelyNFT(nft: NFTLike | null | undefined): NFTPrefetchHandle {
+  const token = ++currentToken;
 
+  // Abort previous in-flight decode.
+  if (inFlightImg) {
+    inFlightImg.onload = null;
+    inFlightImg.onerror = null;
+    inFlightImg.src = "";
+    inFlightImg = null;
+  }
+
+  if (!nft || typeof window === "undefined") {
+    return { token, ready: Promise.resolve(null), cancel: () => {} };
+  }
+
+  const meta = computeMeta(nft);
+  const key = decodedKey(nft.nft_tier, "modal");
+
+  if (decodedLRU.has(key)) {
+    decodedLRU.get(key); // bump recency
+    return { token, ready: Promise.resolve(meta), cancel: () => {} };
+  }
+
+  const url = nftThumb(nft.nft_tier, "modal");
+  const img = new window.Image();
+  img.decoding = "async";
+  inFlightImg = img;
+
+  const ready = new Promise<NFTPrefetchMeta | null>((resolve) => {
+    const finish = (ok: boolean) => {
+      if (token !== currentToken) return resolve(null);
+      if (inFlightImg === img) inFlightImg = null;
+      if (ok) decodedLRU.set(key, img);
+      resolve(ok ? meta : null);
+    };
+    img.onload = () => finish(true);
+    img.onerror = () => finish(false);
+  });
+
+  img.src = url;
+  if (typeof img.decode === "function") img.decode().catch(() => {});
+
+  return {
+    token,
+    ready,
+    cancel: () => {
+      if (token === currentToken) cancelActivePrefetch();
+    },
+  };
+}

@@ -3,7 +3,15 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { zodValidator, fallback } from "@tanstack/zod-adapter";
 import { z } from "zod";
-import { nftThumb, prefetchThumb, prefetchTiers, prefetchNextLikelyNFT } from "@/lib/nft-thumbs";
+import {
+  nftThumb,
+  prefetchThumb,
+  prefetchTiers,
+  prefetchNextLikelyNFT,
+  cancelActivePrefetch,
+  isModalThumbReady,
+  getPrefetchedMeta,
+} from "@/lib/nft-thumbs";
 
 const searchSchema = z.object({
   nft: fallback(z.string(), "").default(""),
@@ -140,6 +148,50 @@ function NFTs() {
     return () => { cancelled = true; };
   }, []);
 
+  // Realtime: auto-refresh ownership + favorite badges after a purchase or
+  // referral credit. Subscribes to this user's purchases and nft_favorites
+  // rows; RLS ensures we only receive events we're allowed to see.
+  useEffect(() => {
+    let disposed = false;
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+    (async () => {
+      const { data: userData } = await supabase.auth.getUser();
+      const uid = userData.user?.id;
+      if (!uid || disposed) return;
+
+      channel = supabase
+        .channel(`nft-live-${uid}`)
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "purchases", filter: `user_id=eq.${uid}` },
+          () => setReloadTick((t) => t + 1),
+        )
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "nft_favorites", filter: `user_id=eq.${uid}` },
+          async (payload) => {
+            // Merge the change into local favorites without a full refetch.
+            const row = (payload.new ?? payload.old) as { purchase_id?: string } | null;
+            const id = row?.purchase_id;
+            if (!id) return;
+            setFavs((prev) => {
+              const next = new Set(prev);
+              if (payload.eventType === "DELETE") next.delete(id);
+              else next.add(id);
+              saveLocalFavs(next);
+              return next;
+            });
+          },
+        )
+        .subscribe();
+    })();
+
+    return () => {
+      disposed = true;
+      if (channel) supabase.removeChannel(channel);
+    };
+  }, []);
+
   const nfts: NFT[] = useMemo(() => {
     if (!items) return [];
     return items.map((p, idx) => ({
@@ -252,19 +304,22 @@ function NFTs() {
     if (next) openNFT(next.id);
   }, [selectedIndex, filtered, openNFT]);
 
-  // Targeted modal prefetch: only the *next likely* selection gets the
-  // high-res thumbnail + precomputed metadata. Avoids blanket-warming modal
-  // art for every owned tier.
-  //   - Modal open: neighbors reachable via ← / → arrow keys.
-  //   - Modal closed: the first visible card (highest click likelihood).
+  // Targeted, abortable modal prefetch: only the *latest* likely selection
+  // keeps loading. Previous in-flight image + metadata work is cancelled so
+  // we never waste bandwidth on stale predictions.
+  //   - Modal open:  arrow-key neighbor (forward first, then backward).
+  //   - Modal closed: the first visible card.
   useEffect(() => {
-    if (!filtered.length) return;
-    if (selectedIndex >= 0) {
-      prefetchNextLikelyNFT(filtered[selectedIndex + 1] ?? null);
-      prefetchNextLikelyNFT(filtered[selectedIndex - 1] ?? null);
-    } else {
-      prefetchNextLikelyNFT(filtered[0] ?? null);
+    if (!filtered.length) {
+      cancelActivePrefetch();
+      return;
     }
+    const primary =
+      selectedIndex >= 0
+        ? filtered[selectedIndex + 1] ?? filtered[selectedIndex - 1] ?? null
+        : filtered[0] ?? null;
+    const handle = prefetchNextLikelyNFT(primary);
+    return () => handle.cancel();
   }, [filtered, selectedIndex]);
 
   function exportCSV() {
@@ -584,10 +639,44 @@ function NFTModal({
   position: { index: number; total: number } | null;
 }) {
   const meta = TIER_META[nft.nft_tier] ?? TIER_META[10];
-  const addr = mintAddress(nft.id);
+  // Hydrate metadata from the persistent LRU first so this renders instantly
+  // on repeat opens; fall back to on-the-fly derivation.
+  const cachedMeta = getPrefetchedMeta(nft.id);
+  const addr = cachedMeta?.mintAddress ?? mintAddress(nft.id);
   const dialogRef = useRef<HTMLDivElement | null>(null);
   const previousActive = useRef<Element | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
+
+  // Progressive rendering: show the low-res card thumbnail immediately (it's
+  // already decoded from the grid), then swap in the modal-resolution art
+  // once the browser has decoded it. Abortable so switching NFTs cancels a
+  // still-decoding prior image.
+  const [hiResReady, setHiResReady] = useState<boolean>(() => isModalThumbReady(nft.nft_tier));
+  useEffect(() => {
+    if (isModalThumbReady(nft.nft_tier)) {
+      setHiResReady(true);
+      return;
+    }
+    setHiResReady(false);
+    let cancelled = false;
+    const img = new window.Image();
+    img.decoding = "async";
+    img.src = nftThumb(nft.nft_tier, "modal");
+    const finish = () => { if (!cancelled) setHiResReady(true); };
+    if (typeof img.decode === "function") {
+      img.decode().then(finish).catch(finish);
+    } else {
+      img.onload = finish;
+      img.onerror = finish;
+    }
+    return () => {
+      cancelled = true;
+      img.onload = null;
+      img.onerror = null;
+      img.src = ""; // abort in-flight decode
+    };
+  }, [nft.nft_tier]);
+
 
   // Capture opener once, on first mount.
   useEffect(() => {
@@ -721,13 +810,26 @@ function NFTModal({
             role="img"
             aria-label={`${meta.name} tier artwork, mint number ${nft.mintNumber}, ${meta.tag} rarity`}
           >
+            {/* Low-res placeholder from the already-cached card thumbnail. */}
+            <img
+              src={nftThumb(nft.nft_tier, "card")}
+              alt=""
+              aria-hidden="true"
+              decoding="async"
+              className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-300 ${hiResReady ? "opacity-0" : "opacity-100"}`}
+            />
+            {/* High-res art fades in once decoded. */}
             <img
               src={nftThumb(nft.nft_tier, "modal")}
               alt=""
               aria-hidden="true"
               decoding="async"
-              className="h-full w-full object-cover"
+              onLoad={() => setHiResReady(true)}
+              className={`relative h-full w-full object-cover transition-opacity duration-300 ${hiResReady ? "opacity-100" : "opacity-0"}`}
             />
+            {!hiResReady && (
+              <span className="sr-only" aria-live="polite">Loading high-resolution artwork…</span>
+            )}
             <div className="absolute left-4 bottom-4 rounded-full bg-black/50 px-3 py-1 font-mono text-xs uppercase tracking-wider text-white backdrop-blur">
               #{String(nft.mintNumber).padStart(4, "0")}
             </div>
