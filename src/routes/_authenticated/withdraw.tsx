@@ -163,15 +163,16 @@ function Withdraw() {
     if (COMING_SOON.includes(kind)) {
       next.method = "This payout method is coming soon";
     } else if (kind === "binance" || kind === "bybit") {
-      if (!exUid.trim() && !exEmail.trim() && !exPhone.trim()) {
-        next.uid = "Enter at least one identifier (UID, email or phone)";
+      if (idType === "uid") {
+        if (!exUid.trim()) next.uid = "Enter your UID";
+      } else if (idType === "email") {
+        if (!exEmail.trim()) next.email = "Enter your registered email";
+        else if (!emailRegex.test(exEmail.trim())) next.email = "Enter a valid email address";
+      } else if (idType === "phone") {
+        if (!exPhone.trim()) next.phone = "Enter your registered phone number";
+        else if (!/^\+?[\d\s\-()]{7,20}$/.test(exPhone.trim())) next.phone = "Enter a valid phone number";
       }
-      if (exEmail.trim() && !emailRegex.test(exEmail.trim())) {
-        next.email = "Enter a valid email address";
-      }
-      if (exPhone.trim() && !/^\+?[\d\s\-()]{7,20}$/.test(exPhone.trim())) {
-        next.phone = "Enter a valid phone number";
-      }
+    
     } else if (kind === "wallet_address") {
       if (!walletChain) next.chain = "Select a chain";
       if (!walletAddress.trim()) {
