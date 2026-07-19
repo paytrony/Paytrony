@@ -431,7 +431,7 @@ function NFTModal({ nft, isFav, onClose, onToggleFav }: { nft: NFT; isFav: boole
       const last = focusable[focusable.length - 1];
       const active = document.activeElement as HTMLElement | null;
       if (e.shiftKey) {
-        if (active === first || !dialog.contains(active)) { e.preventDefault(); last.focus(); }
+        if (active === first || !dialog!.contains(active)) { e.preventDefault(); last.focus(); }
       } else {
         if (active === last) { e.preventDefault(); first.focus(); }
       }
