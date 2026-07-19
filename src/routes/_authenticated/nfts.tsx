@@ -639,10 +639,44 @@ function NFTModal({
   position: { index: number; total: number } | null;
 }) {
   const meta = TIER_META[nft.nft_tier] ?? TIER_META[10];
-  const addr = mintAddress(nft.id);
+  // Hydrate metadata from the persistent LRU first so this renders instantly
+  // on repeat opens; fall back to on-the-fly derivation.
+  const cachedMeta = getPrefetchedMeta(nft.id);
+  const addr = cachedMeta?.mintAddress ?? mintAddress(nft.id);
   const dialogRef = useRef<HTMLDivElement | null>(null);
   const previousActive = useRef<Element | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
+
+  // Progressive rendering: show the low-res card thumbnail immediately (it's
+  // already decoded from the grid), then swap in the modal-resolution art
+  // once the browser has decoded it. Abortable so switching NFTs cancels a
+  // still-decoding prior image.
+  const [hiResReady, setHiResReady] = useState<boolean>(() => isModalThumbReady(nft.nft_tier));
+  useEffect(() => {
+    if (isModalThumbReady(nft.nft_tier)) {
+      setHiResReady(true);
+      return;
+    }
+    setHiResReady(false);
+    let cancelled = false;
+    const img = new window.Image();
+    img.decoding = "async";
+    img.src = nftThumb(nft.nft_tier, "modal");
+    const finish = () => { if (!cancelled) setHiResReady(true); };
+    if (typeof img.decode === "function") {
+      img.decode().then(finish).catch(finish);
+    } else {
+      img.onload = finish;
+      img.onerror = finish;
+    }
+    return () => {
+      cancelled = true;
+      img.onload = null;
+      img.onerror = null;
+      img.src = ""; // abort in-flight decode
+    };
+  }, [nft.nft_tier]);
+
 
   // Capture opener once, on first mount.
   useEffect(() => {
