@@ -20,7 +20,7 @@ const resolveSchema = z.object({
 
 export const purchasePackage = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) => purchaseSchema.parse(d))
+  .validator((d: unknown) => purchaseSchema.parse(d))
   .handler(async ({ data, context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: res, error } = await supabaseAdmin.rpc("purchase_package", {
@@ -34,7 +34,7 @@ export const purchasePackage = createServerFn({ method: "POST" })
 
 export const requestWithdrawal = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) => withdrawSchema.parse(d))
+  .validator((d: unknown) => withdrawSchema.parse(d))
   .handler(async ({ data, context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: id, error } = await supabaseAdmin.rpc("request_withdrawal", {
@@ -50,7 +50,7 @@ export const requestWithdrawal = createServerFn({ method: "POST" })
 
 export const resolveWithdrawal = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) => resolveSchema.parse(d))
+  .validator((d: unknown) => resolveSchema.parse(d))
   .handler(async ({ data, context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: roles, error: rerr } = await supabaseAdmin
