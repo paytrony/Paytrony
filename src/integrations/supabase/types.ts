@@ -301,16 +301,10 @@ export type Database = {
         Args: { _category: string }
         Returns: undefined
       }
-      purchase_package:
-        | { Args: { _amount: number; _user_id: string }; Returns: Json }
-        | {
-            Args: {
-              _amount: number
-              _idempotency_key?: string
-              _user_id: string
-            }
-            Returns: Json
-          }
+      purchase_package: {
+        Args: { _amount: number; _idempotency_key?: string; _user_id: string }
+        Returns: Json
+      }
       request_account_deletion: {
         Args: { _user_id: string }
         Returns: undefined
