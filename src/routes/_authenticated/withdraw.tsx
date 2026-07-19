@@ -195,7 +195,7 @@ function Withdraw() {
             </div>
             <button type="submit" disabled={loading || available <= FEE || gated || methods.length === 0}
               className="w-full rounded-md bg-primary py-2.5 font-medium text-primary-foreground disabled:opacity-50">
-              {loading ? "Processing…" : "Withdraw instantly"}
+              {loading ? "Processing…" : "Review & withdraw"}
             </button>
           </form>
         </div>
