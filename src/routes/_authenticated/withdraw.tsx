@@ -244,8 +244,9 @@ function Withdraw() {
           <form onSubmit={onSubmit} className="mt-6 space-y-4">
             <div>
               <label className="text-sm font-medium">Amount ($)</label>
-              <input type="number" step="0.01" min={limits?.min_amount ?? 0.01} max={Math.max(0, available - FEE)} required value={amount} onChange={(e) => setAmount(e.target.value)}
-                className="mt-1 w-full rounded-md border border-input bg-input px-3 py-2 text-sm" />
+              <input type="number" step="0.01" min={limits?.min_amount ?? 0.01} max={Math.max(0, available - FEE)} required value={amount} onChange={(e) => { setAmount(e.target.value); clearError("amount"); }}
+                className={`mt-1 w-full rounded-md border bg-input px-3 py-2 text-sm ${errors.amount ? "border-destructive" : "border-input"}`} />
+              {errors.amount && <p className="mt-1 text-xs text-destructive">{errors.amount}</p>}
               {kycNeeded && (
                 <p className="mt-1 text-xs text-accent">KYC approval required above ${limits!.kyc_threshold}. <Link to="/settings" className="underline">Submit KYC</Link></p>
               )}
