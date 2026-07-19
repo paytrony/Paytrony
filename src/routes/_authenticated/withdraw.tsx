@@ -232,15 +232,18 @@ function Withdraw() {
             {history.length === 0 ? (
               <div className="text-sm text-muted-foreground">No withdrawals yet.</div>
             ) : (
-              <div className="divide-y divide-border">
+              <div className="space-y-5">
                 {history.map((w) => (
-                  <div key={w.id} className="py-3">
+                  <div key={w.id} className="rounded-lg border border-border p-4">
                     <div className="flex items-center justify-between">
-                      <div className="font-mono font-semibold">${Number(w.amount).toFixed(2)}</div>
+                      <div>
+                        <div className="font-mono text-lg font-semibold">${Number(w.amount).toFixed(2)}</div>
+                        <div className="text-[11px] text-muted-foreground">{new Date(w.created_at).toLocaleString()}</div>
+                      </div>
                       <StatusBadge s={w.status} />
                     </div>
-                    <div className="text-xs text-muted-foreground">{new Date(w.created_at).toLocaleString()}</div>
-                    {w.admin_note && <div className="mt-1 text-xs text-muted-foreground">Admin: {w.admin_note}</div>}
+                    <WithdrawalTimeline w={w} />
+                    {w.admin_note && <div className="mt-2 text-xs text-muted-foreground">Note: {w.admin_note}</div>}
                   </div>
                 ))}
               </div>
