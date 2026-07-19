@@ -37,7 +37,7 @@ function AuthedLayout() {
 
   const linkClass = "flex items-center gap-2 px-4 py-2 text-sm text-muted-foreground hover:bg-muted hover:text-foreground";
 
-  const menuItem = (to: string, label: string, icon: JSX.Element, accent?: boolean) => (
+  const menuItem = (to: string, label: string, icon: React.ReactElement, accent?: boolean) => (
     <Link
       to={to}
       className={accent ? linkClass + " text-accent" : linkClass}
