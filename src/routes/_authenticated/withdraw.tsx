@@ -302,17 +302,23 @@ function Withdraw() {
 
             {kind === "wallet_address" && (
               <div className="space-y-2">
-                <select value={walletChain} onChange={(e) => setWalletChain(e.target.value)}
-                  className="w-full rounded-md border border-input bg-input px-3 py-2 text-sm">
-                  <option value="BSC">BNB Smart Chain (BEP-20)</option>
-                  <option value="POLYGON">Polygon</option>
-                  <option value="ARBITRUM">Arbitrum</option>
-                  <option value="OPTIMISM">Optimism</option>
-                  <option value="TRON">Tron (TRC-20)</option>
-                  <option value="SOLANA">Solana</option>
-                </select>
-                <input value={walletAddress} onChange={(e) => setWalletAddress(e.target.value)} placeholder="Destination wallet address"
-                  className="w-full rounded-md border border-input bg-input px-3 py-2 text-sm font-mono" />
+                <div>
+                  <select value={walletChain} onChange={(e) => { setWalletChain(e.target.value); clearError("chain"); }}
+                    className={`w-full rounded-md border bg-input px-3 py-2 text-sm ${errors.chain ? "border-destructive" : "border-input"}`}>
+                    <option value="BSC">BNB Smart Chain (BEP-20)</option>
+                    <option value="POLYGON">Polygon</option>
+                    <option value="ARBITRUM">Arbitrum</option>
+                    <option value="OPTIMISM">Optimism</option>
+                    <option value="TRON">Tron (TRC-20)</option>
+                    <option value="SOLANA">Solana</option>
+                  </select>
+                  {errors.chain && <p className="mt-1 text-xs text-destructive">{errors.chain}</p>}
+                </div>
+                <div>
+                  <input value={walletAddress} onChange={(e) => { setWalletAddress(e.target.value); clearError("address"); }} placeholder="Destination wallet address"
+                    className={`w-full rounded-md border bg-input px-3 py-2 text-sm font-mono ${errors.address ? "border-destructive" : "border-input"}`} />
+                  {errors.address && <p className="mt-1 text-xs text-destructive">{errors.address}</p>}
+                </div>
                 <p className="text-[10px] text-muted-foreground">Double-check the chain matches your address. Wrong-chain transfers can't be recovered.</p>
               </div>
             )}
