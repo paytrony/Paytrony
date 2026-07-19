@@ -20,6 +20,7 @@ import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedWithdrawalsRouteImport } from './routes/_authenticated/withdrawals'
 import { Route as AuthenticatedWithdrawRouteImport } from './routes/_authenticated/withdraw'
+import { Route as AuthenticatedWalletRouteImport } from './routes/_authenticated/wallet'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as AuthenticatedReferralsRouteImport } from './routes/_authenticated/referrals'
 import { Route as AuthenticatedPackagesRouteImport } from './routes/_authenticated/packages'
@@ -84,6 +85,11 @@ const AuthenticatedWithdrawalsRoute =
 const AuthenticatedWithdrawRoute = AuthenticatedWithdrawRouteImport.update({
   id: '/withdraw',
   path: '/withdraw',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedWalletRoute = AuthenticatedWalletRouteImport.update({
+  id: '/wallet',
+  path: '/wallet',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
@@ -157,6 +163,7 @@ export interface FileRoutesByFullPath {
   '/packages': typeof AuthenticatedPackagesRoute
   '/referrals': typeof AuthenticatedReferralsRoute
   '/settings': typeof AuthenticatedSettingsRoute
+  '/wallet': typeof AuthenticatedWalletRoute
   '/withdraw': typeof AuthenticatedWithdrawRoute
   '/withdrawals': typeof AuthenticatedWithdrawalsRoute
   '/api/public/payment-webhook': typeof ApiPublicPaymentWebhookRoute
@@ -179,6 +186,7 @@ export interface FileRoutesByTo {
   '/packages': typeof AuthenticatedPackagesRoute
   '/referrals': typeof AuthenticatedReferralsRoute
   '/settings': typeof AuthenticatedSettingsRoute
+  '/wallet': typeof AuthenticatedWalletRoute
   '/withdraw': typeof AuthenticatedWithdrawRoute
   '/withdrawals': typeof AuthenticatedWithdrawalsRoute
   '/api/public/payment-webhook': typeof ApiPublicPaymentWebhookRoute
@@ -203,6 +211,7 @@ export interface FileRoutesById {
   '/_authenticated/packages': typeof AuthenticatedPackagesRoute
   '/_authenticated/referrals': typeof AuthenticatedReferralsRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
+  '/_authenticated/wallet': typeof AuthenticatedWalletRoute
   '/_authenticated/withdraw': typeof AuthenticatedWithdrawRoute
   '/_authenticated/withdrawals': typeof AuthenticatedWithdrawalsRoute
   '/api/public/payment-webhook': typeof ApiPublicPaymentWebhookRoute
@@ -227,6 +236,7 @@ export interface FileRouteTypes {
     | '/packages'
     | '/referrals'
     | '/settings'
+    | '/wallet'
     | '/withdraw'
     | '/withdrawals'
     | '/api/public/payment-webhook'
@@ -249,6 +259,7 @@ export interface FileRouteTypes {
     | '/packages'
     | '/referrals'
     | '/settings'
+    | '/wallet'
     | '/withdraw'
     | '/withdrawals'
     | '/api/public/payment-webhook'
@@ -272,6 +283,7 @@ export interface FileRouteTypes {
     | '/_authenticated/packages'
     | '/_authenticated/referrals'
     | '/_authenticated/settings'
+    | '/_authenticated/wallet'
     | '/_authenticated/withdraw'
     | '/_authenticated/withdrawals'
     | '/api/public/payment-webhook'
@@ -369,6 +381,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedWithdrawRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/wallet': {
+      id: '/_authenticated/wallet'
+      path: '/wallet'
+      fullPath: '/wallet'
+      preLoaderRoute: typeof AuthenticatedWalletRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/settings': {
       id: '/_authenticated/settings'
       path: '/settings'
@@ -452,6 +471,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedPackagesRoute: typeof AuthenticatedPackagesRoute
   AuthenticatedReferralsRoute: typeof AuthenticatedReferralsRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
+  AuthenticatedWalletRoute: typeof AuthenticatedWalletRoute
   AuthenticatedWithdrawRoute: typeof AuthenticatedWithdrawRoute
   AuthenticatedWithdrawalsRoute: typeof AuthenticatedWithdrawalsRoute
 }
@@ -466,6 +486,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedPackagesRoute: AuthenticatedPackagesRoute,
   AuthenticatedReferralsRoute: AuthenticatedReferralsRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
+  AuthenticatedWalletRoute: AuthenticatedWalletRoute,
   AuthenticatedWithdrawRoute: AuthenticatedWithdrawRoute,
   AuthenticatedWithdrawalsRoute: AuthenticatedWithdrawalsRoute,
 }
