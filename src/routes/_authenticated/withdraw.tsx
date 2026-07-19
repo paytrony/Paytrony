@@ -529,48 +529,60 @@ function Withdraw() {
       <Dialog open={confirmOpen} onOpenChange={(open) => { if (!signing) setConfirmOpen(open); }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Confirm instant withdrawal</DialogTitle>
+            <DialogTitle>Review & confirm withdrawal</DialogTitle>
             <DialogDescription>
-              Review the exact amount that will be deducted from your wallet and sent to your payout method.
+              Please double-check every detail before submitting. Withdrawals are processed instantly.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="rounded-xl border border-border bg-muted/30 p-4">
-              <div className="mb-3 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Final payout summary</div>
+              <div className="mb-3 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Payout summary</div>
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Requested amount</span>
-                  <span className="font-medium">${Number(amount || 0).toFixed(2)}</span>
+                  <span className="text-muted-foreground">Amount you receive</span>
+                  <span className="font-semibold text-primary">${Number(amount || 0).toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Withdrawal fee</span>
-                  <span className="font-medium text-destructive">- ${FEE.toFixed(2)}</span>
+                  <span className="font-medium text-destructive">+ ${FEE.toFixed(2)}</span>
                 </div>
                 <Separator />
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Total debited from wallet</span>
+                  <span className="text-foreground">Total debited from wallet</span>
                   <span className="font-semibold">${totalDebit.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-foreground">Net payout to you</span>
-                  <span className="font-semibold text-primary">${Number(amount || 0).toFixed(2)}</span>
+                  <span className="text-muted-foreground">Available after</span>
+                  <span className="font-medium">${(available - totalDebit).toFixed(2)}</span>
                 </div>
               </div>
             </div>
 
-            <div className="rounded-lg border border-border p-3 text-sm">
-              <div className="mb-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Payout destination</div>
+            <div className="rounded-lg border border-border p-4 text-sm">
+              <div className="mb-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Payout destination</div>
               <div className="flex items-center gap-2">
                 <Badge variant="secondary" className="text-[10px] uppercase">{kind}</Badge>
-                <span className="truncate text-foreground">
-                  {kind === "wallet_address"
-                    ? `${walletChain} · ${walletAddress}`
-                    : (exUid || exEmail || exPhone)}
-                </span>
+                {kind === "wallet_address" ? (
+                  <span className="font-mono text-foreground">
+                    {walletChain} · {walletAddress}
+                  </span>
+                ) : (
+                  <span className="text-foreground">{kind === "binance" ? "Binance" : "Bybit"} account</span>
+                )}
               </div>
+              {(kind === "binance" || kind === "bybit") && (
+                <div className="mt-3 space-y-1.5 pl-1">
+                  {exUid && <div className="flex justify-between"><span className="text-muted-foreground">UID</span><span className="font-mono">{exUid}</span></div>}
+                  {exEmail && <div className="flex justify-between"><span className="text-muted-foreground">Email</span><span>{exEmail}</span></div>}
+                  {exPhone && <div className="flex justify-between"><span className="text-muted-foreground">Phone</span><span>{exPhone}</span></div>}
+                </div>
+              )}
+              {note && (
+                <div className="mt-3 border-t border-border pt-2 text-xs text-muted-foreground">
+                  Note: {note}
+                </div>
+              )}
             </div>
-
-            {note && <div className="text-xs text-muted-foreground">Note: {note}</div>}
 
             {signError && (
               <div className="rounded-md border border-destructive/30 bg-destructive/10 p-3" role="alert" aria-live="assertive">
@@ -586,12 +598,17 @@ function Withdraw() {
               </div>
             )}
           </div>
-          <div className="flex gap-3">
-            <Button variant="outline" className="flex-1" onClick={() => setConfirmOpen(false)} disabled={signing}>Cancel</Button>
-            <Button ref={confirmBtnRef} className="flex-1" onClick={confirmWithdraw} disabled={signing}>
-              {signing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-              {signing ? "Processing…" : "Confirm withdrawal"}
-            </Button>
+          <div className="flex flex-col gap-3">
+            <div className="flex gap-3">
+              <Button variant="outline" className="flex-1" onClick={() => setConfirmOpen(false)} disabled={signing}>Go back & edit</Button>
+              <Button ref={confirmBtnRef} className="flex-1" onClick={confirmWithdraw} disabled={signing}>
+                {signing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                {signing ? "Processing…" : "Submit withdrawal"}
+              </Button>
+            </div>
+            <p className="text-center text-[11px] text-muted-foreground">
+              By submitting, you confirm the destination details are correct. Incorrect crypto addresses or exchange IDs cannot be recovered.
+            </p>
           </div>
         </DialogContent>
       </Dialog>
