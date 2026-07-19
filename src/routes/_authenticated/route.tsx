@@ -37,6 +37,7 @@ function AuthedLayout() {
           <nav className="flex items-center gap-4 text-sm">
             <Link to="/dashboard" className="text-muted-foreground hover:text-foreground" activeProps={{ className: "text-foreground" }}>Dashboard</Link>
             <Link to="/packages" className="text-muted-foreground hover:text-foreground" activeProps={{ className: "text-foreground" }}>Packages</Link>
+            <Link to="/ledger" className="text-muted-foreground hover:text-foreground" activeProps={{ className: "text-foreground" }}>Ledger</Link>
             <Link to="/withdraw" className="text-muted-foreground hover:text-foreground" activeProps={{ className: "text-foreground" }}>Withdraw</Link>
             {isAdmin && <Link to="/admin" className="text-accent hover:text-accent" activeProps={{ className: "text-accent" }}>Admin</Link>}
             <button onClick={signOut} className="rounded-md border border-border px-3 py-1.5 text-xs">Sign out</button>
