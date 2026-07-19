@@ -212,7 +212,7 @@ function AuthedLayout() {
                   {isAdmin && <><div className="mt-1 border-t border-border" />{menuItem("/admin", "Admin", <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>, { accent: true })}</>}
                   <div className="mt-1 border-t border-border" />
                   <button
-                    onClick={(e) => { e.stopPropagation(); setMenuOpen(false); setConfirmSignOut(true); }}
+                    onClick={(e) => { e.stopPropagation(); setMenuOpen(false); setSignOutError(null); setConfirmSignOut(true); }}
                     className={`${baseLink} ${idle} w-full text-left`}
                   >
                     <span className="flex items-center gap-2">
