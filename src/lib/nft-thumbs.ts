@@ -146,7 +146,6 @@ export type NFTPrefetchMeta = {
   tier: number;
   mintNumber: number;
   mintLabel: string;
-  mintAddress: string;
 };
 
 const META_STORAGE_PREFIX = "paytrony:nft-meta-lru";
