@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { zodValidator, fallback } from "@tanstack/zod-adapter";
 import { z } from "zod";
-import { nftThumb, prefetchThumb, prefetchTiers } from "@/lib/nft-thumbs";
+import { nftThumb, prefetchThumb, prefetchTiers, prefetchNextLikelyNFT } from "@/lib/nft-thumbs";
 
 const searchSchema = z.object({
   nft: fallback(z.string(), "").default(""),
@@ -186,7 +186,7 @@ function NFTs() {
   const visible = filtered.slice(0, visibleCount);
   const hasMore = visible.length < filtered.length;
 
-  // Prefetch the next page of thumbnails so they're warm before the sentinel fires.
+  // Prefetch the next page of thumbnails (card size) so they're warm before the sentinel fires.
   useEffect(() => {
     const upcoming = filtered.slice(visibleCount, visibleCount + PAGE_SIZE);
     for (const n of upcoming) prefetchThumb(n.nft_tier, "card");
@@ -251,6 +251,21 @@ function NFTs() {
     const next = filtered[selectedIndex + delta];
     if (next) openNFT(next.id);
   }, [selectedIndex, filtered, openNFT]);
+
+  // Targeted modal prefetch: only the *next likely* selection gets the
+  // high-res thumbnail + precomputed metadata. Avoids blanket-warming modal
+  // art for every owned tier.
+  //   - Modal open: neighbors reachable via ← / → arrow keys.
+  //   - Modal closed: the first visible card (highest click likelihood).
+  useEffect(() => {
+    if (!filtered.length) return;
+    if (selectedIndex >= 0) {
+      prefetchNextLikelyNFT(filtered[selectedIndex + 1] ?? null);
+      prefetchNextLikelyNFT(filtered[selectedIndex - 1] ?? null);
+    } else {
+      prefetchNextLikelyNFT(filtered[0] ?? null);
+    }
+  }, [filtered, selectedIndex]);
 
   function exportCSV() {
     const rows = [["id", "mint", "name", "tier", "amount_usd", "minted_at", "favorite"]];

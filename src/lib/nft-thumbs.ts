@@ -71,10 +71,56 @@ export function prefetchThumb(tier: number, variant: Variant = "card"): void {
   decoded.set(key, img);
 }
 
-/** Prefetch a set of tiers in both variants (card + modal). Handy after fetch. */
+/** Prefetch a set of tiers in the card variant only (cheap, blanket warm). */
 export function prefetchTiers(tiers: Iterable<number>): void {
   for (const t of new Set(tiers)) {
     prefetchThumb(t, "card");
-    prefetchThumb(t, "modal");
   }
 }
+
+// ---- Targeted "next likely selection" prefetch ------------------------------
+// Precomputes and caches per-NFT metadata (mint address, padded mint #) and
+// warms ONLY the modal-resolution thumbnail for that specific NFT. Callers
+// should invoke this for at most ~2 candidates (arrow-left / arrow-right, or
+// the first visible card) to keep bandwidth and decode cost bounded.
+
+export type NFTLike = { id: string; nft_tier: number; mintNumber: number };
+export type NFTPrefetchMeta = {
+  id: string;
+  tier: number;
+  mintNumber: number;
+  mintLabel: string;
+  mintAddress: string;
+};
+
+const metaCache = new Map<string, NFTPrefetchMeta>();
+
+function computeMeta(nft: NFTLike): NFTPrefetchMeta {
+  const cached = metaCache.get(nft.id);
+  if (cached) return cached;
+  const meta: NFTPrefetchMeta = {
+    id: nft.id,
+    tier: nft.nft_tier,
+    mintNumber: nft.mintNumber,
+    mintLabel: `#${String(nft.mintNumber).padStart(4, "0")}`,
+    mintAddress: `mint_${nft.id.replace(/-/g, "").slice(0, 24)}`,
+  };
+  metaCache.set(nft.id, meta);
+  return meta;
+}
+
+export function getPrefetchedMeta(id: string): NFTPrefetchMeta | undefined {
+  return metaCache.get(id);
+}
+
+/**
+ * Preload metadata + the highest-resolution thumbnail for a single NFT that is
+ * the *next likely* modal selection. No-op when passed null/undefined so
+ * callers can pass `filtered[i+1]` without branching.
+ */
+export function prefetchNextLikelyNFT(nft: NFTLike | null | undefined): void {
+  if (!nft) return;
+  computeMeta(nft);
+  prefetchThumb(nft.nft_tier, "modal");
+}
+
