@@ -18,22 +18,32 @@ function Dashboard() {
   const [txns, setTxns] = useState<Txn[]>([]);
   const [refCount, setRefCount] = useState(0);
 
+  async function reload() {
+    const [{ data: p }, { data: t }, { data: w }, { count }] = await Promise.all([
+      supabase.from("profiles").select("referral_code,nft_tier,email").eq("id", user.id).maybeSingle(),
+      supabase.from("wallet_transactions").select("*").eq("user_id", user.id).order("created_at", { ascending: false }).limit(20),
+      supabase.from("withdrawals").select("amount").eq("user_id", user.id).eq("status", "pending"),
+      supabase.from("profiles").select("id", { count: "exact", head: true }).eq("referred_by", user.id),
+    ]);
+    if (p) setProfile(p as Profile);
+    const bal = (t ?? []).reduce((s, r: any) => s + (r.type === "referral_credit" ? Number(r.amount) : -Number(r.amount)), 0);
+    const pen = (w ?? []).reduce((s, r: any) => s + Number(r.amount), 0);
+    setBalance(bal);
+    setPending(pen);
+    setTxns((t ?? []) as Txn[]);
+    setRefCount(count ?? 0);
+  }
+
   useEffect(() => {
-    (async () => {
-      const [{ data: p }, { data: t }, { data: w }, { count }] = await Promise.all([
-        supabase.from("profiles").select("referral_code,nft_tier,email").eq("id", user.id).maybeSingle(),
-        supabase.from("wallet_transactions").select("*").eq("user_id", user.id).order("created_at", { ascending: false }).limit(20),
-        supabase.from("withdrawals").select("amount").eq("user_id", user.id).eq("status", "pending"),
-        supabase.from("profiles").select("id", { count: "exact", head: true }).eq("referred_by", user.id),
-      ]);
-      if (p) setProfile(p as Profile);
-      const bal = (t ?? []).reduce((s, r: any) => s + (r.type === "referral_credit" ? Number(r.amount) : -Number(r.amount)), 0);
-      const pen = (w ?? []).reduce((s, r: any) => s + Number(r.amount), 0);
-      setBalance(bal);
-      setPending(pen);
-      setTxns((t ?? []) as Txn[]);
-      setRefCount(count ?? 0);
-    })();
+    reload();
+    // Realtime: refresh balance + activity whenever wallet_transactions or withdrawals change for this user.
+    const channel = supabase
+      .channel(`wallet:${user.id}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "wallet_transactions", filter: `user_id=eq.${user.id}` }, () => reload())
+      .on("postgres_changes", { event: "*", schema: "public", table: "withdrawals", filter: `user_id=eq.${user.id}` }, () => reload())
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user.id]);
 
   const referralUrl = profile ? `${typeof window !== "undefined" ? window.location.origin : ""}/auth?mode=signup&ref=${profile.referral_code}` : "";
