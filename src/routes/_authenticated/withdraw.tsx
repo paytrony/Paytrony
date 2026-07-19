@@ -111,29 +111,71 @@ function Withdraw() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user.id]);
 
-  function buildDetails(): { details: Record<string, string>; label: string } | null {
-    if (kind === "binance" || kind === "bybit") {
-      if (!exUid && !exEmail && !exPhone) {
-        toast.error("Enter UID, email or phone");
-        return null;
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+  function validateForm(): boolean {
+    const next: typeof errors = {};
+    const amt = Number(amount);
+    const min = limits?.min_amount ?? 0.01;
+
+    if (!amount || Number.isNaN(amt)) {
+      next.amount = "Enter an amount";
+    } else if (amt <= 0) {
+      next.amount = "Amount must be greater than $0";
+    } else if (amt < min) {
+      next.amount = `Minimum withdrawal is $${min.toFixed(2)}`;
+    } else if (amt + FEE > available) {
+      next.amount = `Insufficient balance (need $${(amt + FEE).toFixed(2)} including $${FEE} fee)`;
+    }
+
+    if (COMING_SOON.includes(kind)) {
+      next.method = "This payout method is coming soon";
+    } else if (kind === "binance" || kind === "bybit") {
+      if (!exUid.trim() && !exEmail.trim() && !exPhone.trim()) {
+        next.uid = "Enter at least one identifier (UID, email or phone)";
       }
-      const label = exUid || exEmail || exPhone;
-      return { details: { uid: exUid, email: exEmail, phone: exPhone }, label };
+      if (exEmail.trim() && !emailRegex.test(exEmail.trim())) {
+        next.email = "Enter a valid email address";
+      }
+      if (exPhone.trim() && !/^\+?[\d\s\-()]{7,20}$/.test(exPhone.trim())) {
+        next.phone = "Enter a valid phone number";
+      }
+    } else if (kind === "wallet_address") {
+      if (!walletChain) next.chain = "Select a chain";
+      if (!walletAddress.trim()) {
+        next.address = "Enter a destination wallet address";
+      } else if (walletAddress.trim().length < 10) {
+        next.address = "Address looks too short";
+      }
+    }
+
+    setErrors(next);
+    return Object.keys(next).length === 0;
+  }
+
+  function clearError(key: keyof typeof errors) {
+    setErrors((prev) => {
+      if (!prev[key]) return prev;
+      const { [key]: _, ...rest } = prev;
+      return rest;
+    });
+  }
+
+  function buildDetails(): { details: Record<string, string>; label: string } | null {
+    if (!validateForm()) return null;
+    if (kind === "binance" || kind === "bybit") {
+      const label = exUid.trim() || exEmail.trim() || exPhone.trim();
+      return { details: { uid: exUid.trim(), email: exEmail.trim(), phone: exPhone.trim() }, label };
     }
     if (kind === "wallet_address") {
-      if (!walletAddress) { toast.error("Enter a wallet address"); return null; }
-      return { details: { chain: walletChain, address: walletAddress }, label: `${walletChain} ${walletAddress.slice(0, 6)}…${walletAddress.slice(-4)}` };
+      return { details: { chain: walletChain, address: walletAddress.trim() }, label: `${walletChain} ${walletAddress.trim().slice(0, 6)}…${walletAddress.trim().slice(-4)}` };
     }
     return null;
   }
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const amt = Number(amount);
-    if (!amt || amt <= 0) return toast.error("Enter a positive amount");
-    if (COMING_SOON.includes(kind)) return toast.error("This method is coming soon");
-    if (!buildDetails()) return;
-    if (amt + FEE > available) return toast.error(`Insufficient balance (need $${(amt + FEE).toFixed(2)} incl. $${FEE} fee)`);
+    if (!validateForm()) return;
     setConfirmOpen(true);
   }
 
@@ -157,6 +199,7 @@ function Withdraw() {
       toast.success(`Instant payout sent — $${amt.toFixed(2)} (fee $${FEE})`);
       setReceipt({ id: res.id, amount: amt, fee: FEE, net: amt, method: methodLabel, createdAt: new Date().toISOString() });
       setAmount(""); setNote(""); setExUid(""); setExEmail(""); setExPhone(""); setWalletAddress("");
+      setErrors({});
       setConfirmOpen(false);
       if (typeof window !== "undefined") {
         try { window.localStorage.removeItem(amountKey); } catch {}
@@ -169,7 +212,7 @@ function Withdraw() {
 
   const gated = !emailVerified;
   const kycNeeded = limits && Number(amount) > limits.kyc_threshold && kycStatus !== "approved";
-  const methodReady = (kind === "binance" || kind === "bybit") ? !!(exUid || exEmail || exPhone) : kind === "wallet_address" ? !!walletAddress : false;
+  const methodReady = (kind === "binance" || kind === "bybit") ? !!(exUid.trim() || exEmail.trim() || exPhone.trim()) : kind === "wallet_address" ? !!walletAddress.trim() : false;
 
   return (
     <div className="space-y-8">
