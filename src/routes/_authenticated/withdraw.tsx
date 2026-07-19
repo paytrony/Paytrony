@@ -333,7 +333,7 @@ function Withdraw() {
                 <Select
                   value={kind}
                   onValueChange={(v) => {
-                    if (COMING_SOON.includes(v)) return;
+                    if (COMING_SOON.includes(v as KindKey)) return;
                     setKind(v as typeof kind);
                     clearError("method");
                     clearError("uid");
