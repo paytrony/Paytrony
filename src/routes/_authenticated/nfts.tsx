@@ -72,7 +72,7 @@ function NFTs() {
   const search = q;
 
   const setSearchParam = useCallback((patch: Record<string, string | number>) => {
-    navigate({ search: (prev) => ({ ...prev, ...patch }) });
+    navigate({ search: (prev: Record<string, unknown>) => ({ ...prev, ...patch }) });
   }, [navigate]);
 
   const [items, setItems] = useState<Purchase[] | null>(null);
