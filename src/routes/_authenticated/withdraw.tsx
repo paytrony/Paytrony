@@ -605,9 +605,9 @@ function Withdraw() {
               </div>
               {(kind === "binance" || kind === "bybit") && (
                 <div className="mt-3 space-y-1.5 pl-1">
-                  {exUid && <div className="flex justify-between"><span className="text-muted-foreground">UID</span><span className="font-mono">{exUid}</span></div>}
-                  {exEmail && <div className="flex justify-between"><span className="text-muted-foreground">Email</span><span>{exEmail}</span></div>}
-                  {exPhone && <div className="flex justify-between"><span className="text-muted-foreground">Phone</span><span>{exPhone}</span></div>}
+                  {idType === "uid" && exUid && <div className="flex justify-between"><span className="text-muted-foreground">UID</span><span className="font-mono">{exUid}</span></div>}
+                  {idType === "email" && exEmail && <div className="flex justify-between"><span className="text-muted-foreground">Email</span><span>{exEmail}</span></div>}
+                  {idType === "phone" && exPhone && <div className="flex justify-between"><span className="text-muted-foreground">Phone</span><span>{exPhone}</span></div>}
                 </div>
               )}
               {note && (
