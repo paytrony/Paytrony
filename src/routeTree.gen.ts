@@ -15,6 +15,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedWithdrawRouteImport } from './routes/_authenticated/withdraw'
 import { Route as AuthenticatedReferralsRouteImport } from './routes/_authenticated/referrals'
 import { Route as AuthenticatedPackagesRouteImport } from './routes/_authenticated/packages'
+import { Route as AuthenticatedNotificationsRouteImport } from './routes/_authenticated/notifications'
 import { Route as AuthenticatedNftsRouteImport } from './routes/_authenticated/nfts'
 import { Route as AuthenticatedLedgerRouteImport } from './routes/_authenticated/ledger'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
@@ -50,6 +51,12 @@ const AuthenticatedPackagesRoute = AuthenticatedPackagesRouteImport.update({
   path: '/packages',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedNotificationsRoute =
+  AuthenticatedNotificationsRouteImport.update({
+    id: '/notifications',
+    path: '/notifications',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedNftsRoute = AuthenticatedNftsRouteImport.update({
   id: '/nfts',
   path: '/nfts',
@@ -83,6 +90,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/ledger': typeof AuthenticatedLedgerRoute
   '/nfts': typeof AuthenticatedNftsRoute
+  '/notifications': typeof AuthenticatedNotificationsRoute
   '/packages': typeof AuthenticatedPackagesRoute
   '/referrals': typeof AuthenticatedReferralsRoute
   '/withdraw': typeof AuthenticatedWithdrawRoute
@@ -95,6 +103,7 @@ export interface FileRoutesByTo {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/ledger': typeof AuthenticatedLedgerRoute
   '/nfts': typeof AuthenticatedNftsRoute
+  '/notifications': typeof AuthenticatedNotificationsRoute
   '/packages': typeof AuthenticatedPackagesRoute
   '/referrals': typeof AuthenticatedReferralsRoute
   '/withdraw': typeof AuthenticatedWithdrawRoute
@@ -109,6 +118,7 @@ export interface FileRoutesById {
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/ledger': typeof AuthenticatedLedgerRoute
   '/_authenticated/nfts': typeof AuthenticatedNftsRoute
+  '/_authenticated/notifications': typeof AuthenticatedNotificationsRoute
   '/_authenticated/packages': typeof AuthenticatedPackagesRoute
   '/_authenticated/referrals': typeof AuthenticatedReferralsRoute
   '/_authenticated/withdraw': typeof AuthenticatedWithdrawRoute
@@ -123,6 +133,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/ledger'
     | '/nfts'
+    | '/notifications'
     | '/packages'
     | '/referrals'
     | '/withdraw'
@@ -135,6 +146,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/ledger'
     | '/nfts'
+    | '/notifications'
     | '/packages'
     | '/referrals'
     | '/withdraw'
@@ -148,6 +160,7 @@ export interface FileRouteTypes {
     | '/_authenticated/dashboard'
     | '/_authenticated/ledger'
     | '/_authenticated/nfts'
+    | '/_authenticated/notifications'
     | '/_authenticated/packages'
     | '/_authenticated/referrals'
     | '/_authenticated/withdraw'
@@ -205,6 +218,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedPackagesRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/notifications': {
+      id: '/_authenticated/notifications'
+      path: '/notifications'
+      fullPath: '/notifications'
+      preLoaderRoute: typeof AuthenticatedNotificationsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/nfts': {
       id: '/_authenticated/nfts'
       path: '/nfts'
@@ -248,6 +268,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedLedgerRoute: typeof AuthenticatedLedgerRoute
   AuthenticatedNftsRoute: typeof AuthenticatedNftsRoute
+  AuthenticatedNotificationsRoute: typeof AuthenticatedNotificationsRoute
   AuthenticatedPackagesRoute: typeof AuthenticatedPackagesRoute
   AuthenticatedReferralsRoute: typeof AuthenticatedReferralsRoute
   AuthenticatedWithdrawRoute: typeof AuthenticatedWithdrawRoute
@@ -258,6 +279,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedLedgerRoute: AuthenticatedLedgerRoute,
   AuthenticatedNftsRoute: AuthenticatedNftsRoute,
+  AuthenticatedNotificationsRoute: AuthenticatedNotificationsRoute,
   AuthenticatedPackagesRoute: AuthenticatedPackagesRoute,
   AuthenticatedReferralsRoute: AuthenticatedReferralsRoute,
   AuthenticatedWithdrawRoute: AuthenticatedWithdrawRoute,
