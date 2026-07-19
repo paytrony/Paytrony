@@ -186,6 +186,12 @@ function NFTs() {
   const visible = filtered.slice(0, visibleCount);
   const hasMore = visible.length < filtered.length;
 
+  // Prefetch the next page of thumbnails so they're warm before the sentinel fires.
+  useEffect(() => {
+    const upcoming = filtered.slice(visibleCount, visibleCount + PAGE_SIZE);
+    for (const n of upcoming) prefetchThumb(n.nft_tier, "card");
+  }, [filtered, visibleCount]);
+
   // Infinite scroll sentinel with error catch (defensive; slice can't really throw).
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
