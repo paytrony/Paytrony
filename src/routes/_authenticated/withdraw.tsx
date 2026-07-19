@@ -111,8 +111,8 @@ function Withdraw() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-3xl font-bold">Withdraw</h1>
-        <p className="text-muted-foreground">Request a payout. Withdrawals are manually approved by an admin.</p>
+        <h1 className="text-3xl font-bold">Instant Withdraw</h1>
+        <p className="text-muted-foreground">Payouts settle instantly to your chosen method. A flat <span className="text-foreground font-semibold">${FEE} fee</span> applies to every withdrawal.</p>
       </div>
 
       {gated && (
