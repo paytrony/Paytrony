@@ -168,16 +168,22 @@ function NFTs() {
         .on(
           "postgres_changes",
           { event: "*", schema: "public", table: "purchases", filter: `user_id=eq.${uid}` },
-          () => setReloadTick((t) => t + 1),
+          () => {
+            // Ownership state changed — nuke thumb + metadata caches so the
+            // grid + modal never render stale art or mint info.
+            bumpCacheVersion();
+            setReloadTick((t) => t + 1);
+          },
         )
         .on(
           "postgres_changes",
           { event: "*", schema: "public", table: "nft_favorites", filter: `user_id=eq.${uid}` },
           async (payload) => {
-            // Merge the change into local favorites without a full refetch.
             const row = (payload.new ?? payload.old) as { purchase_id?: string } | null;
             const id = row?.purchase_id;
             if (!id) return;
+            // Favorite state is part of per-NFT metadata; drop its LRU entry.
+            invalidateMeta(id);
             setFavs((prev) => {
               const next = new Set(prev);
               if (payload.eventType === "DELETE") next.delete(id);
@@ -195,6 +201,11 @@ function NFTs() {
       if (channel) supabase.removeChannel(channel);
     };
   }, []);
+
+  // Force-refresh derived UI (data URL strings) when the global cache version
+  // changes so <img src> attributes point at the freshly-generated SVGs.
+  const [cacheVer, setCacheVer] = useState<number>(() => getCacheVersion());
+  useEffect(() => onCacheVersionChange(setCacheVer), []);
 
   const nfts: NFT[] = useMemo(() => {
     if (!items) return [];
