@@ -9,6 +9,8 @@ export const Route = createFileRoute("/_authenticated/withdraw")({
   component: Withdraw,
 });
 
+const FEE = 1;
+
 type W = { id: string; amount: number; status: string; payout_note: string | null; admin_note: string | null; created_at: string };
 type PM = { id: string; kind: string; label: string; is_default: boolean };
 type Limits = { min_amount: number; daily_cap: number; kyc_threshold: number; cooldown_minutes: number };
@@ -90,11 +92,12 @@ function Withdraw() {
     const amt = Number(amount);
     if (!amt || amt <= 0) return toast.error("Enter a positive amount");
     if (!methodId) return toast.error("Select a payout method");
+    if (amt + FEE > available) return toast.error(`Insufficient balance (need $${(amt + FEE).toFixed(2)} incl. $${FEE} fee)`);
     setLoading(true);
     try {
       const idempotencyKey = (crypto as any).randomUUID?.() ?? `wd-${Date.now()}-${Math.random()}`;
       await req({ data: { amount: amt, note, idempotencyKey, payoutMethodId: methodId } });
-      toast.success("Withdrawal requested — awaiting admin approval");
+      toast.success(`Instant payout sent — $${amt.toFixed(2)} (fee $${FEE})`);
       setAmount(""); setNote("");
       await load();
     } catch (e) {
@@ -108,8 +111,8 @@ function Withdraw() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-3xl font-bold">Withdraw</h1>
-        <p className="text-muted-foreground">Request a payout. Withdrawals are manually approved by an admin.</p>
+        <h1 className="text-3xl font-bold">Instant Withdraw</h1>
+        <p className="text-muted-foreground">Payouts settle instantly to your chosen method. A flat <span className="text-foreground font-semibold">${FEE} fee</span> applies to every withdrawal.</p>
       </div>
 
       {gated && (
@@ -135,8 +138,12 @@ function Withdraw() {
           <form onSubmit={onSubmit} className="mt-6 space-y-4">
             <div>
               <label className="text-sm font-medium">Amount ($)</label>
-              <input type="number" step="0.01" min={limits?.min_amount ?? 0.01} max={available} required value={amount} onChange={(e) => setAmount(e.target.value)}
+              <input type="number" step="0.01" min={limits?.min_amount ?? 0.01} max={Math.max(0, available - FEE)} required value={amount} onChange={(e) => setAmount(e.target.value)}
                 className="mt-1 w-full rounded-md border border-input bg-input px-3 py-2 text-sm" />
+              <div className="mt-1 flex justify-between text-xs text-muted-foreground">
+                <span>Fee: <span className="text-foreground">${FEE.toFixed(2)}</span></span>
+                <span>You'll receive: <span className="text-primary font-mono">${Number(amount || 0).toFixed(2)}</span> · Debited: <span className="font-mono">${(Number(amount || 0) + (Number(amount) > 0 ? FEE : 0)).toFixed(2)}</span></span>
+              </div>
               {kycNeeded && (
                 <p className="mt-1 text-xs text-accent">KYC approval required above ${limits!.kyc_threshold}. <Link to="/settings" className="underline">Submit KYC</Link></p>
               )}
@@ -163,9 +170,9 @@ function Withdraw() {
               <textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)}
                 className="mt-1 w-full rounded-md border border-input bg-input px-3 py-2 text-sm" />
             </div>
-            <button type="submit" disabled={loading || available <= 0 || gated || methods.length === 0}
+            <button type="submit" disabled={loading || available <= FEE || gated || methods.length === 0}
               className="w-full rounded-md bg-primary py-2.5 font-medium text-primary-foreground disabled:opacity-50">
-              {loading ? "..." : "Request withdrawal"}
+              {loading ? "Processing…" : "Withdraw instantly"}
             </button>
           </form>
         </div>
