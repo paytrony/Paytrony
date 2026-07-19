@@ -32,27 +32,69 @@ export type Database = {
         }
         Relationships: []
       }
+      payout_methods: {
+        Row: {
+          created_at: string
+          details: Json
+          id: string
+          is_default: boolean
+          kind: Database["public"]["Enums"]["payout_method_kind"]
+          label: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          details?: Json
+          id?: string
+          is_default?: boolean
+          kind: Database["public"]["Enums"]["payout_method_kind"]
+          label: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          details?: Json
+          id?: string
+          is_default?: boolean
+          kind?: Database["public"]["Enums"]["payout_method_kind"]
+          label?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
+          deletion_requested_at: string | null
+          display_name: string | null
           email: string
           id: string
+          kyc_status: string
+          kyc_submitted_at: string | null
           nft_tier: number | null
           referral_code: string
           referred_by: string | null
         }
         Insert: {
           created_at?: string
+          deletion_requested_at?: string | null
+          display_name?: string | null
           email: string
           id: string
+          kyc_status?: string
+          kyc_submitted_at?: string | null
           nft_tier?: number | null
           referral_code: string
           referred_by?: string | null
         }
         Update: {
           created_at?: string
+          deletion_requested_at?: string | null
+          display_name?: string | null
           email?: string
           id?: string
+          kyc_status?: string
+          kyc_submitted_at?: string | null
           nft_tier?: number | null
           referral_code?: string
           referred_by?: string | null
@@ -153,6 +195,33 @@ export type Database = {
           },
         ]
       }
+      withdrawal_limits: {
+        Row: {
+          cooldown_minutes: number
+          daily_cap: number
+          id: boolean
+          kyc_threshold: number
+          min_amount: number
+          updated_at: string
+        }
+        Insert: {
+          cooldown_minutes?: number
+          daily_cap?: number
+          id?: boolean
+          kyc_threshold?: number
+          min_amount?: number
+          updated_at?: string
+        }
+        Update: {
+          cooldown_minutes?: number
+          daily_cap?: number
+          id?: boolean
+          kyc_threshold?: number
+          min_amount?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       withdrawals: {
         Row: {
           admin_note: string | null
@@ -216,14 +285,33 @@ export type Database = {
             }
             Returns: Json
           }
-      request_withdrawal: {
-        Args: {
-          _amount: number
-          _idempotency_key?: string
-          _note: string
-          _user_id: string
-        }
-        Returns: string
+      request_account_deletion: {
+        Args: { _user_id: string }
+        Returns: undefined
+      }
+      request_withdrawal:
+        | {
+            Args: {
+              _amount: number
+              _idempotency_key?: string
+              _note: string
+              _user_id: string
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              _amount: number
+              _idempotency_key?: string
+              _note: string
+              _payout_method_id?: string
+              _user_id: string
+            }
+            Returns: string
+          }
+      resolve_kyc: {
+        Args: { _admin_id: string; _approve: boolean; _user_id: string }
+        Returns: undefined
       }
       resolve_withdrawal: {
         Args: {
@@ -234,12 +322,14 @@ export type Database = {
         }
         Returns: undefined
       }
+      submit_kyc: { Args: { _user_id: string }; Returns: undefined }
       test_purchase_idempotency: { Args: never; Returns: string }
       test_webhook_idempotency: { Args: never; Returns: string }
       test_withdrawal_idempotency: { Args: never; Returns: string }
     }
     Enums: {
       app_role: "admin" | "user"
+      payout_method_kind: "bank" | "upi" | "crypto" | "paypal"
       txn_type: "referral_credit" | "withdrawal"
       withdrawal_status: "pending" | "approved" | "rejected"
     }
@@ -370,6 +460,7 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "user"],
+      payout_method_kind: ["bank", "upi", "crypto", "paypal"],
       txn_type: ["referral_credit", "withdrawal"],
       withdrawal_status: ["pending", "approved", "rejected"],
     },

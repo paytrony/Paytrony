@@ -10,6 +10,7 @@ const withdrawSchema = z.object({
   amount: z.number().positive().max(1000000),
   note: z.string().max(500).optional().default(""),
   idempotencyKey: z.string().min(8).max(100),
+  payoutMethodId: z.string().uuid(),
 });
 const resolveSchema = z.object({
   withdrawalId: z.string().uuid(),
@@ -41,6 +42,7 @@ export const requestWithdrawal = createServerFn({ method: "POST" })
       _amount: data.amount,
       _note: data.note,
       _idempotency_key: data.idempotencyKey,
+      _payout_method_id: data.payoutMethodId,
     });
     if (error) throw new Error(error.message);
     return { id: id as string };
@@ -51,7 +53,6 @@ export const resolveWithdrawal = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => resolveSchema.parse(d))
   .handler(async ({ data, context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    // Verify admin using service role (bypasses RLS to check role)
     const { data: roles, error: rerr } = await supabaseAdmin
       .from("user_roles").select("role").eq("user_id", context.userId).eq("role", "admin");
     if (rerr) throw new Error(rerr.message);
@@ -63,6 +64,17 @@ export const resolveWithdrawal = createServerFn({ method: "POST" })
       _approve: data.approve,
       _admin_note: data.adminNote,
     });
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const deleteMyAccount = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    // Mark deletion timestamp (audit) then hard delete the auth user (cascades profile/roles).
+    await supabaseAdmin.rpc("request_account_deletion", { _user_id: context.userId });
+    const { error } = await supabaseAdmin.auth.admin.deleteUser(context.userId);
     if (error) throw new Error(error.message);
     return { ok: true };
   });
