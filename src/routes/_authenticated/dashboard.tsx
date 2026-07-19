@@ -18,22 +18,32 @@ function Dashboard() {
   const [txns, setTxns] = useState<Txn[]>([]);
   const [refCount, setRefCount] = useState(0);
 
+  async function reload() {
+    const [{ data: p }, { data: t }, { data: w }, { count }] = await Promise.all([
+      supabase.from("profiles").select("referral_code,nft_tier,email").eq("id", user.id).maybeSingle(),
+      supabase.from("wallet_transactions").select("*").eq("user_id", user.id).order("created_at", { ascending: false }).limit(20),
+      supabase.from("withdrawals").select("amount").eq("user_id", user.id).eq("status", "pending"),
+      supabase.from("profiles").select("id", { count: "exact", head: true }).eq("referred_by", user.id),
+    ]);
+    if (p) setProfile(p as Profile);
+    const bal = (t ?? []).reduce((s, r: any) => s + (r.type === "referral_credit" ? Number(r.amount) : -Number(r.amount)), 0);
+    const pen = (w ?? []).reduce((s, r: any) => s + Number(r.amount), 0);
+    setBalance(bal);
+    setPending(pen);
+    setTxns((t ?? []) as Txn[]);
+    setRefCount(count ?? 0);
+  }
+
   useEffect(() => {
-    (async () => {
-      const [{ data: p }, { data: t }, { data: w }, { count }] = await Promise.all([
-        supabase.from("profiles").select("referral_code,nft_tier,email").eq("id", user.id).maybeSingle(),
-        supabase.from("wallet_transactions").select("*").eq("user_id", user.id).order("created_at", { ascending: false }).limit(20),
-        supabase.from("withdrawals").select("amount").eq("user_id", user.id).eq("status", "pending"),
-        supabase.from("profiles").select("id", { count: "exact", head: true }).eq("referred_by", user.id),
-      ]);
-      if (p) setProfile(p as Profile);
-      const bal = (t ?? []).reduce((s, r: any) => s + (r.type === "referral_credit" ? Number(r.amount) : -Number(r.amount)), 0);
-      const pen = (w ?? []).reduce((s, r: any) => s + Number(r.amount), 0);
-      setBalance(bal);
-      setPending(pen);
-      setTxns((t ?? []) as Txn[]);
-      setRefCount(count ?? 0);
-    })();
+    reload();
+    // Realtime: refresh balance + activity whenever wallet_transactions or withdrawals change for this user.
+    const channel = supabase
+      .channel(`wallet:${user.id}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "wallet_transactions", filter: `user_id=eq.${user.id}` }, () => reload())
+      .on("postgres_changes", { event: "*", schema: "public", table: "withdrawals", filter: `user_id=eq.${user.id}` }, () => reload())
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user.id]);
 
   const referralUrl = profile ? `${typeof window !== "undefined" ? window.location.origin : ""}/auth?mode=signup&ref=${profile.referral_code}` : "";
@@ -48,7 +58,13 @@ function Dashboard() {
 
       <div className="grid gap-6 md:grid-cols-3">
         <div className="glow rounded-2xl border border-primary/40 bg-card p-6">
-          <div className="font-mono text-xs uppercase text-muted-foreground">Wallet balance</div>
+          <div className="flex items-center justify-between">
+            <div className="font-mono text-xs uppercase text-muted-foreground">Wallet balance</div>
+            <span className="flex items-center gap-1.5 text-[10px] font-mono uppercase text-primary">
+              <span className="relative flex h-2 w-2"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-75" /><span className="relative inline-flex h-2 w-2 rounded-full bg-primary" /></span>
+              Live
+            </span>
+          </div>
           <div className="mt-2 text-4xl font-bold text-primary">${available.toFixed(2)}</div>
           <div className="mt-1 text-xs text-muted-foreground">
             ${balance.toFixed(2)} earned · ${pending.toFixed(2)} pending
@@ -79,6 +95,7 @@ function Dashboard() {
           <div className="font-mono text-xs uppercase text-muted-foreground">Referrals</div>
           <div className="mt-2 text-4xl font-bold">{refCount}</div>
           <div className="mt-1 text-xs text-muted-foreground">users signed up with your code</div>
+          <Link to="/referrals" className="mt-4 inline-block text-sm text-primary hover:underline">View analytics →</Link>
         </div>
       </div>
 
