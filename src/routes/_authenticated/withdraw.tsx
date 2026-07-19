@@ -329,44 +329,43 @@ function Withdraw() {
               </div>
 
               <div className="space-y-3">
-                <Label>Payout method</Label>
-                <div className="grid grid-cols-3 gap-3">
-                  {METHODS.map(({ k, label, icon: Icon }) => {
-                    const soon = COMING_SOON.includes(k);
-                    const active = kind === k;
-                    return (
-                      <button
-                        key={k}
-                        type="button"
-                        disabled={soon}
-                        onClick={() => {
-                          setKind(k);
-                          clearError("method");
-                          clearError("uid");
-                          clearError("email");
-                          clearError("phone");
-                          clearError("chain");
-                          clearError("address");
-                        }}
-                        className={`group relative flex flex-col items-center justify-center gap-1.5 rounded-xl border px-2 py-3 text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-                          active
-                            ? "border-primary bg-primary/10 text-primary shadow-[0_0_0_1px_hsl(var(--primary))]"
-                            : "border-border bg-card text-foreground hover:border-primary/40 hover:bg-muted/50"
-                        } ${soon ? "cursor-not-allowed opacity-60" : ""}`}
-                      >
-                        <Icon className={`h-4 w-4 ${active ? "text-primary" : "text-muted-foreground group-hover:text-foreground"}`} />
-                        <span className="flex items-center gap-1">
-                          {label}
-                          {soon && (
-                            <Badge variant="secondary" className="h-4 px-1 text-[9px] font-medium uppercase">soon</Badge>
-                          )}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
+                <Label htmlFor="payout-method">Payout method</Label>
+                <Select
+                  value={kind}
+                  onValueChange={(v) => {
+                    if (COMING_SOON.includes(v)) return;
+                    setKind(v as typeof kind);
+                    clearError("method");
+                    clearError("uid");
+                    clearError("email");
+                    clearError("phone");
+                    clearError("chain");
+                    clearError("address");
+                  }}
+                >
+                  <SelectTrigger id="payout-method" className="h-11">
+                    <SelectValue placeholder="Select a payout method" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {METHODS.map(({ k, label, icon: Icon }) => {
+                      const soon = COMING_SOON.includes(k);
+                      return (
+                        <SelectItem key={k} value={k} disabled={soon}>
+                          <span className="flex items-center gap-2">
+                            <Icon className="h-4 w-4 text-muted-foreground" />
+                            <span>{label}</span>
+                            {soon && (
+                              <Badge variant="secondary" className="h-4 px-1 text-[9px] font-medium uppercase">soon</Badge>
+                            )}
+                          </span>
+                        </SelectItem>
+                      );
+                    })}
+                  </SelectContent>
+                </Select>
                 {errors.method && <p className="text-xs text-destructive">{errors.method}</p>}
               </div>
+
 
               {(kind === "binance" || kind === "bybit") && (
                 <div className="space-y-3 rounded-xl border border-border bg-muted/20 p-4">
