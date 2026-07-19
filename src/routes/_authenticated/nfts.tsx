@@ -703,17 +703,32 @@ function NFTModal({
         </button>
         <div className="grid md:grid-cols-2">
           <div
-            className={`relative flex min-h-64 items-center justify-center bg-gradient-to-br ${meta.grad} p-8 md:min-h-full`}
+            className="relative min-h-64 md:min-h-full"
             role="img"
             aria-label={`${meta.name} tier artwork, mint number ${nft.mintNumber}, ${meta.tag} rarity`}
           >
-            <div className="absolute inset-0 bg-gradient-to-tr from-white/25 via-transparent to-transparent mix-blend-overlay" aria-hidden="true" />
-            <div className="text-[9rem] leading-none text-white drop-shadow-2xl" aria-hidden="true">{meta.glyph}</div>
-            <div className="absolute left-4 bottom-4 font-mono text-xs uppercase tracking-wider text-white/90">
+            <img
+              src={nftThumb(nft.nft_tier, "modal")}
+              alt=""
+              aria-hidden="true"
+              decoding="async"
+              className="h-full w-full object-cover"
+            />
+            <div className="absolute left-4 bottom-4 rounded-full bg-black/50 px-3 py-1 font-mono text-xs uppercase tracking-wider text-white backdrop-blur">
               #{String(nft.mintNumber).padStart(4, "0")}
             </div>
-            <div className="absolute right-4 top-4 rounded-full bg-black/40 px-3 py-1 font-mono text-[10px] uppercase tracking-wider text-white backdrop-blur">
-              {meta.tag}
+            <div className="absolute right-4 top-4 flex flex-wrap items-center gap-1.5">
+              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/90 px-2.5 py-1 font-mono text-[10px] uppercase tracking-wider text-white backdrop-blur">
+                <span aria-hidden="true">✓</span> Owned
+              </span>
+              {isFav && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-amber-400/95 px-2.5 py-1 font-mono text-[10px] uppercase tracking-wider text-black backdrop-blur">
+                  <span aria-hidden="true">★</span> Favorite
+                </span>
+              )}
+              <span className="rounded-full bg-black/50 px-2.5 py-1 font-mono text-[10px] uppercase tracking-wider text-white backdrop-blur">
+                {meta.tag}
+              </span>
             </div>
           </div>
           <div className="space-y-5 p-6">
