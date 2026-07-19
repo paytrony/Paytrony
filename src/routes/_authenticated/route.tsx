@@ -30,6 +30,7 @@ function AuthedLayout() {
   const [confirmWithdraw, setConfirmWithdraw] = useState(false);
   const [confirmSignOut, setConfirmSignOut] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
+  const [signOutError, setSignOutError] = useState<string | null>(null);
 
   useEffect(() => {
     supabase.from("user_roles").select("role").eq("user_id", user.id).eq("role", "admin")
