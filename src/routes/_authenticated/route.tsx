@@ -77,11 +77,29 @@ function AuthedLayout() {
       .on("postgres_changes", { event: "*", schema: "public", table: "wallet_transactions", filter: `user_id=eq.${user.id}` }, () => loadBadges())
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "withdrawals", filter: `user_id=eq.${user.id}` }, (payload) => {
         const row: any = payload.new;
-        if (row.status === "approved") toast.success(`Withdrawal of $${Number(row.amount).toFixed(2)} approved — payout sent`);
-        if (row.status === "rejected") toast.error(`Withdrawal of $${Number(row.amount).toFixed(2)} rejected`);
+        const amt = Number(row.amount).toFixed(2);
+        const action = { label: "View status", onClick: () => navigate({ to: "/withdrawals" }) };
+        if (row.status === "approved" || row.status === "completed") {
+          toast.success(`Withdrawal completed`, { description: `$${amt} sent to your payout method.`, action });
+        } else if (row.status === "rejected" || row.status === "failed") {
+          toast.error(`Withdrawal failed`, { description: `$${amt} — ${row.admin_note ?? "reverted to your wallet"}`, action });
+        }
         loadBadges();
       })
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "withdrawals", filter: `user_id=eq.${user.id}` }, () => loadBadges())
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "withdrawals", filter: `user_id=eq.${user.id}` }, (payload) => {
+        const row: any = payload.new;
+        const amt = Number(row.amount).toFixed(2);
+        const action = { label: "View status", onClick: () => navigate({ to: "/withdrawals" }) };
+        const status = String(row.status ?? "pending");
+        if (status === "approved" || status === "completed") {
+          toast.success(`Withdrawal completed`, { description: `$${amt} sent to your payout method.`, action });
+        } else if (status === "rejected" || status === "failed") {
+          toast.error(`Withdrawal failed`, { description: `$${amt} — please try again.`, action });
+        } else {
+          toast(`Withdrawal processing`, { description: `$${amt} — we're sending it to your payout method.`, action });
+        }
+        loadBadges();
+      })
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "purchases", filter: `user_id=eq.${user.id}` }, (payload) => {
         const row: any = payload.new;
         toast.success(`Purchase confirmed — Tier $${row.nft_tier} NFT minted`);
