@@ -90,12 +90,26 @@ function AuthPage() {
             </button>
           </form>
 
+          {!isSignup && (
+            <div className="mt-3 text-center text-xs">
+              <Link to="/forgot-password" className="text-muted-foreground hover:text-foreground">Forgot password?</Link>
+            </div>
+          )}
+
           <div className="mt-6 text-center text-sm text-muted-foreground">
             {isSignup ? "Have an account?" : "New here?"}{" "}
             <button onClick={() => setIsSignup(!isSignup)} className="text-primary hover:underline">
               {isSignup ? "Sign in" : "Create one"}
             </button>
           </div>
+          {isSignup && (
+            <p className="mt-4 text-center text-[11px] text-muted-foreground">
+              By creating an account you agree to our{" "}
+              <Link to="/terms" className="underline hover:text-foreground">Terms</Link>,{" "}
+              <Link to="/privacy" className="underline hover:text-foreground">Privacy Policy</Link>, and{" "}
+              <Link to="/disclaimer" className="underline hover:text-foreground">Earnings Disclaimer</Link>.
+            </p>
+          )}
         </div>
       </div>
     </div>

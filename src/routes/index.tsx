@@ -89,8 +89,23 @@ function Landing() {
         </p>
       </section>
 
+      <section className="mx-auto max-w-4xl px-6 pb-12">
+        <div className="rounded-lg border border-accent/30 bg-accent/5 p-4 text-xs text-muted-foreground">
+          <strong className="text-foreground">Earnings disclaimer:</strong> PayTrony is not an investment. All wallet
+          credits come from other people buying tiers with your referral code. Most users refer few or no people and
+          earn nothing. Read the full{" "}
+          <Link to="/disclaimer" className="text-primary underline">disclaimer</Link>.
+        </div>
+      </section>
+
       <footer className="border-t border-border py-8 text-center text-xs text-muted-foreground">
-        © PayTrony — demo project
+        <div className="flex flex-wrap justify-center gap-4">
+          <Link to="/terms">Terms</Link>
+          <Link to="/privacy">Privacy</Link>
+          <Link to="/refund">Refund</Link>
+          <Link to="/disclaimer">Disclaimer</Link>
+        </div>
+        <div className="mt-2">© PayTrony</div>
       </footer>
     </div>
   );
