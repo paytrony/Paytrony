@@ -48,9 +48,7 @@ const TIER_META: Record<number, { name: string; tag: string; cls: string; glyph:
 function shortId(id: string) {
   return `${id.slice(0, 4)}…${id.slice(-4)}`.toUpperCase();
 }
-function mintAddress(id: string) {
-  return `mint_${id.replace(/-/g, "").slice(0, 24)}`;
-}
+
 
 type TierFilter = "all" | 10 | 50 | 100;
 type SortKey = "newest" | "oldest" | "rarity_desc" | "rarity_asc" | "mint_desc" | "mint_asc";
@@ -231,7 +229,6 @@ function NFTs() {
       out = out.filter((i) =>
         i.id.toLowerCase().includes(query) ||
         i.name.toLowerCase().includes(query) ||
-        mintAddress(i.id).toLowerCase().includes(query) ||
         `#${String(i.mintNumber).padStart(4, "0")}`.includes(query) ||
         String(i.mintNumber).includes(query)
       );
@@ -452,7 +449,7 @@ function NFTs() {
             id="nft-search"
             value={search}
             onChange={(e) => setSearchParam({ q: e.target.value })}
-            placeholder="Search by ID, name, or mint address…"
+            placeholder="Search by ID, name, or #number…"
             className="w-full rounded-md border border-border bg-background px-3 py-1.5 pr-16 text-xs"
           />
           {search && (
@@ -656,9 +653,9 @@ function NFTModal({
 }) {
   const meta = TIER_META[nft.nft_tier] ?? TIER_META[10];
   // Hydrate metadata from the persistent LRU first so this renders instantly
-  // on repeat opens; fall back to on-the-fly derivation.
+  // on repeat opens.
   const cachedMeta = getPrefetchedMeta(nft.id);
-  const addr = cachedMeta?.mintAddress ?? mintAddress(nft.id);
+  void cachedMeta;
   const dialogRef = useRef<HTMLDivElement | null>(null);
   const previousActive = useRef<Element | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
@@ -921,9 +918,8 @@ function NFTModal({
             </div>
 
             <div className="space-y-2">
-              <MetaRow label="Token ID" value={nft.id} mono />
-              <MetaRow label="Mint address" value={addr} mono />
-              <MetaRow label="Minted" value={new Date(nft.created_at).toLocaleString()} />
+              <MetaRow label="Item ID" value={nft.id} mono />
+              <MetaRow label="Purchased" value={new Date(nft.created_at).toLocaleString()} />
             </div>
 
             <div className="flex flex-wrap gap-2 pt-2">
@@ -931,13 +927,7 @@ function NFTModal({
                 onClick={() => copy(nft.id, "id")}
                 className="flex-1 rounded-md border border-border px-3 py-2 text-xs font-medium hover:bg-muted focus:outline-none focus:ring-2 focus:ring-primary"
               >
-                {copied === "id" ? "Copied!" : "Copy token ID"}
-              </button>
-              <button
-                onClick={() => copy(addr, "addr")}
-                className="flex-1 rounded-md border border-border px-3 py-2 text-xs font-medium hover:bg-muted focus:outline-none focus:ring-2 focus:ring-primary"
-              >
-                {copied === "addr" ? "Copied!" : "Copy mint addr"}
+                {copied === "id" ? "Copied!" : "Copy item ID"}
               </button>
               <button
                 onClick={() => copy(typeof window !== "undefined" ? window.location.href : "", "link")}

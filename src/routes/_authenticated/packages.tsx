@@ -54,7 +54,7 @@ function Packages() {
     <div className="space-y-8">
       <div>
         <h1 className="text-3xl font-bold">Buy a package</h1>
-        <p className="text-muted-foreground">Simulated payment — no real money moves. Referrer earns 100% instantly. Mint up to 10 at once.</p>
+        <p className="text-muted-foreground">Your referrer earns 100% instantly. Purchase up to 10 at once.</p>
       </div>
 
       {progress && (
@@ -114,10 +114,6 @@ function Packages() {
             </button>
           </div>
         ))}
-      </div>
-
-      <div className="rounded-lg border border-border bg-card/50 p-4 text-center text-xs text-muted-foreground">
-        Demo: clicking "Mint" simulates successful payments instantly. No card is charged. Each NFT gets a unique idempotency key.
       </div>
     </div>
   );

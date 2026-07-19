@@ -333,9 +333,6 @@ export type Database = {
         Returns: undefined
       }
       submit_kyc: { Args: { _user_id: string }; Returns: undefined }
-      test_purchase_idempotency: { Args: never; Returns: string }
-      test_webhook_idempotency: { Args: never; Returns: string }
-      test_withdrawal_idempotency: { Args: never; Returns: string }
     }
     Enums: {
       app_role: "admin" | "user"
