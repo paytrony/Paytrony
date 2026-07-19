@@ -244,7 +244,7 @@ function Withdraw() {
 
   const gated = !emailVerified;
   const kycNeeded = limits && Number(amount) > limits.kyc_threshold && kycStatus !== "approved";
-  const methodReady = (kind === "binance" || kind === "bybit") ? !!(exUid.trim() || exEmail.trim() || exPhone.trim()) : kind === "wallet_address" ? !!walletAddress.trim() : false;
+  const methodReady = (kind === "binance" || kind === "bybit") ? !!(idType === "uid" ? exUid.trim() : idType === "email" ? exEmail.trim() : exPhone.trim()) : kind === "wallet_address" ? !!walletAddress.trim() : false;
   const amt = Number(amount) || 0;
   const net = amt; // user receives the full requested amount; fee is debited separately
   const totalDebit = amt + FEE;
