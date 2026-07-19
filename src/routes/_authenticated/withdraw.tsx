@@ -263,8 +263,12 @@ function Withdraw() {
       setErrors({});
       setConfirmOpen(false);
       if (typeof window !== "undefined") {
-        try { window.localStorage.removeItem(amountKey); } catch {}
+        try {
+          window.localStorage.removeItem(amountKey);
+          window.localStorage.removeItem(formKey);
+        } catch {}
       }
+
       await load();
     } catch (e) {
       setSignError(e instanceof Error ? e.message : "Failed");
