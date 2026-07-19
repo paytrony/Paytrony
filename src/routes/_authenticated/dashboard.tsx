@@ -58,7 +58,13 @@ function Dashboard() {
 
       <div className="grid gap-6 md:grid-cols-3">
         <div className="glow rounded-2xl border border-primary/40 bg-card p-6">
-          <div className="font-mono text-xs uppercase text-muted-foreground">Wallet balance</div>
+          <div className="flex items-center justify-between">
+            <div className="font-mono text-xs uppercase text-muted-foreground">Wallet balance</div>
+            <span className="flex items-center gap-1.5 text-[10px] font-mono uppercase text-primary">
+              <span className="relative flex h-2 w-2"><span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-75" /><span className="relative inline-flex h-2 w-2 rounded-full bg-primary" /></span>
+              Live
+            </span>
+          </div>
           <div className="mt-2 text-4xl font-bold text-primary">${available.toFixed(2)}</div>
           <div className="mt-1 text-xs text-muted-foreground">
             ${balance.toFixed(2)} earned · ${pending.toFixed(2)} pending
