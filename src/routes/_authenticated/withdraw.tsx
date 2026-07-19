@@ -34,6 +34,7 @@ function Withdraw() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [signing, setSigning] = useState(false);
   const [signError, setSignError] = useState<string | null>(null);
+  const [receipt, setReceipt] = useState<{ id: string; amount: number; fee: number; net: number; method: string; createdAt: string } | null>(null);
   const confirmBtnRef = useRef<HTMLButtonElement>(null);
   const [newKind, setNewKind] = useState<"bank" | "upi" | "crypto" | "paypal">("upi");
   const [newLabel, setNewLabel] = useState("");
@@ -60,6 +61,12 @@ function Withdraw() {
     if (def && !methodId) setMethodId(def.id);
   }
   useEffect(() => { load(); }, [user.id]);
+
+  useEffect(() => {
+    if (confirmOpen && confirmBtnRef.current && !signing) {
+      setTimeout(() => confirmBtnRef.current?.focus(), 50);
+    }
+  }, [confirmOpen, signing]);
 
   useEffect(() => {
     const ch = supabase
@@ -117,10 +124,12 @@ function Withdraw() {
     setSigning(true);
     setSignError(null);
     const amt = Number(amount);
+    const methodLabel = selectedMethod ? `[${selectedMethod.kind.toUpperCase()}] ${selectedMethod.label}` : "Unknown";
     try {
       const idempotencyKey = (crypto as any).randomUUID?.() ?? `wd-${Date.now()}-${Math.random()}`;
-      await req({ data: { amount: amt, note, idempotencyKey, payoutMethodId: methodId } });
+      const res = await req({ data: { amount: amt, note, idempotencyKey, payoutMethodId: methodId } });
       toast.success(`Instant payout sent — $${amt.toFixed(2)} (fee $${FEE})`);
+      setReceipt({ id: res.id, amount: amt, fee: FEE, net: amt, method: methodLabel, createdAt: new Date().toISOString() });
       setAmount(""); setNote("");
       setConfirmOpen(false);
       await load();
@@ -193,14 +202,33 @@ function Withdraw() {
               <textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)}
                 className="mt-1 w-full rounded-md border border-input bg-input px-3 py-2 text-sm" />
             </div>
-            <button type="submit" disabled={loading || available <= FEE || gated || methods.length === 0}
+            <button type="submit" disabled={loading || signing || available <= FEE || gated || methods.length === 0}
+              aria-live="polite"
               className="w-full rounded-md bg-primary py-2.5 font-medium text-primary-foreground disabled:opacity-50">
-              {loading ? "Processing…" : "Review & withdraw"}
+              {signing ? "Processing…" : "Review & withdraw"}
             </button>
           </form>
         </div>
 
         <div className="space-y-4">
+          {receipt && (
+            <div className="rounded-2xl border border-primary/40 bg-primary/10 p-5" role="status" aria-live="polite">
+              <div className="mb-3 flex items-center justify-between">
+                <h2 className="text-lg font-semibold text-primary">Withdrawal confirmed</h2>
+                <span className="rounded-full bg-primary/20 px-2 py-0.5 text-[10px] font-mono uppercase text-primary">{receipt.id.slice(0, 8)}</span>
+              </div>
+              <div className="space-y-2 text-sm font-mono">
+                <div className="flex justify-between"><span className="text-muted-foreground">Requested</span><span>${receipt.amount.toFixed(2)}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Fee</span><span className="text-destructive">- ${receipt.fee.toFixed(2)}</span></div>
+                <div className="my-1 border-t border-border" />
+                <div className="flex justify-between"><span className="text-muted-foreground">Net payout</span><span className="font-semibold text-primary">${receipt.net.toFixed(2)}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Destination</span><span className="text-foreground">{receipt.method}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Time</span><span className="text-foreground">{new Date(receipt.createdAt).toLocaleString()}</span></div>
+              </div>
+              <button onClick={() => setReceipt(null)} className="mt-4 w-full rounded-md border border-border bg-card py-2 text-sm font-medium hover:bg-muted">Dismiss receipt</button>
+            </div>
+          )}
+
           <div className="rounded-2xl border border-border bg-card p-6">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-lg font-semibold">Payout methods</h2>
@@ -328,8 +356,16 @@ function Withdraw() {
             )}
 
             {signError && (
-              <div className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive">
-                {signError}
+              <div className="rounded-md border border-destructive/30 bg-destructive/10 p-3" role="alert" aria-live="assertive">
+                <div className="text-xs text-destructive">{signError}</div>
+                <button
+                  type="button"
+                  onClick={confirmWithdraw}
+                  disabled={signing}
+                  className="mt-2 text-xs font-medium underline text-destructive hover:text-destructive/80 disabled:opacity-50"
+                >
+                  Retry withdrawal
+                </button>
               </div>
             )}
           </div>
