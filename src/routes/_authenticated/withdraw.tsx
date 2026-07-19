@@ -197,8 +197,8 @@ function Withdraw() {
   function buildDetails(): { details: Record<string, string>; label: string } | null {
     if (!validateForm()) return null;
     if (kind === "binance" || kind === "bybit") {
-      const label = exUid.trim() || exEmail.trim() || exPhone.trim();
-      return { details: { uid: exUid.trim(), email: exEmail.trim(), phone: exPhone.trim() }, label };
+      const val = idType === "uid" ? exUid.trim() : idType === "email" ? exEmail.trim() : exPhone.trim();
+      return { details: { type: idType, value: val }, label: val };
     }
     if (kind === "wallet_address") {
       return { details: { chain: walletChain, address: walletAddress.trim() }, label: `${walletChain} ${walletAddress.trim().slice(0, 6)}…${walletAddress.trim().slice(-4)}` };
