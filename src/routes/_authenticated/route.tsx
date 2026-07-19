@@ -1,6 +1,6 @@
 import { createFileRoute, Outlet, redirect, Link, useNavigate } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
