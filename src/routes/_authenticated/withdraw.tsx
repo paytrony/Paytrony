@@ -356,8 +356,16 @@ function Withdraw() {
             )}
 
             {signError && (
-              <div className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive">
-                {signError}
+              <div className="rounded-md border border-destructive/30 bg-destructive/10 p-3" role="alert" aria-live="assertive">
+                <div className="text-xs text-destructive">{signError}</div>
+                <button
+                  type="button"
+                  onClick={confirmWithdraw}
+                  disabled={signing}
+                  className="mt-2 text-xs font-medium underline text-destructive hover:text-destructive/80 disabled:opacity-50"
+                >
+                  Retry withdrawal
+                </button>
               </div>
             )}
           </div>
