@@ -149,6 +149,12 @@ function NFTs() {
     }));
   }, [items]);
 
+  // Warm the thumbnail cache for every tier the user owns (card + modal variants).
+  useEffect(() => {
+    if (!nfts.length) return;
+    prefetchTiers(nfts.map((n) => n.nft_tier));
+  }, [nfts]);
+
   const filtered = useMemo(() => {
     let out = nfts;
     if (tier !== "all") out = out.filter((i) => i.nft_tier === tier);
