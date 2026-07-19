@@ -47,8 +47,17 @@ function Withdraw() {
   const [exUid, setExUid] = useState("");
   const [exEmail, setExEmail] = useState("");
   const [exPhone, setExPhone] = useState("");
-  const [walletChain, setWalletChain] = useState("ETH");
+  const [walletChain, setWalletChain] = useState("BSC");
   const [walletAddress, setWalletAddress] = useState("");
+  const [errors, setErrors] = useState<{
+    amount?: string;
+    method?: string;
+    uid?: string;
+    email?: string;
+    phone?: string;
+    chain?: string;
+    address?: string;
+  }>({});
 
   const amountKey = `paytrony:withdraw-amount:${user.id}`;
 
