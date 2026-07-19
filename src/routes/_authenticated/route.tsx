@@ -33,11 +33,19 @@ function AuthedLayout() {
   }, [user.id]);
 
   async function loadBadges() {
-    const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const { data: reads } = await supabase.from("notification_reads")
+      .select("category,last_read_at").eq("user_id", user.id);
+    const readMap: Record<string, string> = {};
+    (reads ?? []).forEach((r: any) => { readMap[r.category] = r.last_read_at; });
+    const EPOCH = "1970-01-01T00:00:00Z";
+    const sinceNfts = readMap.nfts ?? EPOCH;
+    const sinceEarn = readMap.earnings ?? EPOCH;
+    const sinceWd = readMap.withdrawals ?? EPOCH;
+
     const [{ count: pw }, { count: re }, { count: rn }] = await Promise.all([
-      supabase.from("withdrawals").select("id", { count: "exact", head: true }).eq("user_id", user.id).eq("status", "pending"),
-      supabase.from("wallet_transactions").select("id", { count: "exact", head: true }).eq("user_id", user.id).eq("type", "referral_credit").gte("created_at", since),
-      supabase.from("purchases").select("id", { count: "exact", head: true }).eq("user_id", user.id).gte("created_at", since),
+      supabase.from("withdrawals").select("id", { count: "exact", head: true }).eq("user_id", user.id).gte("created_at", sinceWd),
+      supabase.from("wallet_transactions").select("id", { count: "exact", head: true }).eq("user_id", user.id).eq("type", "referral_credit").gte("created_at", sinceEarn),
+      supabase.from("purchases").select("id", { count: "exact", head: true }).eq("user_id", user.id).gte("created_at", sinceNfts),
     ]);
     setPendingWithdrawals(pw ?? 0);
     setRecentEarnings(re ?? 0);
@@ -51,10 +59,12 @@ function AuthedLayout() {
       .on("postgres_changes", { event: "*", schema: "public", table: "wallet_transactions", filter: `user_id=eq.${user.id}` }, () => loadBadges())
       .on("postgres_changes", { event: "*", schema: "public", table: "withdrawals", filter: `user_id=eq.${user.id}` }, () => loadBadges())
       .on("postgres_changes", { event: "*", schema: "public", table: "purchases", filter: `user_id=eq.${user.id}` }, () => loadBadges())
+      .on("postgres_changes", { event: "*", schema: "public", table: "notification_reads", filter: `user_id=eq.${user.id}` }, () => loadBadges())
       .subscribe();
     return () => { supabase.removeChannel(channel); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user.id]);
+
 
   useEffect(() => {
     if (!menuOpen) return;
