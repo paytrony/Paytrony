@@ -118,10 +118,12 @@ function Withdraw() {
     setSigning(true);
     setSignError(null);
     const amt = Number(amount);
+    const methodLabel = selectedMethod ? `[${selectedMethod.kind.toUpperCase()}] ${selectedMethod.label}` : "Unknown";
     try {
       const idempotencyKey = (crypto as any).randomUUID?.() ?? `wd-${Date.now()}-${Math.random()}`;
-      await req({ data: { amount: amt, note, idempotencyKey, payoutMethodId: methodId } });
+      const res = await req({ data: { amount: amt, note, idempotencyKey, payoutMethodId: methodId } });
       toast.success(`Instant payout sent — $${amt.toFixed(2)} (fee $${FEE})`);
+      setReceipt({ id: res.id, amount: amt, fee: FEE, net: amt, method: methodLabel, createdAt: new Date().toISOString() });
       setAmount(""); setNote("");
       setConfirmOpen(false);
       await load();
