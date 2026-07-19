@@ -205,6 +205,24 @@ function Withdraw() {
         </div>
 
         <div className="space-y-4">
+          {receipt && (
+            <div className="rounded-2xl border border-primary/40 bg-primary/10 p-5" role="status" aria-live="polite">
+              <div className="mb-3 flex items-center justify-between">
+                <h2 className="text-lg font-semibold text-primary">Withdrawal confirmed</h2>
+                <span className="rounded-full bg-primary/20 px-2 py-0.5 text-[10px] font-mono uppercase text-primary">{receipt.id.slice(0, 8)}</span>
+              </div>
+              <div className="space-y-2 text-sm font-mono">
+                <div className="flex justify-between"><span className="text-muted-foreground">Requested</span><span>${receipt.amount.toFixed(2)}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Fee</span><span className="text-destructive">- ${receipt.fee.toFixed(2)}</span></div>
+                <div className="my-1 border-t border-border" />
+                <div className="flex justify-between"><span className="text-muted-foreground">Net payout</span><span className="font-semibold text-primary">${receipt.net.toFixed(2)}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Destination</span><span className="text-foreground">{receipt.method}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Time</span><span className="text-foreground">{new Date(receipt.createdAt).toLocaleString()}</span></div>
+              </div>
+              <button onClick={() => setReceipt(null)} className="mt-4 w-full rounded-md border border-border bg-card py-2 text-sm font-medium hover:bg-muted">Dismiss receipt</button>
+            </div>
+          )}
+
           <div className="rounded-2xl border border-border bg-card p-6">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-lg font-semibold">Payout methods</h2>
