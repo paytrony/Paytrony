@@ -14,16 +14,192 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      profiles: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          nft_tier: number | null
+          referral_code: string
+          referred_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id: string
+          nft_tier?: number | null
+          referral_code: string
+          referred_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          nft_tier?: number | null
+          referral_code?: string
+          referred_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profiles_referred_by_fkey"
+            columns: ["referred_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      purchases: {
+        Row: {
+          amount: number
+          created_at: string
+          id: string
+          nft_tier: number
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          id?: string
+          nft_tier: number
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          id?: string
+          nft_tier?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
+      wallet_transactions: {
+        Row: {
+          amount: number
+          created_at: string
+          id: string
+          note: string | null
+          related_purchase_id: string | null
+          related_withdrawal_id: string | null
+          type: Database["public"]["Enums"]["txn_type"]
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          id?: string
+          note?: string | null
+          related_purchase_id?: string | null
+          related_withdrawal_id?: string | null
+          type: Database["public"]["Enums"]["txn_type"]
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          id?: string
+          note?: string | null
+          related_purchase_id?: string | null
+          related_withdrawal_id?: string | null
+          type?: Database["public"]["Enums"]["txn_type"]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wallet_transactions_related_purchase_id_fkey"
+            columns: ["related_purchase_id"]
+            isOneToOne: false
+            referencedRelation: "purchases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      withdrawals: {
+        Row: {
+          admin_note: string | null
+          amount: number
+          created_at: string
+          id: string
+          payout_note: string | null
+          resolved_at: string | null
+          status: Database["public"]["Enums"]["withdrawal_status"]
+          user_id: string
+        }
+        Insert: {
+          admin_note?: string | null
+          amount: number
+          created_at?: string
+          id?: string
+          payout_note?: string | null
+          resolved_at?: string | null
+          status?: Database["public"]["Enums"]["withdrawal_status"]
+          user_id: string
+        }
+        Update: {
+          admin_note?: string | null
+          amount?: number
+          created_at?: string
+          id?: string
+          payout_note?: string | null
+          resolved_at?: string | null
+          status?: Database["public"]["Enums"]["withdrawal_status"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      gen_referral_code: { Args: never; Returns: string }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
+      purchase_package: {
+        Args: { _amount: number; _user_id: string }
+        Returns: Json
+      }
+      request_withdrawal: {
+        Args: { _amount: number; _note: string; _user_id: string }
+        Returns: string
+      }
+      resolve_withdrawal: {
+        Args: {
+          _admin_id: string
+          _admin_note: string
+          _approve: boolean
+          _withdrawal_id: string
+        }
+        Returns: undefined
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "user"
+      txn_type: "referral_credit" | "withdrawal"
+      withdrawal_status: "pending" | "approved" | "rejected"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +326,10 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "user"],
+      txn_type: ["referral_credit", "withdrawal"],
+      withdrawal_status: ["pending", "approved", "rejected"],
+    },
   },
 } as const
