@@ -276,6 +276,83 @@ function Withdraw() {
           </div>
         </div>
       </div>
+
+      <Dialog open={confirmOpen} onOpenChange={(open) => {
+        if (!signing) setConfirmOpen(open);
+      }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Confirm instant withdrawal</DialogTitle>
+            <DialogDescription>
+              Review the exact amount that will be deducted from your wallet and sent to your payout method.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="rounded-xl border border-border bg-muted/30 p-4 text-sm">
+              <div className="mb-3 text-[10px] font-mono uppercase text-muted-foreground">Final payout summary</div>
+              <div className="space-y-2 font-mono">
+                <div className="flex justify-between text-xs">
+                  <span className="text-muted-foreground">Requested amount</span>
+                  <span className="text-foreground">${Number(amount || 0).toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span className="text-muted-foreground">Withdrawal fee</span>
+                  <span className="text-destructive">- ${FEE.toFixed(2)}</span>
+                </div>
+                <div className="my-1 border-t border-border" />
+                <div className="flex justify-between text-xs">
+                  <span className="text-muted-foreground">Total debited from wallet</span>
+                  <span className="font-semibold text-foreground">${((Number(amount || 0)) + FEE).toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-foreground">Net payout to you</span>
+                  <span className="font-semibold text-primary">${Number(amount || 0).toFixed(2)}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-border p-3 text-sm">
+              <div className="text-[10px] font-mono uppercase text-muted-foreground mb-1">Payout destination</div>
+              <div className="flex items-center gap-2">
+                <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-mono uppercase">
+                  {selectedMethod?.kind.toUpperCase() ?? "-"}
+                </span>
+                <span className="text-foreground">{selectedMethod?.label ?? "No method selected"}</span>
+              </div>
+            </div>
+
+            {note && (
+              <div className="text-xs text-muted-foreground">
+                Note: {note}
+              </div>
+            )}
+
+            {signError && (
+              <div className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive">
+                {signError}
+              </div>
+            )}
+          </div>
+          <div className="flex gap-3">
+            <Button
+              variant="outline"
+              className="flex-1"
+              onClick={() => setConfirmOpen(false)}
+              disabled={signing}
+            >
+              Cancel
+            </Button>
+            <Button
+              ref={confirmBtnRef}
+              className="flex-1"
+              onClick={confirmWithdraw}
+              disabled={signing}
+            >
+              {signing ? "Processing…" : "Confirm withdrawal"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
