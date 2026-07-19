@@ -62,11 +62,6 @@ function Dashboard() {
 
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold">Welcome back</h1>
-        <p className="text-muted-foreground">{profile?.email}</p>
-      </div>
-
       <div className="grid gap-6 md:grid-cols-3">
         <div className="glow rounded-2xl border border-primary/40 bg-card p-6">
           <div className="flex items-center justify-between">
