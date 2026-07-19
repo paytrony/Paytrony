@@ -1,55 +1,81 @@
 
-# Referral Package Demo Platform
+# What's missing in PayTrony
 
-A demo site (no real money) where users sign up, "buy" $10/$50/$100 packages that grant an NFT-type badge, refer others via a unique link, and earn 100% referral credit into a wallet with admin-approved withdrawals.
+Based on the current state of the app (auth, packages, purchases with idempotency, referrals, wallet, withdrawals, ledger, NFTs, referral analytics, notifications, admin), here's what is still missing or weak. Pick any subset and I'll build it.
 
-## Pages / Routes
+## 1. Real payments
+Right now `purchase_package` credits wallets without any real money moving. Missing:
+- Stripe (or Paddle) checkout for the $10 / $50 / $100 tiers
+- Webhook wired to the existing `payment-webhook` route so purchases only mint after `payment_intent.succeeded`
+- Currency + fee handling
 
-- `/` — Landing: hero, how referrals work, package tiers, CTA to sign up. Public.
-- `/auth` — Email + password sign up / sign in. Accepts `?ref=CODE` and stores it for post-signup attribution.
-- `/dashboard` — Signed-in home: user's NFT badge (if any), referral link, wallet balance, recent referral earnings, "Buy package" and "Withdraw" buttons.
-- `/packages` — Buy $10 / $50 / $100. "Pay" button simulates payment (no real gateway) and instantly assigns the NFT tier + pays referrer's wallet.
-- `/withdraw` — Request a withdrawal (amount + payout note). Shows pending/approved/rejected history.
-- `/admin` — Admin-only: list withdrawal requests, approve/reject; list users and purchases. Gated by `admin` role.
+## 2. Real withdrawals / payouts
+Withdrawals are admin-approved rows with no money leaving. Missing:
+- Payout method on the user (bank / UPI / crypto address) with validation
+- KYC gating above a threshold
+- Minimum withdrawal amount, daily cap, cooldown
+- Actual payout execution (Stripe Connect / manual CSV export for admin)
 
-## Data model (Lovable Cloud)
+## 3. Security & abuse prevention
+- Rate limiting on `purchase_package`, `request_withdrawal`, auth
+- Fraud checks: same-IP / same-device referral self-dealing, disposable email block
+- Email verification required before withdrawal
+- 2FA (TOTP) for withdrawals and admin
+- Audit log table for admin actions (approve/reject withdrawals, role changes)
 
-- `profiles` (id → auth.users, email, referral_code unique, referred_by nullable → profiles.id, nft_tier nullable, created_at)
-- `user_roles` (id, user_id, role enum: `admin` | `user`) + `has_role()` security-definer fn
-- `packages` — static reference (10, 50, 100) handled in code, not a table
-- `purchases` (id, user_id, amount, nft_tier, created_at)
-- `wallet_transactions` (id, user_id, amount signed, type: `referral_credit` | `withdrawal`, related_purchase_id nullable, created_at) — balance = SUM
-- `withdrawals` (id, user_id, amount, status: `pending` | `approved` | `rejected`, note, admin_note, created_at, resolved_at)
+## 4. Account & profile
+- Password reset flow
+- Change email / change password
+- Delete account (with data retention rules)
+- Display name / avatar
+- Session management (list & revoke sessions)
 
-RLS: users read/write own rows; admins read all + update `withdrawals`. All tables get GRANTs. Referral credit + wallet debits happen in a security-definer SQL function called from a server fn so amounts can't be forged client-side.
+## 5. Referral depth
+- Only 1-level referral today. Missing: decision on multi-level (or explicit "single level only" copy)
+- Referral link landing page with attribution cookie (currently only `?ref=` on `/auth`)
+- Share buttons (WhatsApp / X / Telegram / copy)
+- Referrer sees pending vs confirmed earnings
 
-## Core flows
+## 6. Admin console
+- User search, filter, ban/unban
+- Manual wallet adjustment with reason (audited)
+- Refund a purchase (reverses referral credit)
+- Metrics: GMV, payouts, active users, top referrers, cohort retention
 
-1. **Signup with referral**: `/auth?ref=CODE` stores code; on signup, trigger creates profile row, sets `referred_by` from code, generates own `referral_code`.
-2. **Buy package**: server fn `purchasePackage({tier})` → inserts `purchases`, sets `nft_tier` (highest wins), and if `referred_by` set, inserts a `wallet_transactions` row of +amount for the referrer. All in one SQL function (atomic).
-3. **Wallet**: computed as sum of transactions minus approved withdrawals (or included as negative rows).
-4. **Withdraw**: user submits request (must be ≤ available balance); admin approves/rejects; on approve, insert negative `wallet_transactions` row.
-5. **Admin**: seeded via a migration that grants `admin` role to a specified email (asked at build time).
+## 7. NFT layer (currently cosmetic)
+- Decide: keep as badges, or actually mint on-chain (wallet connect, chain, contract)
+- Metadata + image per tier
+- Transferability rules
 
-## Design
+## 8. Legal & trust
+- Terms of Service, Privacy Policy, Refund Policy pages
+- Cookie consent
+- "Not investment advice" / earnings disclaimer (important given the 100% referral model)
+- Contact / support page
 
-Dark, crypto/NFT-inspired aesthetic (deep navy background, neon accent, mono headings) — distinct from generic SaaS purple. Package tiers as tilted holographic-looking cards. Wallet as a prominent balance card on the dashboard.
+## 9. Ops & reliability
+- Error tracking (Sentry) + server function logs surfaced to admin
+- Email notifications: welcome, purchase receipt, referral earned, withdrawal status
+- Backups / data export for user (GDPR)
+- Health check endpoint
 
-## Explicit non-goals / demo notes
+## 10. UX polish
+- Mobile nav pass (3-dot menu on small screens)
+- Empty states everywhere (no NFTs, no referrals, no txns)
+- Loading skeletons instead of spinners
+- Global toast on realtime referral credit ("You just earned $50!")
+- Dark/light toggle (currently dark only)
 
-- No real payment processor. A "Pay" button simulates instant success.
-- NFT is a badge/tier stored in DB, not an on-chain token.
-- Future "$1.2/day yield" is out of scope for v1; can be added later as a scheduled credit.
-- Withdrawals are manual — admin marks them paid; no external payout integration.
-- A banner clarifies this is a demo/simulation.
+## 11. SEO / landing
+- Real hero copy, screenshots, FAQ, testimonials section
+- Per-route metadata is set, but no sitemap.xml / robots.txt
+- OG image generation
 
-## Technical notes
+---
 
-- TanStack Start + Lovable Cloud (Supabase). Email/password auth.
-- Server functions with `requireSupabaseAuth` for purchase, withdraw request, admin actions.
-- Roles via `user_roles` table + `has_role()` (never on `profiles`).
-- Referral attribution happens once at signup and is immutable afterward.
+## Recommended next 3 (highest impact)
+1. **Real Stripe payments + webhook-driven crediting** — without this the app is a demo.
+2. **Withdrawal payout method + KYC + limits** — required before real money flows out.
+3. **Legal pages + earnings disclaimer + email verification gate on withdrawals** — protects you and users.
 
-## Open item
-
-I'll ask for the admin email before creating the migration so I can seed the `admin` role.
+Tell me which of these (or others) to build next and I'll produce a detailed implementation plan for that slice.
