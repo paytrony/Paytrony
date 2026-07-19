@@ -14,6 +14,24 @@ export type Database = {
   }
   public: {
     Tables: {
+      notification_reads: {
+        Row: {
+          category: string
+          last_read_at: string
+          user_id: string
+        }
+        Insert: {
+          category: string
+          last_read_at?: string
+          user_id: string
+        }
+        Update: {
+          category?: string
+          last_read_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
@@ -183,6 +201,10 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      mark_notifications_read: {
+        Args: { _category: string }
+        Returns: undefined
       }
       purchase_package:
         | { Args: { _amount: number; _user_id: string }; Returns: Json }
