@@ -252,6 +252,21 @@ function NFTs() {
     if (next) openNFT(next.id);
   }, [selectedIndex, filtered, openNFT]);
 
+  // Targeted modal prefetch: only the *next likely* selection gets the
+  // high-res thumbnail + precomputed metadata. Avoids blanket-warming modal
+  // art for every owned tier.
+  //   - Modal open: neighbors reachable via ← / → arrow keys.
+  //   - Modal closed: the first visible card (highest click likelihood).
+  useEffect(() => {
+    if (!filtered.length) return;
+    if (selectedIndex >= 0) {
+      prefetchNextLikelyNFT(filtered[selectedIndex + 1] ?? null);
+      prefetchNextLikelyNFT(filtered[selectedIndex - 1] ?? null);
+    } else {
+      prefetchNextLikelyNFT(filtered[0] ?? null);
+    }
+  }, [filtered, selectedIndex]);
+
   function exportCSV() {
     const rows = [["id", "mint", "name", "tier", "amount_usd", "minted_at", "favorite"]];
     for (const i of filtered) rows.push([i.id, `#${String(i.mintNumber).padStart(4, "0")}`, i.name, String(i.nft_tier), String(i.amount), i.created_at, favs.has(i.id) ? "yes" : "no"]);
