@@ -48,9 +48,7 @@ const TIER_META: Record<number, { name: string; tag: string; cls: string; glyph:
 function shortId(id: string) {
   return `${id.slice(0, 4)}…${id.slice(-4)}`.toUpperCase();
 }
-function mintAddress(id: string) {
-  return `mint_${id.replace(/-/g, "").slice(0, 24)}`;
-}
+
 
 type TierFilter = "all" | 10 | 50 | 100;
 type SortKey = "newest" | "oldest" | "rarity_desc" | "rarity_asc" | "mint_desc" | "mint_asc";
