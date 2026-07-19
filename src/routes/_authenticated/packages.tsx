@@ -18,12 +18,23 @@ function Packages() {
   const buy = useServerFn(purchasePackage);
   const navigate = useNavigate();
   const [loading, setLoading] = useState<number | null>(null);
+  // Stable idempotency key per mounted Packages view — repeated clicks or retries reuse it.
+  const [idemKeys] = useState(() => ({
+    10: crypto.randomUUID(),
+    50: crypto.randomUUID(),
+    100: crypto.randomUUID(),
+  }));
 
   async function onBuy(amount: 10 | 50 | 100) {
+    if (loading !== null) return;
     setLoading(amount);
     try {
-      const res = await buy({ data: { amount } });
-      toast.success(`Purchased tier $${res.tier}!`);
+      const res = await buy({ data: { amount, idempotencyKey: idemKeys[amount] } });
+      if (res.idempotent) {
+        toast.info(`Already purchased tier $${res.tier}`);
+      } else {
+        toast.success(`Purchased tier $${res.tier}!`);
+      }
       navigate({ to: "/dashboard" });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Purchase failed");

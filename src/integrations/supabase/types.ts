@@ -54,6 +54,7 @@ export type Database = {
           amount: number
           created_at: string
           id: string
+          idempotency_key: string | null
           nft_tier: number
           user_id: string
         }
@@ -61,6 +62,7 @@ export type Database = {
           amount: number
           created_at?: string
           id?: string
+          idempotency_key?: string | null
           nft_tier: number
           user_id: string
         }
@@ -68,6 +70,7 @@ export type Database = {
           amount?: number
           created_at?: string
           id?: string
+          idempotency_key?: string | null
           nft_tier?: number
           user_id?: string
         }
@@ -178,10 +181,16 @@ export type Database = {
         }
         Returns: boolean
       }
-      purchase_package: {
-        Args: { _amount: number; _user_id: string }
-        Returns: Json
-      }
+      purchase_package:
+        | { Args: { _amount: number; _user_id: string }; Returns: Json }
+        | {
+            Args: {
+              _amount: number
+              _idempotency_key?: string
+              _user_id: string
+            }
+            Returns: Json
+          }
       request_withdrawal: {
         Args: { _amount: number; _note: string; _user_id: string }
         Returns: string
