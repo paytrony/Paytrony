@@ -490,7 +490,12 @@ function Withdraw() {
                 <div className="flex justify-between"><span className="text-muted-foreground">Destination</span><span className="truncate max-w-[160px]" title={receipt.method}>{receipt.method}</span></div>
                 <div className="flex justify-between"><span className="text-muted-foreground">Time</span><span>{new Date(receipt.createdAt).toLocaleString()}</span></div>
               </div>
-              <Button onClick={() => setReceipt(null)} variant="outline" className="mt-4 w-full">Dismiss receipt</Button>
+              <div className="mt-4 flex gap-2">
+                <Button asChild variant="default" className="flex-1">
+                  <Link to="/withdrawals">Track status</Link>
+                </Button>
+                <Button onClick={() => setReceipt(null)} variant="outline" className="flex-1">Dismiss</Button>
+              </div>
             </div>
           )}
 
