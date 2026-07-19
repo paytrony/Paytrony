@@ -162,10 +162,11 @@ function AuthedLayout() {
           <nav className="flex items-center gap-3 text-sm">
             <div className="relative" onClick={(e) => e.stopPropagation()}>
               <button
-                onClick={() => setMenuOpen((v) => !v)}
+                onClick={() => !signingOut && setMenuOpen((v) => !v)}
                 aria-label="Menu"
                 aria-expanded={menuOpen}
-                className="relative flex h-9 w-9 items-center justify-center rounded-md border border-border text-foreground hover:bg-muted"
+                disabled={signingOut}
+                className={`relative flex h-9 w-9 items-center justify-center rounded-md border border-border text-foreground hover:bg-muted ${signingOut ? "opacity-50 cursor-not-allowed" : ""}`}
               >
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.75"/><circle cx="12" cy="12" r="1.75"/><circle cx="12" cy="19" r="1.75"/></svg>
                 {(pendingWithdrawals + recentEarnings + recentNfts) > 0 && (
