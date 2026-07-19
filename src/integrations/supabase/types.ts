@@ -213,6 +213,7 @@ export type Database = {
         Returns: undefined
       }
       test_purchase_idempotency: { Args: never; Returns: string }
+      test_webhook_idempotency: { Args: never; Returns: string }
       test_withdrawal_idempotency: { Args: never; Returns: string }
     }
     Enums: {
