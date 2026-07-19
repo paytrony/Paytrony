@@ -220,10 +220,10 @@ function NFTs() {
   }, []);
 
   const openNFT = useCallback((id: string) => {
-    navigate({ search: (prev) => ({ ...prev, nft: id }) });
+    navigate({ search: (prev: Record<string, unknown>) => ({ ...prev, nft: id }) });
   }, [navigate]);
   const closeNFT = useCallback(() => {
-    navigate({ search: (prev) => ({ ...prev, nft: "" }) });
+    navigate({ search: (prev: Record<string, unknown>) => ({ ...prev, nft: "" }) });
   }, [navigate]);
 
   const selected = useMemo(
