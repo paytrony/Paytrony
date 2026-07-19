@@ -304,22 +304,80 @@ function Withdraw() {
               ))}
             </div>
             {addOpen && (
-              <div className="mt-4 space-y-2 rounded-md border border-dashed border-border p-3">
-                <div className="grid grid-cols-2 gap-2">
-                  <select value={newKind} onChange={(e) => setNewKind(e.target.value as any)}
-                    className="rounded-md border border-input bg-input px-2 py-2 text-sm">
-                    <option value="upi">UPI</option>
-                    <option value="bank">Bank</option>
-                    <option value="paypal">PayPal</option>
-                    <option value="crypto">Crypto</option>
-                  </select>
-                  <input value={newLabel} onChange={(e) => setNewLabel(e.target.value)} placeholder="Label (e.g. My HDFC)"
-                    className="rounded-md border border-input bg-input px-2 py-2 text-sm" />
+              <div className="mt-4 space-y-3 rounded-md border border-dashed border-border p-3">
+                <div>
+                  <label className="mb-1 block text-[10px] font-mono uppercase text-muted-foreground">Method type</label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {([
+                      { k: "binance", label: "Binance" },
+                      { k: "bybit", label: "Bybit" },
+                      { k: "wallet_address", label: "Wallet Address" },
+                      { k: "upi", label: "UPI" },
+                      { k: "paypal", label: "PayPal" },
+                      { k: "bank", label: "Bank" },
+                    ] as { k: KindKey; label: string }[]).map(({ k, label }) => {
+                      const soon = COMING_SOON.includes(k);
+                      const active = newKind === k;
+                      return (
+                        <button
+                          key={k}
+                          type="button"
+                          disabled={soon}
+                          onClick={() => setNewKind(k)}
+                          className={`relative rounded-md border px-2 py-2 text-xs font-medium transition ${
+                            active ? "border-primary bg-primary/10 text-primary" : "border-border bg-card text-foreground hover:border-primary/50"
+                          } ${soon ? "cursor-not-allowed opacity-60" : ""}`}
+                        >
+                          {label}
+                          {soon && <span className="ml-1 rounded bg-muted px-1 py-0.5 text-[8px] uppercase text-muted-foreground">soon</span>}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
-                <input value={newDetails} onChange={(e) => setNewDetails(e.target.value)}
-                  placeholder="Account details (UPI ID, account no, wallet address…)"
+
+                <input value={newLabel} onChange={(e) => setNewLabel(e.target.value)}
+                  placeholder="Label (e.g. Main Binance)"
                   className="w-full rounded-md border border-input bg-input px-2 py-2 text-sm" />
-                <button onClick={addMethod} disabled={loading || !newLabel}
+
+                {(newKind === "binance" || newKind === "bybit") && (
+                  <div className="space-y-2">
+                    <input value={exUid} onChange={(e) => setExUid(e.target.value)} placeholder={`${newKind === "binance" ? "Binance" : "Bybit"} UID`}
+                      className="w-full rounded-md border border-input bg-input px-2 py-2 text-sm" />
+                    <input value={exEmail} onChange={(e) => setExEmail(e.target.value)} type="email" placeholder="Registered email"
+                      className="w-full rounded-md border border-input bg-input px-2 py-2 text-sm" />
+                    <input value={exPhone} onChange={(e) => setExPhone(e.target.value)} placeholder="Registered phone number"
+                      className="w-full rounded-md border border-input bg-input px-2 py-2 text-sm" />
+                    <p className="text-[10px] text-muted-foreground">Provide at least one identifier. Payout is sent to your exchange account.</p>
+                  </div>
+                )}
+
+                {newKind === "wallet_address" && (
+                  <div className="space-y-2">
+                    <select value={walletChain} onChange={(e) => setWalletChain(e.target.value)}
+                      className="w-full rounded-md border border-input bg-input px-2 py-2 text-sm">
+                      <option value="ETH">Ethereum (ERC-20)</option>
+                      <option value="BSC">BNB Smart Chain (BEP-20)</option>
+                      <option value="POLYGON">Polygon</option>
+                      <option value="ARBITRUM">Arbitrum</option>
+                      <option value="OPTIMISM">Optimism</option>
+                      <option value="TRON">Tron (TRC-20)</option>
+                      <option value="SOLANA">Solana</option>
+                      <option value="BITCOIN">Bitcoin</option>
+                    </select>
+                    <input value={walletAddress} onChange={(e) => setWalletAddress(e.target.value)} placeholder="Destination wallet address"
+                      className="w-full rounded-md border border-input bg-input px-2 py-2 text-sm font-mono" />
+                    <p className="text-[10px] text-muted-foreground">Double-check the chain matches your address. Wrong-chain transfers can't be recovered.</p>
+                  </div>
+                )}
+
+                {COMING_SOON.includes(newKind) && (
+                  <div className="rounded-md border border-accent/40 bg-accent/10 p-3 text-xs text-accent">
+                    This payout method is coming soon.
+                  </div>
+                )}
+
+                <button onClick={addMethod} disabled={loading || !newLabel || COMING_SOON.includes(newKind)}
                   className="w-full rounded-md bg-primary py-2 text-sm text-primary-foreground disabled:opacity-50">
                   Save method
                 </button>
