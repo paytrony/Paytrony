@@ -39,6 +39,23 @@ function Withdraw() {
   const [newKind, setNewKind] = useState<"bank" | "upi" | "crypto" | "paypal">("upi");
   const [newLabel, setNewLabel] = useState("");
   const [newDetails, setNewDetails] = useState("");
+  const amountKey = `paytrony:withdraw-amount:${user.id}`;
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const saved = window.localStorage.getItem(amountKey);
+      if (saved !== null) setAmount(saved);
+    } catch {}
+  }, [amountKey]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      if (amount === "") window.localStorage.removeItem(amountKey);
+      else window.localStorage.setItem(amountKey, amount);
+    } catch {}
+  }, [amount, amountKey]);
 
   async function load() {
     const [{ data: t }, { data: w }, { data: pm }, { data: lim }, { data: u }, { data: prof }] = await Promise.all([
@@ -67,6 +84,7 @@ function Withdraw() {
       setTimeout(() => confirmBtnRef.current?.focus(), 50);
     }
   }, [confirmOpen, signing]);
+
 
   useEffect(() => {
     const ch = supabase
@@ -132,6 +150,9 @@ function Withdraw() {
       setReceipt({ id: res.id, amount: amt, fee: FEE, net: amt, method: methodLabel, createdAt: new Date().toISOString() });
       setAmount(""); setNote("");
       setConfirmOpen(false);
+      if (typeof window !== "undefined") {
+        try { window.localStorage.removeItem(amountKey); } catch {}
+      }
       await load();
     } catch (e) {
       setSignError(e instanceof Error ? e.message : "Failed");
