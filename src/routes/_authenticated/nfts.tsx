@@ -148,6 +148,50 @@ function NFTs() {
     return () => { cancelled = true; };
   }, []);
 
+  // Realtime: auto-refresh ownership + favorite badges after a purchase or
+  // referral credit. Subscribes to this user's purchases and nft_favorites
+  // rows; RLS ensures we only receive events we're allowed to see.
+  useEffect(() => {
+    let disposed = false;
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+    (async () => {
+      const { data: userData } = await supabase.auth.getUser();
+      const uid = userData.user?.id;
+      if (!uid || disposed) return;
+
+      channel = supabase
+        .channel(`nft-live-${uid}`)
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "purchases", filter: `user_id=eq.${uid}` },
+          () => setReloadTick((t) => t + 1),
+        )
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "nft_favorites", filter: `user_id=eq.${uid}` },
+          async (payload) => {
+            // Merge the change into local favorites without a full refetch.
+            const row = (payload.new ?? payload.old) as { purchase_id?: string } | null;
+            const id = row?.purchase_id;
+            if (!id) return;
+            setFavs((prev) => {
+              const next = new Set(prev);
+              if (payload.eventType === "DELETE") next.delete(id);
+              else next.add(id);
+              saveLocalFavs(next);
+              return next;
+            });
+          },
+        )
+        .subscribe();
+    })();
+
+    return () => {
+      disposed = true;
+      if (channel) supabase.removeChannel(channel);
+    };
+  }, []);
+
   const nfts: NFT[] = useMemo(() => {
     if (!items) return [];
     return items.map((p, idx) => ({
