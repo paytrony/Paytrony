@@ -150,6 +150,9 @@ function Withdraw() {
       setReceipt({ id: res.id, amount: amt, fee: FEE, net: amt, method: methodLabel, createdAt: new Date().toISOString() });
       setAmount(""); setNote("");
       setConfirmOpen(false);
+      if (typeof window !== "undefined") {
+        try { window.localStorage.removeItem(amountKey); } catch {}
+      }
       await load();
     } catch (e) {
       setSignError(e instanceof Error ? e.message : "Failed");
