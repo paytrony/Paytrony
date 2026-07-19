@@ -55,13 +55,17 @@ function AuthedLayout() {
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.75"/><circle cx="12" cy="12" r="1.75"/><circle cx="12" cy="19" r="1.75"/></svg>
               </button>
               {menuOpen && (
-                <div className="absolute right-0 z-50 mt-2 w-44 overflow-hidden rounded-md border border-border bg-background shadow-lg">
+                <div className="absolute right-0 z-50 mt-2 w-52 overflow-hidden rounded-md border border-border bg-background shadow-lg">
+                  <div className="px-3 py-1.5 text-[10px] font-mono uppercase text-muted-foreground">Overview</div>
                   <Link to="/dashboard" className={linkClass} activeProps={{ className: linkClass + " text-foreground" }} onClick={() => setMenuOpen(false)}>Dashboard</Link>
-                  <Link to="/packages" className={linkClass} activeProps={{ className: linkClass + " text-foreground" }} onClick={() => setMenuOpen(false)}>Packages</Link>
+                  <Link to="/referrals" className={linkClass} activeProps={{ className: linkClass + " text-foreground" }} onClick={() => setMenuOpen(false)}>Referral dashboard</Link>
+                  <div className="mt-1 border-t border-border px-3 py-1.5 text-[10px] font-mono uppercase text-muted-foreground">NFTs</div>
                   <Link to="/nfts" className={linkClass} activeProps={{ className: linkClass + " text-foreground" }} onClick={() => setMenuOpen(false)}>My NFTs</Link>
-                  <Link to="/ledger" className={linkClass} activeProps={{ className: linkClass + " text-foreground" }} onClick={() => setMenuOpen(false)}>Ledger</Link>
+                  <Link to="/packages" className={linkClass} activeProps={{ className: linkClass + " text-foreground" }} onClick={() => setMenuOpen(false)}>Buy packages</Link>
+                  <div className="mt-1 border-t border-border px-3 py-1.5 text-[10px] font-mono uppercase text-muted-foreground">Wallet</div>
+                  <Link to="/ledger" className={linkClass} activeProps={{ className: linkClass + " text-foreground" }} onClick={() => setMenuOpen(false)}>Transaction ledger</Link>
                   <Link to="/withdraw" className={linkClass} activeProps={{ className: linkClass + " text-foreground" }} onClick={() => setMenuOpen(false)}>Withdraw</Link>
-                  {isAdmin && <Link to="/admin" className={linkClass + " text-accent"} onClick={() => setMenuOpen(false)}>Admin</Link>}
+                  {isAdmin && <><div className="mt-1 border-t border-border" /><Link to="/admin" className={linkClass + " text-accent"} onClick={() => setMenuOpen(false)}>Admin</Link></>}
                 </div>
               )}
             </div>
