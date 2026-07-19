@@ -11,6 +11,10 @@ import {
   cancelActivePrefetch,
   isModalThumbReady,
   getPrefetchedMeta,
+  bumpCacheVersion,
+  invalidateMeta,
+  onCacheVersionChange,
+  getCacheVersion,
 } from "@/lib/nft-thumbs";
 
 const searchSchema = z.object({
@@ -164,16 +168,22 @@ function NFTs() {
         .on(
           "postgres_changes",
           { event: "*", schema: "public", table: "purchases", filter: `user_id=eq.${uid}` },
-          () => setReloadTick((t) => t + 1),
+          () => {
+            // Ownership state changed — nuke thumb + metadata caches so the
+            // grid + modal never render stale art or mint info.
+            bumpCacheVersion();
+            setReloadTick((t) => t + 1);
+          },
         )
         .on(
           "postgres_changes",
           { event: "*", schema: "public", table: "nft_favorites", filter: `user_id=eq.${uid}` },
           async (payload) => {
-            // Merge the change into local favorites without a full refetch.
             const row = (payload.new ?? payload.old) as { purchase_id?: string } | null;
             const id = row?.purchase_id;
             if (!id) return;
+            // Favorite state is part of per-NFT metadata; drop its LRU entry.
+            invalidateMeta(id);
             setFavs((prev) => {
               const next = new Set(prev);
               if (payload.eventType === "DELETE") next.delete(id);
@@ -191,6 +201,11 @@ function NFTs() {
       if (channel) supabase.removeChannel(channel);
     };
   }, []);
+
+  // Force-refresh derived UI (data URL strings) when the global cache version
+  // changes so <img src> attributes point at the freshly-generated SVGs.
+  const [cacheVer, setCacheVer] = useState<number>(() => getCacheVersion());
+  useEffect(() => onCacheVersionChange(setCacheVer), []);
 
   const nfts: NFT[] = useMemo(() => {
     if (!items) return [];
@@ -531,6 +546,7 @@ function NFTs() {
 
       {selected && (
         <NFTModal
+          key={`${selected.id}:v${cacheVer}`}
           nft={selected}
           isFav={favs.has(selected.id)}
           onClose={closeNFT}
@@ -647,35 +663,48 @@ function NFTModal({
   const previousActive = useRef<Element | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
 
-  // Progressive rendering: show the low-res card thumbnail immediately (it's
-  // already decoded from the grid), then swap in the modal-resolution art
-  // once the browser has decoded it. Abortable so switching NFTs cancels a
-  // still-decoding prior image.
+  // Progressive rendering: show the low-res card thumbnail immediately, then
+  // swap in the modal-resolution art once decoded. On failure we surface a
+  // fallback UI with a Retry button that re-runs *only* the latest
+  // selection's prefetch.
   const [hiResReady, setHiResReady] = useState<boolean>(() => isModalThumbReady(nft.nft_tier));
+  const [hiResError, setHiResError] = useState<string | null>(null);
+  const [retryTick, setRetryTick] = useState(0);
+
   useEffect(() => {
     if (isModalThumbReady(nft.nft_tier)) {
       setHiResReady(true);
+      setHiResError(null);
       return;
     }
     setHiResReady(false);
+    setHiResError(null);
     let cancelled = false;
     const img = new window.Image();
     img.decoding = "async";
     img.src = nftThumb(nft.nft_tier, "modal");
-    const finish = () => { if (!cancelled) setHiResReady(true); };
+    const succeed = () => { if (!cancelled) { setHiResReady(true); setHiResError(null); } };
+    const fail = (msg: string) => { if (!cancelled) { setHiResReady(false); setHiResError(msg); } };
     if (typeof img.decode === "function") {
-      img.decode().then(finish).catch(finish);
+      img.decode().then(succeed).catch((e: unknown) => fail(e instanceof Error ? e.message : "Artwork failed to load."));
     } else {
-      img.onload = finish;
-      img.onerror = finish;
+      img.onload = succeed;
+      img.onerror = () => fail("Artwork failed to load.");
     }
     return () => {
       cancelled = true;
       img.onload = null;
       img.onerror = null;
-      img.src = ""; // abort in-flight decode
+      img.src = "";
     };
-  }, [nft.nft_tier]);
+  }, [nft.nft_tier, retryTick]);
+
+  const retryPrefetch = useCallback(() => {
+    invalidateMeta(nft.id);
+    const handle = prefetchNextLikelyNFT({ id: nft.id, nft_tier: nft.nft_tier, mintNumber: nft.mintNumber });
+    void handle.ready;
+    setRetryTick((t) => t + 1);
+  }, [nft.id, nft.nft_tier, nft.mintNumber]);
 
 
   // Capture opener once, on first mount.
@@ -824,11 +853,28 @@ function NFTModal({
               alt=""
               aria-hidden="true"
               decoding="async"
-              onLoad={() => setHiResReady(true)}
-              className={`relative h-full w-full object-cover transition-opacity duration-300 ${hiResReady ? "opacity-100" : "opacity-0"}`}
+              onLoad={() => { setHiResReady(true); setHiResError(null); }}
+              onError={() => setHiResError("Artwork failed to load.")}
+              className={`relative h-full w-full object-cover transition-opacity duration-300 ${hiResReady && !hiResError ? "opacity-100" : "opacity-0"}`}
             />
-            {!hiResReady && (
+            {!hiResReady && !hiResError && (
               <span className="sr-only" aria-live="polite">Loading high-resolution artwork…</span>
+            )}
+            {hiResError && (
+              <div
+                role="alert"
+                className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/70 p-6 text-center backdrop-blur-sm"
+              >
+                <div className="text-4xl" aria-hidden="true">⚠︎</div>
+                <div className="text-sm font-medium text-white">Couldn't load artwork</div>
+                <div className="max-w-xs text-xs text-white/70">{hiResError}</div>
+                <button
+                  onClick={retryPrefetch}
+                  className="rounded-md bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-white"
+                >
+                  Retry
+                </button>
+              </div>
             )}
             <div className="absolute left-4 bottom-4 rounded-full bg-black/50 px-3 py-1 font-mono text-xs uppercase tracking-wider text-white backdrop-blur">
               #{String(nft.mintNumber).padStart(4, "0")}

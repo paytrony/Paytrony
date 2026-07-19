@@ -46,10 +46,40 @@ function makeSvg(tier: number, variant: Variant): string {
   );
 }
 
+// ---- Cache versioning ------------------------------------------------------
+//
+// Every derived cache (SVG URLs, decoded images, metadata LRU, persisted blob)
+// is keyed by a monotonic version. Bumping invalidates everything at once so
+// artwork or ownership changes never serve stale thumbnails/metadata.
+
+const VERSION_STORAGE_KEY = "paytrony:nft-cache-version";
+let cacheVersion = 1;
+if (typeof window !== "undefined") {
+  try {
+    const raw = window.localStorage.getItem(VERSION_STORAGE_KEY);
+    const n = raw ? parseInt(raw, 10) : NaN;
+    if (Number.isFinite(n) && n > 0) cacheVersion = n;
+  } catch { /* ignore */ }
+}
+function persistVersion() {
+  if (typeof window === "undefined") return;
+  try { window.localStorage.setItem(VERSION_STORAGE_KEY, String(cacheVersion)); } catch { /* ignore */ }
+}
+export function getCacheVersion(): number { return cacheVersion; }
+
+const versionListeners = new Set<(v: number) => void>();
+export function onCacheVersionChange(fn: (v: number) => void): () => void {
+  versionListeners.add(fn);
+  return () => { versionListeners.delete(fn); };
+}
+function notifyVersion() {
+  for (const l of versionListeners) { try { l(cacheVersion); } catch { /* ignore */ } }
+}
+
 const svgUrlCache = new Map<string, string>();
 
 export function nftThumb(tier: number, variant: Variant = "card"): string {
-  const key = `${tier}:${variant}`;
+  const key = `v${cacheVersion}:${tier}:${variant}`;
   let url = svgUrlCache.get(key);
   if (url) return url;
   const svg = makeSvg(tier, variant);
@@ -85,6 +115,15 @@ class LRU<V> {
   values(): IterableIterator<V> {
     return this.m.values();
   }
+  delete(k: string): boolean {
+    return this.m.delete(k);
+  }
+  keys(): IterableIterator<string> {
+    return this.m.keys();
+  }
+  clear(): void {
+    this.m.clear();
+  }
 }
 
 // ---- Decoded-image LRU ------------------------------------------------------
@@ -110,7 +149,8 @@ export type NFTPrefetchMeta = {
   mintAddress: string;
 };
 
-const META_STORAGE_KEY = "paytrony:nft-meta-lru";
+const META_STORAGE_PREFIX = "paytrony:nft-meta-lru";
+function metaStorageKey() { return `${META_STORAGE_PREFIX}:v${cacheVersion}`; }
 const META_MAX = 200;
 const metaLRU = new LRU<NFTPrefetchMeta>(META_MAX);
 
@@ -120,7 +160,7 @@ function ensureMetaLoaded() {
   metaLoaded = true;
   if (typeof window === "undefined") return;
   try {
-    const raw = window.localStorage.getItem(META_STORAGE_KEY);
+    const raw = window.localStorage.getItem(metaStorageKey());
     if (!raw) return;
     const arr = JSON.parse(raw);
     if (!Array.isArray(arr)) return;
@@ -140,7 +180,7 @@ function schedulePersist() {
     persistScheduled = false;
     try {
       const arr = Array.from(metaLRU.values());
-      window.localStorage.setItem(META_STORAGE_KEY, JSON.stringify(arr));
+      window.localStorage.setItem(metaStorageKey(), JSON.stringify(arr));
     } catch {
       /* ignore quota */
     }
@@ -274,4 +314,59 @@ export function prefetchNextLikelyNFT(nft: NFTLike | null | undefined): NFTPrefe
       if (token === currentToken) cancelActivePrefetch();
     },
   };
+}
+
+// ---- Invalidation ----------------------------------------------------------
+
+/**
+ * Drop derived caches (SVG URL, decoded card + modal images) for a single
+ * tier. Call when that tier's artwork changes.
+ */
+export function invalidateTier(tier: number): void {
+  for (const key of Array.from(svgUrlCache.keys())) {
+    if (key.endsWith(`:${tier}:card`) || key.endsWith(`:${tier}:modal`)) {
+      svgUrlCache.delete(key);
+    }
+  }
+  for (const v of ["card", "modal"] as Variant[]) {
+    const k = decodedKey(tier, v);
+    decodedLRU.delete(k);
+  }
+}
+
+/**
+ * Drop cached metadata for a single NFT. Call when its ownership/on-chain
+ * state might have changed.
+ */
+export function invalidateMeta(id: string): void {
+  metaLRU.delete(id);
+  schedulePersist();
+}
+
+/**
+ * Bump the cache version and clear every derived cache (SVG URLs, decoded
+ * images, metadata LRU, persisted blob). Notifies subscribers so mounted
+ * views can refetch. Use when ownership state changes at scale — e.g. after
+ * a new purchase or referral credit.
+ */
+export function bumpCacheVersion(): void {
+  cancelActivePrefetch();
+  cacheVersion++;
+  svgUrlCache.clear();
+  for (const img of Array.from(decodedLRU.values())) {
+    img.onload = null; img.onerror = null; img.src = "";
+  }
+  decodedLRU.clear();
+  metaLRU.clear();
+  if (typeof window !== "undefined") {
+    try {
+      // Purge any prior-version persisted metadata blobs.
+      for (let i = window.localStorage.length - 1; i >= 0; i--) {
+        const k = window.localStorage.key(i);
+        if (k && k.startsWith(META_STORAGE_PREFIX)) window.localStorage.removeItem(k);
+      }
+    } catch { /* ignore */ }
+  }
+  persistVersion();
+  notifyVersion();
 }
