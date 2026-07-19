@@ -345,7 +345,14 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "user"
-      payout_method_kind: "bank" | "upi" | "crypto" | "paypal"
+      payout_method_kind:
+        | "bank"
+        | "upi"
+        | "crypto"
+        | "paypal"
+        | "binance"
+        | "bybit"
+        | "wallet_address"
       txn_type: "referral_credit" | "withdrawal"
       withdrawal_status: "pending" | "approved" | "rejected"
     }
@@ -476,7 +483,15 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "user"],
-      payout_method_kind: ["bank", "upi", "crypto", "paypal"],
+      payout_method_kind: [
+        "bank",
+        "upi",
+        "crypto",
+        "paypal",
+        "binance",
+        "bybit",
+        "wallet_address",
+      ],
       txn_type: ["referral_credit", "withdrawal"],
       withdrawal_status: ["pending", "approved", "rejected"],
     },
