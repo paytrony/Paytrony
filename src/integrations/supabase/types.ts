@@ -141,6 +141,7 @@ export type Database = {
           amount: number
           created_at: string
           id: string
+          idempotency_key: string | null
           payout_note: string | null
           resolved_at: string | null
           status: Database["public"]["Enums"]["withdrawal_status"]
@@ -151,6 +152,7 @@ export type Database = {
           amount: number
           created_at?: string
           id?: string
+          idempotency_key?: string | null
           payout_note?: string | null
           resolved_at?: string | null
           status?: Database["public"]["Enums"]["withdrawal_status"]
@@ -161,6 +163,7 @@ export type Database = {
           amount?: number
           created_at?: string
           id?: string
+          idempotency_key?: string | null
           payout_note?: string | null
           resolved_at?: string | null
           status?: Database["public"]["Enums"]["withdrawal_status"]
@@ -192,7 +195,12 @@ export type Database = {
             Returns: Json
           }
       request_withdrawal: {
-        Args: { _amount: number; _note: string; _user_id: string }
+        Args: {
+          _amount: number
+          _idempotency_key?: string
+          _note: string
+          _user_id: string
+        }
         Returns: string
       }
       resolve_withdrawal: {
@@ -205,6 +213,7 @@ export type Database = {
         Returns: undefined
       }
       test_purchase_idempotency: { Args: never; Returns: string }
+      test_withdrawal_idempotency: { Args: never; Returns: string }
     }
     Enums: {
       app_role: "admin" | "user"

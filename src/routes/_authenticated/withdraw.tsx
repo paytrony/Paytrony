@@ -38,7 +38,8 @@ function Withdraw() {
     if (!amt || amt <= 0) return toast.error("Enter a positive amount");
     setLoading(true);
     try {
-      await req({ data: { amount: amt, note } });
+      const idempotencyKey = (crypto as any).randomUUID?.() ?? `wd-${Date.now()}-${Math.random()}`;
+      await req({ data: { amount: amt, note, idempotencyKey } });
       toast.success("Withdrawal requested — awaiting admin approval");
       setAmount(""); setNote("");
       await load();
