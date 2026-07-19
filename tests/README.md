@@ -1,20 +1,16 @@
-# Purchase idempotency tests
+# End-to-end tests
 
-Automated tests that verify idempotency keys prevent duplicate credits for both the buyer and the referrer under repeated `purchase_package` calls.
+Single SQL-driven flow that exercises the app's core money paths against the real database. `public.test_e2e_flow()` runs in one transaction, isolates itself with fresh user ids, and cleans up on success.
 
-## What is covered
+## Coverage
 
-The test helper `public.test_purchase_idempotency()` (defined in a migration) runs end-to-end against the real database and asserts:
+1. **Signup** — inserting into `auth.users` fires `handle_new_user`, creating a profile, role, referral code, and linking the buyer's `referred_by` to the referrer's code passed in `raw_user_meta_data.ref`.
+2. **Package purchase** — `purchase_package(buyer, $50, key)` creates a purchase row and upgrades the buyer's NFT tier.
+3. **Referral crediting** — the referrer's wallet gains a `referral_credit` for the full purchase amount ($50).
+4. **Wallet balance** — signed sum of `wallet_transactions` reads $50 before withdrawal and $24 after.
+5. **Withdrawal end state** — `request_withdrawal($25)` auto-approves (`status = 'approved'`), writes both the $25 amount debit and the $1 fee debit, and replaying the same idempotency key returns the same withdrawal id with no extra debits.
 
-1. **Same key, repeated calls** — 3 calls with the same `(user_id, idempotency_key)` produce:
-   - exactly **1** purchase row for the buyer
-   - exactly **1** referral credit for the referrer (amount = purchase amount)
-   - the buyer's NFT tier is upgraded exactly once
-   - responses 2 and 3 return `idempotent: true` with the same `purchase_id` as response 1
-2. **New key** — a call with a fresh key creates a genuinely new purchase and a new referral credit, and repeats of that new key are also idempotent.
-3. **Totals** — after case 1 + case 2, the buyer has **2** purchases and the referrer has **2** credits totalling **$150** (50 + 100).
-
-The helper creates isolated test users, runs the assertions, and deletes all test data on success. On any failure it raises an exception, and psql exits non-zero.
+Any assertion failure raises inside the function, so `psql` exits non-zero.
 
 ## Run
 
@@ -22,16 +18,10 @@ The helper creates isolated test users, runs the assertions, and deletes all tes
 bash tests/run.sh
 ```
 
-or directly:
-
-```bash
-psql -c "SELECT public.test_purchase_idempotency() AS result;"
-```
-
-A pass looks like:
+Passing output:
 
 ```
-                      result
----------------------------------------------------
- PASS: 2 purchases, 2 credits, $150 total credited
+==> e2e: signup -> purchase -> referral -> wallet -> withdrawal
+PASS: signup + $50 purchase + referral credit; balance $50 -> $24 after $25 withdraw + $1 fee
+All tests passed.
 ```

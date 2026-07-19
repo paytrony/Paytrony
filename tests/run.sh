@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
-# Runs the wallet idempotency test suite against the connected database.
-# Exits non-zero on any assertion failure.
+# End-to-end tests against the connected database. Exits non-zero on failure.
 set -euo pipefail
 
 run_case() {
@@ -15,8 +14,6 @@ run_case() {
   fi
 }
 
-run_case "purchase_package idempotency"   "public.test_purchase_idempotency()"
-run_case "withdrawal idempotency"          "public.test_withdrawal_idempotency()"
-run_case "webhook idempotency"             "public.test_webhook_idempotency()"
+run_case "e2e: signup -> purchase -> referral -> wallet -> withdrawal" "public.test_e2e_flow()"
 
 echo "All tests passed."
