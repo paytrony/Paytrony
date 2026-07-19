@@ -278,3 +278,75 @@ function StatusBadge({ s }: { s: string }) {
   const c = s === "approved" ? "bg-primary/20 text-primary" : s === "rejected" ? "bg-destructive/20 text-destructive" : "bg-muted text-muted-foreground";
   return <span className={`rounded-full px-2 py-0.5 text-xs font-mono uppercase ${c}`}>{s}</span>;
 }
+
+function FeeBreakdown({ amount, fee }: { amount: number; fee: number }) {
+  const debited = amount > 0 ? amount + fee : 0;
+  return (
+    <div className="rounded-lg border border-border bg-muted/30 p-3 text-sm">
+      <div className="mb-2 text-[10px] font-mono uppercase text-muted-foreground">Payout summary</div>
+      <div className="space-y-1.5 font-mono">
+        <Row label="Requested amount" value={`$${amount.toFixed(2)}`} />
+        <Row label="Withdrawal fee" value={`- $${fee.toFixed(2)}`} />
+        <div className="my-1 border-t border-border" />
+        <Row label="Total debited from wallet" value={`$${debited.toFixed(2)}`} strong />
+        <Row label="Net payout to you" value={`$${amount.toFixed(2)}`} accent />
+      </div>
+    </div>
+  );
+}
+
+function Row({ label, value, strong, accent }: { label: string; value: string; strong?: boolean; accent?: boolean }) {
+  return (
+    <div className="flex items-center justify-between text-xs">
+      <span className="text-muted-foreground">{label}</span>
+      <span className={accent ? "text-primary font-semibold" : strong ? "text-foreground font-semibold" : "text-foreground"}>{value}</span>
+    </div>
+  );
+}
+
+function WithdrawalTimeline({ w }: { w: { status: string; created_at: string; resolved_at: string | null } }) {
+  const requestedAt = w.created_at;
+  const resolvedAt = w.resolved_at;
+  const rejected = w.status === "rejected";
+  const approved = w.status === "approved";
+  const pending = w.status === "pending";
+
+  const steps = [
+    { key: "requested", label: "Requested", at: requestedAt, done: true, active: pending && !approved && !rejected },
+    { key: "approved", label: rejected ? "Rejected" : "Auto-approved", at: resolvedAt, done: approved || rejected, active: false, bad: rejected },
+    { key: "sent", label: "Payout sent", at: resolvedAt, done: approved, active: false },
+    { key: "completed", label: "Completed", at: resolvedAt, done: approved, active: false },
+  ];
+
+  return (
+    <ol className="mt-3 space-y-2">
+      {steps.map((s, i) => (
+        <li key={s.key} className="flex items-start gap-3">
+          <div className="relative flex flex-col items-center">
+            <span className={
+              "flex h-5 w-5 items-center justify-center rounded-full border text-[10px] font-mono " +
+              (s.bad
+                ? "border-destructive bg-destructive/20 text-destructive"
+                : s.done
+                ? "border-primary bg-primary/20 text-primary"
+                : s.active
+                ? "border-accent bg-accent/20 text-accent animate-pulse"
+                : "border-border bg-muted text-muted-foreground")
+            }>{s.bad ? "!" : s.done ? "✓" : i + 1}</span>
+            {i < steps.length - 1 && (
+              <span className={"mt-0.5 h-6 w-px " + (steps[i + 1].done ? "bg-primary/50" : "bg-border")} />
+            )}
+          </div>
+          <div className="pb-2">
+            <div className={"text-xs font-medium " + (s.bad ? "text-destructive" : s.done ? "text-foreground" : s.active ? "text-accent" : "text-muted-foreground")}>
+              {s.label}
+            </div>
+            {s.done && s.at && (
+              <div className="text-[10px] text-muted-foreground">{new Date(s.at).toLocaleString()}</div>
+            )}
+          </div>
+        </li>
+      ))}
+    </ol>
+  );
+}
