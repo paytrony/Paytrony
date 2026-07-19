@@ -9,6 +9,7 @@ const purchaseSchema = z.object({
 const withdrawSchema = z.object({
   amount: z.number().positive().max(1000000),
   note: z.string().max(500).optional().default(""),
+  idempotencyKey: z.string().min(8).max(100),
 });
 const resolveSchema = z.object({
   withdrawalId: z.string().uuid(),
@@ -39,6 +40,7 @@ export const requestWithdrawal = createServerFn({ method: "POST" })
       _user_id: context.userId,
       _amount: data.amount,
       _note: data.note,
+      _idempotency_key: data.idempotencyKey,
     });
     if (error) throw new Error(error.message);
     return { id: id as string };
