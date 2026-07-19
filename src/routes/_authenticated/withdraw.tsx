@@ -78,6 +78,7 @@ function Withdraw() {
   const [exUid, setExUid] = useState("");
   const [exEmail, setExEmail] = useState("");
   const [exPhone, setExPhone] = useState("");
+  const [idType, setIdType] = useState<"uid" | "email" | "phone">("uid");
   const [walletChain, setWalletChain] = useState("BSC");
   const [walletAddress, setWalletAddress] = useState("");
   const [errors, setErrors] = useState<{
@@ -162,15 +163,16 @@ function Withdraw() {
     if (COMING_SOON.includes(kind)) {
       next.method = "This payout method is coming soon";
     } else if (kind === "binance" || kind === "bybit") {
-      if (!exUid.trim() && !exEmail.trim() && !exPhone.trim()) {
-        next.uid = "Enter at least one identifier (UID, email or phone)";
+      if (idType === "uid") {
+        if (!exUid.trim()) next.uid = "Enter your UID";
+      } else if (idType === "email") {
+        if (!exEmail.trim()) next.email = "Enter your registered email";
+        else if (!emailRegex.test(exEmail.trim())) next.email = "Enter a valid email address";
+      } else if (idType === "phone") {
+        if (!exPhone.trim()) next.phone = "Enter your registered phone number";
+        else if (!/^\+?[\d\s\-()]{7,20}$/.test(exPhone.trim())) next.phone = "Enter a valid phone number";
       }
-      if (exEmail.trim() && !emailRegex.test(exEmail.trim())) {
-        next.email = "Enter a valid email address";
-      }
-      if (exPhone.trim() && !/^\+?[\d\s\-()]{7,20}$/.test(exPhone.trim())) {
-        next.phone = "Enter a valid phone number";
-      }
+    
     } else if (kind === "wallet_address") {
       if (!walletChain) next.chain = "Select a chain";
       if (!walletAddress.trim()) {
@@ -195,8 +197,8 @@ function Withdraw() {
   function buildDetails(): { details: Record<string, string>; label: string } | null {
     if (!validateForm()) return null;
     if (kind === "binance" || kind === "bybit") {
-      const label = exUid.trim() || exEmail.trim() || exPhone.trim();
-      return { details: { uid: exUid.trim(), email: exEmail.trim(), phone: exPhone.trim() }, label };
+      const val = idType === "uid" ? exUid.trim() : idType === "email" ? exEmail.trim() : exPhone.trim();
+      return { details: { type: idType, value: val }, label: val };
     }
     if (kind === "wallet_address") {
       return { details: { chain: walletChain, address: walletAddress.trim() }, label: `${walletChain} ${walletAddress.trim().slice(0, 6)}…${walletAddress.trim().slice(-4)}` };
@@ -242,7 +244,7 @@ function Withdraw() {
 
   const gated = !emailVerified;
   const kycNeeded = limits && Number(amount) > limits.kyc_threshold && kycStatus !== "approved";
-  const methodReady = (kind === "binance" || kind === "bybit") ? !!(exUid.trim() || exEmail.trim() || exPhone.trim()) : kind === "wallet_address" ? !!walletAddress.trim() : false;
+  const methodReady = (kind === "binance" || kind === "bybit") ? !!(idType === "uid" ? exUid.trim() : idType === "email" ? exEmail.trim() : exPhone.trim()) : kind === "wallet_address" ? !!walletAddress.trim() : false;
   const amt = Number(amount) || 0;
   const net = amt; // user receives the full requested amount; fee is debited separately
   const totalDebit = amt + FEE;
@@ -372,43 +374,69 @@ function Withdraw() {
                   <div className="text-sm font-medium">{kind === "binance" ? "Binance" : "Bybit"} account details</div>
                   <div className="space-y-3">
                     <div className="space-y-1.5">
-                      <Label htmlFor="exUid" className="text-xs text-muted-foreground">{kind === "binance" ? "Binance" : "Bybit"} UID</Label>
-                      <Input
-                        id="exUid"
-                        value={exUid}
-                        onChange={(e) => { setExUid(e.target.value); clearError("uid"); }}
-                        placeholder={`${kind === "binance" ? "Binance" : "Bybit"} UID`}
-                        className={errors.uid ? "border-destructive focus-visible:ring-destructive" : ""}
-                      />
-                      {errors.uid && <p className="text-xs text-destructive">{errors.uid}</p>}
+                      <Label htmlFor="idType" className="text-xs text-muted-foreground">Identifier type</Label>
+                      <Select
+                        value={idType}
+                        onValueChange={(v) => {
+                          setIdType(v as "uid" | "email" | "phone");
+                          clearError("uid"); clearError("email"); clearError("phone");
+                        }}
+                      >
+                        <SelectTrigger id="idType" className="h-11">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="uid">UID</SelectItem>
+                          <SelectItem value="email">Registered email</SelectItem>
+                          <SelectItem value="phone">Registered phone number</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
-                    <div className="space-y-1.5">
-                      <Label htmlFor="exEmail" className="text-xs text-muted-foreground">Registered email</Label>
-                      <Input
-                        id="exEmail"
-                        type="email"
-                        value={exEmail}
-                        onChange={(e) => { setExEmail(e.target.value); clearError("email"); }}
-                        placeholder="Registered email"
-                        className={errors.email ? "border-destructive focus-visible:ring-destructive" : ""}
-                      />
-                      {errors.email && <p className="text-xs text-destructive">{errors.email}</p>}
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label htmlFor="exPhone" className="text-xs text-muted-foreground">Registered phone number</Label>
-                      <Input
-                        id="exPhone"
-                        value={exPhone}
-                        onChange={(e) => { setExPhone(e.target.value); clearError("phone"); }}
-                        placeholder="Registered phone number"
-                        className={errors.phone ? "border-destructive focus-visible:ring-destructive" : ""}
-                      />
-                      {errors.phone && <p className="text-xs text-destructive">{errors.phone}</p>}
-                    </div>
+                    {idType === "uid" && (
+                      <div className="space-y-1.5">
+                        <Label htmlFor="exUid" className="text-xs text-muted-foreground">{kind === "binance" ? "Binance" : "Bybit"} UID</Label>
+                        <Input
+                          id="exUid"
+                          value={exUid}
+                          onChange={(e) => { setExUid(e.target.value); clearError("uid"); }}
+                          placeholder={`${kind === "binance" ? "Binance" : "Bybit"} UID`}
+                          className={errors.uid ? "border-destructive focus-visible:ring-destructive" : ""}
+                        />
+                        {errors.uid && <p className="text-xs text-destructive">{errors.uid}</p>}
+                      </div>
+                    )}
+                    {idType === "email" && (
+                      <div className="space-y-1.5">
+                        <Label htmlFor="exEmail" className="text-xs text-muted-foreground">Registered email</Label>
+                        <Input
+                          id="exEmail"
+                          type="email"
+                          value={exEmail}
+                          onChange={(e) => { setExEmail(e.target.value); clearError("email"); }}
+                          placeholder="Registered email"
+                          className={errors.email ? "border-destructive focus-visible:ring-destructive" : ""}
+                        />
+                        {errors.email && <p className="text-xs text-destructive">{errors.email}</p>}
+                      </div>
+                    )}
+                    {idType === "phone" && (
+                      <div className="space-y-1.5">
+                        <Label htmlFor="exPhone" className="text-xs text-muted-foreground">Registered phone number</Label>
+                        <Input
+                          id="exPhone"
+                          value={exPhone}
+                          onChange={(e) => { setExPhone(e.target.value); clearError("phone"); }}
+                          placeholder="Registered phone number"
+                          className={errors.phone ? "border-destructive focus-visible:ring-destructive" : ""}
+                        />
+                        {errors.phone && <p className="text-xs text-destructive">{errors.phone}</p>}
+                      </div>
+                    )}
                   </div>
-                  <p className="text-[11px] text-muted-foreground">Provide at least one identifier. Payout is sent to your exchange account.</p>
+                  <p className="text-[11px] text-muted-foreground">Payout is sent to your exchange account using the selected identifier.</p>
                 </div>
               )}
+
 
               {kind === "wallet_address" && (
                 <div className="space-y-3 rounded-xl border border-border bg-muted/20 p-4">
@@ -577,9 +605,9 @@ function Withdraw() {
               </div>
               {(kind === "binance" || kind === "bybit") && (
                 <div className="mt-3 space-y-1.5 pl-1">
-                  {exUid && <div className="flex justify-between"><span className="text-muted-foreground">UID</span><span className="font-mono">{exUid}</span></div>}
-                  {exEmail && <div className="flex justify-between"><span className="text-muted-foreground">Email</span><span>{exEmail}</span></div>}
-                  {exPhone && <div className="flex justify-between"><span className="text-muted-foreground">Phone</span><span>{exPhone}</span></div>}
+                  {idType === "uid" && exUid && <div className="flex justify-between"><span className="text-muted-foreground">UID</span><span className="font-mono">{exUid}</span></div>}
+                  {idType === "email" && exEmail && <div className="flex justify-between"><span className="text-muted-foreground">Email</span><span>{exEmail}</span></div>}
+                  {idType === "phone" && exPhone && <div className="flex justify-between"><span className="text-muted-foreground">Phone</span><span>{exPhone}</span></div>}
                 </div>
               )}
               {note && (
