@@ -196,9 +196,10 @@ function Withdraw() {
               <textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)}
                 className="mt-1 w-full rounded-md border border-input bg-input px-3 py-2 text-sm" />
             </div>
-            <button type="submit" disabled={loading || available <= FEE || gated || methods.length === 0}
+            <button type="submit" disabled={loading || signing || available <= FEE || gated || methods.length === 0}
+              aria-live="polite"
               className="w-full rounded-md bg-primary py-2.5 font-medium text-primary-foreground disabled:opacity-50">
-              {loading ? "Processing…" : "Review & withdraw"}
+              {signing ? "Processing…" : "Review & withdraw"}
             </button>
           </form>
         </div>
