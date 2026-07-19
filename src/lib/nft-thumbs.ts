@@ -315,3 +315,58 @@ export function prefetchNextLikelyNFT(nft: NFTLike | null | undefined): NFTPrefe
     },
   };
 }
+
+// ---- Invalidation ----------------------------------------------------------
+
+/**
+ * Drop derived caches (SVG URL, decoded card + modal images) for a single
+ * tier. Call when that tier's artwork changes.
+ */
+export function invalidateTier(tier: number): void {
+  for (const key of Array.from(svgUrlCache.keys())) {
+    if (key.endsWith(`:${tier}:card`) || key.endsWith(`:${tier}:modal`)) {
+      svgUrlCache.delete(key);
+    }
+  }
+  for (const v of ["card", "modal"] as Variant[]) {
+    const k = decodedKey(tier, v);
+    decodedLRU.delete(k);
+  }
+}
+
+/**
+ * Drop cached metadata for a single NFT. Call when its ownership/on-chain
+ * state might have changed.
+ */
+export function invalidateMeta(id: string): void {
+  metaLRU.delete(id);
+  schedulePersist();
+}
+
+/**
+ * Bump the cache version and clear every derived cache (SVG URLs, decoded
+ * images, metadata LRU, persisted blob). Notifies subscribers so mounted
+ * views can refetch. Use when ownership state changes at scale — e.g. after
+ * a new purchase or referral credit.
+ */
+export function bumpCacheVersion(): void {
+  cancelActivePrefetch();
+  cacheVersion++;
+  svgUrlCache.clear();
+  for (const img of Array.from(decodedLRU.values())) {
+    img.onload = null; img.onerror = null; img.src = "";
+  }
+  decodedLRU.clear();
+  metaLRU.clear();
+  if (typeof window !== "undefined") {
+    try {
+      // Purge any prior-version persisted metadata blobs.
+      for (let i = window.localStorage.length - 1; i >= 0; i--) {
+        const k = window.localStorage.key(i);
+        if (k && k.startsWith(META_STORAGE_PREFIX)) window.localStorage.removeItem(k);
+      }
+    } catch { /* ignore */ }
+  }
+  persistVersion();
+  notifyVersion();
+}
