@@ -63,6 +63,12 @@ function Withdraw() {
   useEffect(() => { load(); }, [user.id]);
 
   useEffect(() => {
+    if (confirmOpen && confirmBtnRef.current && !signing) {
+      setTimeout(() => confirmBtnRef.current?.focus(), 50);
+    }
+  }, [confirmOpen, signing]);
+
+  useEffect(() => {
     const ch = supabase
       .channel(`withdraw-page:${user.id}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "withdrawals", filter: `user_id=eq.${user.id}` }, () => load())
