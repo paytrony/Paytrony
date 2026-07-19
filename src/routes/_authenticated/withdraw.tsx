@@ -9,6 +9,8 @@ export const Route = createFileRoute("/_authenticated/withdraw")({
   component: Withdraw,
 });
 
+const FEE = 1;
+
 type W = { id: string; amount: number; status: string; payout_note: string | null; admin_note: string | null; created_at: string };
 type PM = { id: string; kind: string; label: string; is_default: boolean };
 type Limits = { min_amount: number; daily_cap: number; kyc_threshold: number; cooldown_minutes: number };
