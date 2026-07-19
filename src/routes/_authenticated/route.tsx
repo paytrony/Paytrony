@@ -58,6 +58,7 @@ function AuthedLayout() {
                 <div className="absolute right-0 z-50 mt-2 w-44 overflow-hidden rounded-md border border-border bg-background shadow-lg">
                   <Link to="/dashboard" className={linkClass} activeProps={{ className: linkClass + " text-foreground" }} onClick={() => setMenuOpen(false)}>Dashboard</Link>
                   <Link to="/packages" className={linkClass} activeProps={{ className: linkClass + " text-foreground" }} onClick={() => setMenuOpen(false)}>Packages</Link>
+                  <Link to="/nfts" className={linkClass} activeProps={{ className: linkClass + " text-foreground" }} onClick={() => setMenuOpen(false)}>My NFTs</Link>
                   <Link to="/ledger" className={linkClass} activeProps={{ className: linkClass + " text-foreground" }} onClick={() => setMenuOpen(false)}>Ledger</Link>
                   <Link to="/withdraw" className={linkClass} activeProps={{ className: linkClass + " text-foreground" }} onClick={() => setMenuOpen(false)}>Withdraw</Link>
                   {isAdmin && <Link to="/admin" className={linkClass + " text-accent"} onClick={() => setMenuOpen(false)}>Admin</Link>}
