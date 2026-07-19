@@ -105,14 +105,17 @@ function AuthedLayout() {
   async function handleSignOut() {
     if (signingOut) return;
     setSigningOut(true);
+    setSignOutError(null);
     setMenuOpen(false);
     try {
       await queryClient.cancelQueries();
       queryClient.clear();
-      await supabase.auth.signOut();
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
       navigate({ to: "/auth", search: { mode: "signin" }, replace: true });
     } catch (e) {
-      toast.error("Sign out failed. Please try again.");
+      const message = e instanceof Error ? e.message : "Sign out failed. Please try again.";
+      setSignOutError(message);
       setSigningOut(false);
     }
   }
