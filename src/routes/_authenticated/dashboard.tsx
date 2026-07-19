@@ -102,6 +102,7 @@ function Dashboard() {
       <div className="rounded-2xl border border-border bg-card p-6">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-lg font-semibold">Recent activity</h2>
+          <Link to="/ledger" className="text-sm text-primary hover:underline">View ledger</Link>
         </div>
         {txns.length === 0 ? (
           <div className="text-sm text-muted-foreground">No transactions yet. Share your link to earn.</div>
