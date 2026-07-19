@@ -34,6 +34,7 @@ function Withdraw() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [signing, setSigning] = useState(false);
   const [signError, setSignError] = useState<string | null>(null);
+  const [receipt, setReceipt] = useState<{ id: string; amount: number; fee: number; net: number; method: string; createdAt: string } | null>(null);
   const confirmBtnRef = useRef<HTMLButtonElement>(null);
   const [newKind, setNewKind] = useState<"bank" | "upi" | "crypto" | "paypal">("upi");
   const [newLabel, setNewLabel] = useState("");
