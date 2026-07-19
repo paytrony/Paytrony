@@ -78,6 +78,7 @@ function Withdraw() {
   const [exUid, setExUid] = useState("");
   const [exEmail, setExEmail] = useState("");
   const [exPhone, setExPhone] = useState("");
+  const [idType, setIdType] = useState<"uid" | "email" | "phone">("uid");
   const [walletChain, setWalletChain] = useState("BSC");
   const [walletAddress, setWalletAddress] = useState("");
   const [errors, setErrors] = useState<{
