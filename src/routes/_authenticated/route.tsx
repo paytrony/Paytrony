@@ -264,45 +264,52 @@ function AuthedLayout() {
         </div>
       )}
 
-      {confirmSignOut && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4"
-          onClick={() => !signingOut && setConfirmSignOut(false)}
-        >
-          <div
-            className="w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3 className="text-lg font-semibold">Sign out?</h3>
-            <p className="mt-2 text-sm text-muted-foreground">
+      <Dialog
+        open={confirmSignOut}
+        onOpenChange={(open) => {
+          if (!open && !signingOut) {
+            setConfirmSignOut(false);
+            setSignOutError(null);
+          }
+        }}
+      >
+        <DialogContent className="max-w-md" aria-describedby="sign-out-description">
+          <DialogHeader>
+            <DialogTitle>Sign out?</DialogTitle>
+            <DialogDescription id="sign-out-description">
               This will end your session on this device and clear your cached account data. You'll need to sign in again to access your wallet, NFTs, and referrals.
-            </p>
-            <div className="mt-6 flex justify-end gap-2">
-              <button
-                onClick={() => setConfirmSignOut(false)}
-                disabled={signingOut}
-                className={`rounded-md border border-border px-4 py-2 text-sm ${signingOut ? "opacity-50 cursor-not-allowed" : ""}`}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSignOut}
-                disabled={signingOut}
-                className="rounded-md bg-destructive px-4 py-2 text-sm font-medium text-destructive-foreground disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {signingOut ? (
-                  <span className="flex items-center gap-2">
-                    <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
-                    Signing out…
-                  </span>
-                ) : (
-                  "Sign out"
-                )}
-              </button>
+            </DialogDescription>
+          </DialogHeader>
+          {signOutError && (
+            <div className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive" role="alert">
+              {signOutError}
             </div>
-          </div>
-        </div>
-      )}
+          )}
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => { setConfirmSignOut(false); setSignOutError(null); }}
+              disabled={signingOut}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleSignOut}
+              disabled={signingOut}
+            >
+              {signingOut ? (
+                <span className="flex items-center gap-2">
+                  <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+                  Signing out…
+                </span>
+              ) : (
+                "Sign out"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
