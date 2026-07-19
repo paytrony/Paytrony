@@ -810,13 +810,26 @@ function NFTModal({
             role="img"
             aria-label={`${meta.name} tier artwork, mint number ${nft.mintNumber}, ${meta.tag} rarity`}
           >
+            {/* Low-res placeholder from the already-cached card thumbnail. */}
+            <img
+              src={nftThumb(nft.nft_tier, "card")}
+              alt=""
+              aria-hidden="true"
+              decoding="async"
+              className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-300 ${hiResReady ? "opacity-0" : "opacity-100"}`}
+            />
+            {/* High-res art fades in once decoded. */}
             <img
               src={nftThumb(nft.nft_tier, "modal")}
               alt=""
               aria-hidden="true"
               decoding="async"
-              className="h-full w-full object-cover"
+              onLoad={() => setHiResReady(true)}
+              className={`relative h-full w-full object-cover transition-opacity duration-300 ${hiResReady ? "opacity-100" : "opacity-0"}`}
             />
+            {!hiResReady && (
+              <span className="sr-only" aria-live="polite">Loading high-resolution artwork…</span>
+            )}
             <div className="absolute left-4 bottom-4 rounded-full bg-black/50 px-3 py-1 font-mono text-xs uppercase tracking-wider text-white backdrop-blur">
               #{String(nft.mintNumber).padStart(4, "0")}
             </div>
