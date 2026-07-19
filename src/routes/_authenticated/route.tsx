@@ -17,6 +17,7 @@ export const Route = createFileRoute("/_authenticated")({
 function AuthedLayout() {
   const { user } = Route.useRouteContext();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const [isAdmin, setIsAdmin] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -25,6 +26,8 @@ function AuthedLayout() {
   const [recentEarnings, setRecentEarnings] = useState(0);
   const [recentNfts, setRecentNfts] = useState(0);
   const [confirmWithdraw, setConfirmWithdraw] = useState(false);
+  const [confirmSignOut, setConfirmSignOut] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
 
   useEffect(() => {
     supabase.from("user_roles").select("role").eq("user_id", user.id).eq("role", "admin")
