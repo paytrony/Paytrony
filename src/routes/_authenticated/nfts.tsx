@@ -653,9 +653,9 @@ function NFTModal({
 }) {
   const meta = TIER_META[nft.nft_tier] ?? TIER_META[10];
   // Hydrate metadata from the persistent LRU first so this renders instantly
-  // on repeat opens; fall back to on-the-fly derivation.
+  // on repeat opens.
   const cachedMeta = getPrefetchedMeta(nft.id);
-  const addr = cachedMeta?.mintAddress ?? mintAddress(nft.id);
+  void cachedMeta;
   const dialogRef = useRef<HTMLDivElement | null>(null);
   const previousActive = useRef<Element | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
