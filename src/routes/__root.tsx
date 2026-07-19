@@ -48,8 +48,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:title", content: "PayTrony — Earn 100% referral rewards" },
       { name: "twitter:description", content: "Buy an NFT tier, refer friends, and earn instant wallet credits equal to their purchase. Demo simulation." },
-      { property: "og:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/82d0f226-9673-48f5-b3bd-8fe1e00ae784" },
-      { name: "twitter:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/82d0f226-9673-48f5-b3bd-8fe1e00ae784" },
+      { property: "og:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/6e42ae24-10b4-4816-8730-601e22cfc9d5" },
+      { name: "twitter:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/6e42ae24-10b4-4816-8730-601e22cfc9d5" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
