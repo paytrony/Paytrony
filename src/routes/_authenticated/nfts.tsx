@@ -304,19 +304,22 @@ function NFTs() {
     if (next) openNFT(next.id);
   }, [selectedIndex, filtered, openNFT]);
 
-  // Targeted modal prefetch: only the *next likely* selection gets the
-  // high-res thumbnail + precomputed metadata. Avoids blanket-warming modal
-  // art for every owned tier.
-  //   - Modal open: neighbors reachable via ← / → arrow keys.
-  //   - Modal closed: the first visible card (highest click likelihood).
+  // Targeted, abortable modal prefetch: only the *latest* likely selection
+  // keeps loading. Previous in-flight image + metadata work is cancelled so
+  // we never waste bandwidth on stale predictions.
+  //   - Modal open:  arrow-key neighbor (forward first, then backward).
+  //   - Modal closed: the first visible card.
   useEffect(() => {
-    if (!filtered.length) return;
-    if (selectedIndex >= 0) {
-      prefetchNextLikelyNFT(filtered[selectedIndex + 1] ?? null);
-      prefetchNextLikelyNFT(filtered[selectedIndex - 1] ?? null);
-    } else {
-      prefetchNextLikelyNFT(filtered[0] ?? null);
+    if (!filtered.length) {
+      cancelActivePrefetch();
+      return;
     }
+    const primary =
+      selectedIndex >= 0
+        ? filtered[selectedIndex + 1] ?? filtered[selectedIndex - 1] ?? null
+        : filtered[0] ?? null;
+    const handle = prefetchNextLikelyNFT(primary);
+    return () => handle.cancel();
   }, [filtered, selectedIndex]);
 
   function exportCSV() {
