@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { DollarSign, WalletCards, Triangle, Users, Zap, Crown } from "lucide-react";
 
 export const Route = createFileRoute("/")({
   component: Landing,
@@ -13,9 +14,33 @@ function Landing() {
   }, []);
 
   return (
-    <div className="min-h-screen">
-      <header className="mx-auto flex max-w-6xl items-center justify-between px-6 py-6">
-        <div className="font-mono text-lg font-semibold tracking-tight">
+    <div className="min-h-screen relative overflow-hidden">
+      {/* Floating decorative shapes */}
+      <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
+        <DollarSign className="absolute left-[34%] top-[12%] h-10 w-10 text-blue-500/70" strokeWidth={2.5} />
+        <div className="absolute left-[69%] top-[13%] h-4 w-4 rounded-sm bg-primary/80 shadow-[0_0_18px_hsl(var(--primary)/0.6)]" />
+        <div className="absolute left-[10%] top-[35%] h-4 w-4 rounded-sm bg-primary/80 shadow-[0_0_18px_hsl(var(--primary)/0.6)]" />
+        <div className="absolute left-[82%] top-[33%] h-3 w-3 rounded-sm bg-primary/70" />
+        <div className="absolute left-[24%] top-[45%] grid grid-cols-2 gap-1">
+          <span className="h-1.5 w-1.5 rounded-sm bg-blue-500/80" />
+          <span className="h-1.5 w-1.5 rounded-sm bg-blue-500/80" />
+          <span className="h-1.5 w-1.5 rounded-sm bg-blue-500/80" />
+          <span className="h-1.5 w-1.5 rounded-sm bg-blue-500/80" />
+        </div>
+        <Triangle className="absolute left-[97%] top-[47%] h-4 w-4 -translate-x-full rotate-90 fill-primary/80 text-primary/80" />
+        <WalletCards className="absolute left-[70%] top-[58%] h-10 w-10 text-primary/80" strokeWidth={1.5} />
+        <Triangle className="absolute left-[52%] top-[62%] h-3 w-3 -rotate-90 fill-blue-500/80 text-blue-500/80" />
+        <div className="absolute left-[36%] top-[70%] h-3 w-3 rounded-sm bg-primary/70" />
+        <Triangle className="absolute left-[15%] top-[80%] h-3 w-3 fill-primary/60 text-primary/60" />
+        <div className="absolute left-[86%] top-[76%] grid grid-cols-3 gap-1">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <span key={i} className="h-1 w-1 rounded-full bg-blue-500/80" />
+          ))}
+        </div>
+      </div>
+
+      <header className="relative mx-auto flex max-w-6xl items-center justify-between px-6 py-6">
+        <div className="font-mono text-sm font-semibold tracking-tight">
           <span className="text-primary">◆</span> PayTrony
         </div>
         <nav className="flex items-center gap-3">
@@ -30,66 +55,43 @@ function Landing() {
         </nav>
       </header>
 
-      <section className="mx-auto max-w-6xl px-6 pt-16 pb-24 text-center">
-        <div className="inline-flex items-center gap-2 rounded-full border border-border bg-card/60 px-4 py-1.5 text-xs font-mono text-muted-foreground">
-          <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
-          DEMO SIMULATION — NO REAL MONEY
-        </div>
-        <h1 className="mt-6 text-5xl font-bold leading-[1.05] md:text-7xl">
-          Refer once.<br />
-          <span className="bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-            Earn forever.
-          </span>
-        </h1>
-        <p className="mx-auto mt-6 max-w-xl text-lg text-muted-foreground">
-          Grab your NFT tier for $10, $50, or $100. When someone you refer buys a package, you get
-          <span className="text-primary font-medium"> 100% of their purchase</span> credited to your wallet — instantly.
+      <section className="relative mx-auto max-w-6xl px-6 pt-24 pb-32 text-center">
+        <h1 className="text-6xl font-bold tracking-tight md:text-8xl">PayTrony</h1>
+        <p className="mx-auto mt-6 text-2xl font-semibold md:text-3xl">
+          Earn 100% referral rewards
         </p>
-        <div className="mt-8 flex justify-center gap-3">
-          <Link to="/auth" search={{ mode: "signup" }} className="glow rounded-md bg-primary px-6 py-3 font-medium text-primary-foreground">
+        <div className="mt-10 flex justify-center gap-3">
+          <Link to="/auth" search={{ mode: "signup" }} className="glow rounded-md bg-primary px-6 py-3 text-sm font-medium text-primary-foreground">
             Claim your NFT
           </Link>
-          <a href="#how" className="rounded-md border border-border px-6 py-3 font-medium">How it works</a>
+          <a href="#tiers" className="rounded-md border border-border bg-card/60 px-6 py-3 text-sm font-medium">How it works</a>
         </div>
       </section>
 
-      <section id="how" className="mx-auto max-w-6xl px-6 pb-16">
+      <section id="tiers" className="relative mx-auto max-w-6xl px-6 pb-24">
+        <h2 className="mb-8 text-center text-2xl font-bold">Choose your tier</h2>
         <div className="grid gap-6 md:grid-cols-3">
           {[
-            { n: "01", t: "Buy a tier", d: "Pick $10, $50, or $100. Get an NFT badge stored on your profile." },
-            { n: "02", t: "Share your code", d: "Every account gets a unique referral link. Post it anywhere." },
-            { n: "03", t: "Earn 100%", d: "Referred user buys? Their full amount lands in your wallet instantly." },
-          ].map((s) => (
-            <div key={s.n} className="rounded-2xl border border-border bg-card p-6">
-              <div className="font-mono text-xs text-primary">{s.n}</div>
-              <div className="mt-2 text-xl font-semibold">{s.t}</div>
-              <div className="mt-2 text-sm text-muted-foreground">{s.d}</div>
-            </div>
-          ))}
+            { p: 10, tag: "Starter", desc: "$10 tier", icon: Users, color: "border-blue-500/60" },
+            { p: 50, tag: "Pro", desc: "Refer friends", icon: Zap, color: "border-primary glow" },
+            { p: 100, tag: "Elite", desc: "Instant credit", icon: Crown, color: "border-accent glow-accent" },
+          ].map((t) => {
+            const Icon = t.icon;
+            return (
+              <div key={t.p} className={`relative rounded-2xl border-2 ${t.color} bg-card/80 p-8 backdrop-blur-sm`}>
+                <div className="flex items-center justify-between">
+                  <Icon className="h-8 w-8 text-primary" strokeWidth={1.5} />
+                  <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">{t.tag}</div>
+                </div>
+                <div className="mt-4 text-5xl font-bold">${t.p}</div>
+                <div className="mt-3 text-sm text-muted-foreground">{t.desc}</div>
+              </div>
+            );
+          })}
         </div>
       </section>
 
-      <section className="mx-auto max-w-6xl px-6 pb-24">
-        <h2 className="mb-8 text-center text-3xl font-bold">Choose your tier</h2>
-        <div className="grid gap-6 md:grid-cols-3">
-          {[
-            { p: 10, tag: "Starter", color: "border-border" },
-            { p: 50, tag: "Pro", color: "border-primary glow" },
-            { p: 100, tag: "Elite", color: "border-accent glow-accent" },
-          ].map((t) => (
-            <div key={t.p} className={`rounded-2xl border-2 ${t.color} bg-card p-8 text-center`}>
-              <div className="font-mono text-xs uppercase text-muted-foreground">{t.tag}</div>
-              <div className="mt-2 text-5xl font-bold">${t.p}</div>
-              <div className="mt-4 text-sm text-muted-foreground">NFT Tier {t.p} • Referrer earns ${t.p}</div>
-            </div>
-          ))}
-        </div>
-        <p className="mt-8 text-center text-xs text-muted-foreground">
-          Withdrawals are manually approved by an admin. This is a demo environment.
-        </p>
-      </section>
-
-      <section className="mx-auto max-w-4xl px-6 pb-12">
+      <section className="relative mx-auto max-w-4xl px-6 pb-12">
         <div className="rounded-lg border border-accent/30 bg-accent/5 p-4 text-xs text-muted-foreground">
           <strong className="text-foreground">Earnings disclaimer:</strong> PayTrony is not an investment. All wallet
           credits come from other people buying tiers with your referral code. Most users refer few or no people and
@@ -98,7 +100,7 @@ function Landing() {
         </div>
       </section>
 
-      <footer className="border-t border-border py-8 text-center text-xs text-muted-foreground">
+      <footer className="relative border-t border-border py-8 text-center text-xs text-muted-foreground">
         <div className="flex flex-wrap justify-center gap-4">
           <Link to="/terms">Terms</Link>
           <Link to="/privacy">Privacy</Link>
