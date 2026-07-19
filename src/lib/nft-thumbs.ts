@@ -151,7 +151,7 @@ function ensureMetaLoaded() {
   metaLoaded = true;
   if (typeof window === "undefined") return;
   try {
-    const raw = window.localStorage.getItem(META_STORAGE_KEY);
+    const raw = window.localStorage.getItem(metaStorageKey());
     if (!raw) return;
     const arr = JSON.parse(raw);
     if (!Array.isArray(arr)) return;
@@ -171,7 +171,7 @@ function schedulePersist() {
     persistScheduled = false;
     try {
       const arr = Array.from(metaLRU.values());
-      window.localStorage.setItem(META_STORAGE_KEY, JSON.stringify(arr));
+      window.localStorage.setItem(metaStorageKey(), JSON.stringify(arr));
     } catch {
       /* ignore quota */
     }
