@@ -71,21 +71,29 @@ function Landing() {
       <section id="tiers" className="relative mx-auto max-w-6xl px-6 pb-24">
         <h2 className="mb-8 text-center text-2xl font-bold">Choose your tier</h2>
         <div className="grid gap-6 md:grid-cols-3">
-          {[
-            { p: 10, tag: "Starter", desc: "$10 tier", icon: Users, color: "border-blue-500/60" },
-            { p: 50, tag: "Pro", desc: "Refer friends", icon: Zap, color: "border-primary glow" },
-            { p: 100, tag: "Elite", desc: "Instant credit", icon: Crown, color: "border-accent glow-accent" },
-          ].map((t) => {
+          {([
+            { p: 10 as const, tag: "Starter", desc: "$10 tier", icon: Users, color: "border-blue-500/60" },
+            { p: 50 as const, tag: "Pro", desc: "Refer friends", icon: Zap, color: "border-primary glow" },
+            { p: 100 as const, tag: "Elite", desc: "Instant credit", icon: Crown, color: "border-accent glow-accent" },
+          ]).map((t) => {
             const Icon = t.icon;
-            return (
-              <div key={t.p} className={`relative rounded-2xl border-2 ${t.color} bg-card/80 p-8 backdrop-blur-sm`}>
+            const card = (
+              <div className={`group relative h-full rounded-2xl border-2 ${t.color} bg-card/80 p-8 backdrop-blur-sm transition-transform hover:-translate-y-0.5 hover:shadow-xl`}>
                 <div className="flex items-center justify-between">
                   <Icon className="h-8 w-8 text-primary" strokeWidth={1.5} />
                   <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">{t.tag}</div>
                 </div>
                 <div className="mt-4 text-5xl font-bold">${t.p}</div>
                 <div className="mt-3 text-sm text-muted-foreground">{t.desc}</div>
+                <div className="mt-6 text-sm font-medium text-primary opacity-0 transition-opacity group-hover:opacity-100">
+                  {signedIn ? "Checkout →" : "Sign up & buy →"}
+                </div>
               </div>
+            );
+            return signedIn ? (
+              <Link key={t.p} to="/packages" className="block">{card}</Link>
+            ) : (
+              <Link key={t.p} to="/auth" search={{ mode: "signup" }} className="block">{card}</Link>
             );
           })}
         </div>
