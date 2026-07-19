@@ -204,6 +204,7 @@ export type Database = {
         }
         Returns: undefined
       }
+      test_purchase_idempotency: { Args: never; Returns: string }
     }
     Enums: {
       app_role: "admin" | "user"
