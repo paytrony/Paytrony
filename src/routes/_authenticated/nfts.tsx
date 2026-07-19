@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { zodValidator, fallback } from "@tanstack/zod-adapter";
 import { z } from "zod";
+import { nftThumb, prefetchThumb, prefetchTiers } from "@/lib/nft-thumbs";
 
 const searchSchema = z.object({
   nft: fallback(z.string(), "").default(""),
@@ -148,6 +149,12 @@ function NFTs() {
     }));
   }, [items]);
 
+  // Warm the thumbnail cache for every tier the user owns (card + modal variants).
+  useEffect(() => {
+    if (!nfts.length) return;
+    prefetchTiers(nfts.map((n) => n.nft_tier));
+  }, [nfts]);
+
   const filtered = useMemo(() => {
     let out = nfts;
     if (tier !== "all") out = out.filter((i) => i.nft_tier === tier);
@@ -178,6 +185,12 @@ function NFTs() {
 
   const visible = filtered.slice(0, visibleCount);
   const hasMore = visible.length < filtered.length;
+
+  // Prefetch the next page of thumbnails so they're warm before the sentinel fires.
+  useEffect(() => {
+    const upcoming = filtered.slice(visibleCount, visibleCount + PAGE_SIZE);
+    for (const n of upcoming) prefetchThumb(n.nft_tier, "card");
+  }, [filtered, visibleCount]);
 
   // Infinite scroll sentinel with error catch (defensive; slice can't really throw).
   const sentinelRef = useRef<HTMLDivElement | null>(null);
@@ -472,20 +485,46 @@ function StatCard({ label, value }: { label: string; value: string | number }) {
 
 function NFTCard({ nft, isFav, onOpen, onToggleFav }: { nft: NFT; isFav: boolean; onOpen: () => void; onToggleFav: () => void }) {
   const meta = TIER_META[nft.nft_tier] ?? TIER_META[10];
-  const label = `${nft.name}, mint number ${nft.mintNumber}, ${meta.tag}, $${nft.amount}`;
+  const label = `${nft.name}, mint number ${nft.mintNumber}, ${meta.tag}, $${nft.amount}, owned${isFav ? ", favorited" : ""}`;
+  const thumb = nftThumb(nft.nft_tier, "card");
+
+  // Warm the modal-size art whenever the user shows intent to open this card.
+  const warmModal = useCallback(() => prefetchThumb(nft.nft_tier, "modal"), [nft.nft_tier]);
+
   return (
-    <div className={`group relative overflow-hidden rounded-2xl border-2 ${meta.cls} bg-card transition-transform hover:-translate-y-0.5 hover:shadow-xl focus-within:ring-2 focus-within:ring-primary`}>
+    <div
+      className={`group relative overflow-hidden rounded-2xl border-2 ${meta.cls} bg-card transition-transform hover:-translate-y-0.5 hover:shadow-xl focus-within:ring-2 focus-within:ring-primary`}
+      onMouseEnter={warmModal}
+      onFocus={warmModal}
+    >
       <button
         onClick={onOpen}
         aria-label={`Open details for ${label}`}
         data-nft-card={nft.id}
         className="block w-full text-left focus:outline-none"
       >
-        <div className={`relative flex h-44 items-center justify-center bg-gradient-to-br ${meta.grad} sm:h-48`}>
-          <div className="absolute inset-0 bg-gradient-to-tr from-white/20 via-transparent to-transparent mix-blend-overlay" />
-          <div className="text-6xl text-white drop-shadow-lg sm:text-7xl" aria-hidden="true">{meta.glyph}</div>
+        <div className="relative h-44 sm:h-48">
+          <img
+            src={thumb}
+            alt=""
+            aria-hidden="true"
+            decoding="async"
+            loading="lazy"
+            className="h-full w-full object-cover"
+          />
           <div className="absolute right-3 top-3 rounded-full bg-black/40 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-white backdrop-blur">{meta.tag}</div>
           <div className="absolute left-3 bottom-3 font-mono text-[10px] uppercase tracking-wider text-white/80">#{String(nft.mintNumber).padStart(4, "0")}</div>
+          {/* Ownership / favorite status pills */}
+          <div className="absolute left-3 top-3 flex flex-wrap items-center gap-1.5">
+            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/90 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-white backdrop-blur" title="You own this NFT">
+              <span aria-hidden="true">✓</span> Owned
+            </span>
+            {isFav && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-amber-400/95 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-black backdrop-blur" title="In your favorites">
+                <span aria-hidden="true">★</span> Favorite
+              </span>
+            )}
+          </div>
         </div>
         <div className="space-y-2 p-4">
           <div className="flex items-start justify-between gap-2">
@@ -498,8 +537,11 @@ function NFTCard({ nft, isFav, onOpen, onToggleFav }: { nft: NFT; isFav: boolean
               <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Tier</div>
             </div>
           </div>
-          <div className="border-t border-border pt-2 text-xs text-muted-foreground">
-            Minted {new Date(nft.created_at).toLocaleDateString()}
+          <div className="flex items-center justify-between border-t border-border pt-2 text-xs text-muted-foreground">
+            <span>Minted {new Date(nft.created_at).toLocaleDateString()}</span>
+            <span className="inline-flex items-center gap-1 text-emerald-500" aria-label="Ownership verified">
+              <span aria-hidden="true">●</span> In your wallet
+            </span>
           </div>
         </div>
       </button>
@@ -507,7 +549,7 @@ function NFTCard({ nft, isFav, onOpen, onToggleFav }: { nft: NFT; isFav: boolean
         onClick={(e) => { e.stopPropagation(); onToggleFav(); }}
         aria-label={isFav ? `Remove ${nft.name} from favorites` : `Add ${nft.name} to favorites`}
         aria-pressed={isFav}
-        className={`absolute right-3 top-3 z-10 flex h-9 w-9 items-center justify-center rounded-full backdrop-blur transition-colors ${isFav ? "bg-amber-400/90 text-black" : "bg-black/40 text-white hover:bg-black/60"}`}
+        className={`absolute right-3 top-11 z-10 flex h-9 w-9 items-center justify-center rounded-full backdrop-blur transition-colors ${isFav ? "bg-amber-400/90 text-black" : "bg-black/40 text-white hover:bg-black/60"}`}
       >
         <span aria-hidden="true" className="text-base leading-none">{isFav ? "★" : "☆"}</span>
       </button>
@@ -660,17 +702,32 @@ function NFTModal({
         </button>
         <div className="grid md:grid-cols-2">
           <div
-            className={`relative flex min-h-64 items-center justify-center bg-gradient-to-br ${meta.grad} p-8 md:min-h-full`}
+            className="relative min-h-64 md:min-h-full"
             role="img"
             aria-label={`${meta.name} tier artwork, mint number ${nft.mintNumber}, ${meta.tag} rarity`}
           >
-            <div className="absolute inset-0 bg-gradient-to-tr from-white/25 via-transparent to-transparent mix-blend-overlay" aria-hidden="true" />
-            <div className="text-[9rem] leading-none text-white drop-shadow-2xl" aria-hidden="true">{meta.glyph}</div>
-            <div className="absolute left-4 bottom-4 font-mono text-xs uppercase tracking-wider text-white/90">
+            <img
+              src={nftThumb(nft.nft_tier, "modal")}
+              alt=""
+              aria-hidden="true"
+              decoding="async"
+              className="h-full w-full object-cover"
+            />
+            <div className="absolute left-4 bottom-4 rounded-full bg-black/50 px-3 py-1 font-mono text-xs uppercase tracking-wider text-white backdrop-blur">
               #{String(nft.mintNumber).padStart(4, "0")}
             </div>
-            <div className="absolute right-4 top-4 rounded-full bg-black/40 px-3 py-1 font-mono text-[10px] uppercase tracking-wider text-white backdrop-blur">
-              {meta.tag}
+            <div className="absolute right-4 top-4 flex flex-wrap items-center gap-1.5">
+              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/90 px-2.5 py-1 font-mono text-[10px] uppercase tracking-wider text-white backdrop-blur">
+                <span aria-hidden="true">✓</span> Owned
+              </span>
+              {isFav && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-amber-400/95 px-2.5 py-1 font-mono text-[10px] uppercase tracking-wider text-black backdrop-blur">
+                  <span aria-hidden="true">★</span> Favorite
+                </span>
+              )}
+              <span className="rounded-full bg-black/50 px-2.5 py-1 font-mono text-[10px] uppercase tracking-wider text-white backdrop-blur">
+                {meta.tag}
+              </span>
             </div>
           </div>
           <div className="space-y-5 p-6">
