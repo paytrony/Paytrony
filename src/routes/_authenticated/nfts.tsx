@@ -6,6 +6,10 @@ import { z } from "zod";
 
 const searchSchema = z.object({
   nft: fallback(z.string(), "").default(""),
+  q: fallback(z.string(), "").default(""),
+  tier: fallback(z.string(), "all").default("all"),
+  sort: fallback(z.string(), "newest").default("newest"),
+  fav: fallback(z.union([z.literal(0), z.literal(1)]), 0).default(0),
 });
 
 export const Route = createFileRoute("/_authenticated/nfts")({
@@ -37,11 +41,12 @@ function mintAddress(id: string) {
 
 type TierFilter = "all" | 10 | 50 | 100;
 type SortKey = "newest" | "oldest" | "rarity_desc" | "rarity_asc" | "mint_desc" | "mint_asc";
+const SORT_KEYS: SortKey[] = ["newest", "oldest", "rarity_desc", "rarity_asc", "mint_desc", "mint_asc"];
 
 const PAGE_SIZE = 12;
 const FAV_KEY = "paytrony:nft-favorites";
 
-function loadFavs(): Set<string> {
+function loadLocalFavs(): Set<string> {
   if (typeof window === "undefined") return new Set();
   try {
     const raw = window.localStorage.getItem(FAV_KEY);
@@ -52,29 +57,86 @@ function loadFavs(): Set<string> {
     return new Set();
   }
 }
-function saveFavs(s: Set<string>) {
+function saveLocalFavs(s: Set<string>) {
   if (typeof window === "undefined") return;
-  window.localStorage.setItem(FAV_KEY, JSON.stringify(Array.from(s)));
+  try { window.localStorage.setItem(FAV_KEY, JSON.stringify(Array.from(s))); } catch { /* ignore */ }
 }
 
 function NFTs() {
-  const { nft: nftParam } = Route.useSearch();
+  const { nft: nftParam, q, tier: tierParam, sort: sortParam, fav: favParam } = Route.useSearch();
   const navigate = useNavigate({ from: "/_authenticated/nfts" });
 
+  const tier: TierFilter = tierParam === "10" ? 10 : tierParam === "50" ? 50 : tierParam === "100" ? 100 : "all";
+  const sort: SortKey = (SORT_KEYS as string[]).includes(sortParam) ? (sortParam as SortKey) : "newest";
+  const favOnly = favParam === 1;
+  const search = q;
+
+  const setSearchParam = useCallback((patch: Record<string, string | number>) => {
+    navigate({ search: (prev: Record<string, unknown>) => ({ ...prev, ...patch }) });
+  }, [navigate]);
+
   const [items, setItems] = useState<Purchase[] | null>(null);
-  const [tier, setTier] = useState<TierFilter>("all");
-  const [sort, setSort] = useState<SortKey>("newest");
-  const [search, setSearch] = useState("");
-  const [favOnly, setFavOnly] = useState(false);
-  const [favs, setFavs] = useState<Set<string>>(() => loadFavs());
+  const [fetchError, setFetchError] = useState<string | null>(null);
+  const [pageError, setPageError] = useState<string | null>(null);
+  const [reloadTick, setReloadTick] = useState(0);
+  const [favs, setFavs] = useState<Set<string>>(() => loadLocalFavs());
+  const [favsSynced, setFavsSynced] = useState(false);
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
+  // Load NFTs.
   useEffect(() => {
+    let cancelled = false;
+    setFetchError(null);
+    if (reloadTick === 0 && items !== null) return; // no-op
+    if (reloadTick > 0) setItems(null);
     supabase
       .from("purchases")
       .select("id, amount, nft_tier, created_at")
       .order("created_at", { ascending: true })
-      .then(({ data }) => setItems((data ?? []) as Purchase[]));
+      .then(({ data, error }) => {
+        if (cancelled) return;
+        if (error) {
+          setFetchError(error.message || "Failed to load your NFTs.");
+          setItems(null);
+          return;
+        }
+        setItems((data ?? []) as Purchase[]);
+      });
+    return () => { cancelled = true; };
+  }, [reloadTick]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Load favorites from backend and merge with local (local wins for new IDs; then push merged to server).
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const { data: userData } = await supabase.auth.getUser();
+      const uid = userData.user?.id;
+      if (!uid) { setFavsSynced(true); return; }
+      const { data, error } = await supabase
+        .from("nft_favorites")
+        .select("purchase_id")
+        .eq("user_id", uid);
+      if (cancelled) return;
+      if (error) {
+        // Fall back to local; still mark synced=false so we retry writes lazily.
+        setFavsSynced(true);
+        return;
+      }
+      const remote = new Set<string>((data ?? []).map((r: { purchase_id: string }) => r.purchase_id));
+      const local = loadLocalFavs();
+      const merged = new Set<string>([...remote, ...local]);
+      // Push locally-added IDs not yet on server.
+      const toInsert = [...local].filter((id) => !remote.has(id));
+      if (toInsert.length) {
+        await supabase.from("nft_favorites").insert(
+          toInsert.map((purchase_id) => ({ user_id: uid, purchase_id }))
+        );
+      }
+      setFavs(merged);
+      saveLocalFavs(merged);
+      setFavsSynced(true);
+    })();
+    return () => { cancelled = true; };
   }, []);
 
   const nfts: NFT[] = useMemo(() => {
@@ -91,13 +153,13 @@ function NFTs() {
     if (tier !== "all") out = out.filter((i) => i.nft_tier === tier);
     if (favOnly) out = out.filter((i) => favs.has(i.id));
     if (search.trim()) {
-      const q = search.trim().toLowerCase();
+      const query = search.trim().toLowerCase();
       out = out.filter((i) =>
-        i.id.toLowerCase().includes(q) ||
-        i.name.toLowerCase().includes(q) ||
-        mintAddress(i.id).toLowerCase().includes(q) ||
-        `#${String(i.mintNumber).padStart(4, "0")}`.includes(q) ||
-        String(i.mintNumber).includes(q)
+        i.id.toLowerCase().includes(query) ||
+        i.name.toLowerCase().includes(query) ||
+        mintAddress(i.id).toLowerCase().includes(query) ||
+        `#${String(i.mintNumber).padStart(4, "0")}`.includes(query) ||
+        String(i.mintNumber).includes(query)
       );
     }
     out = [...out].sort((a, b) => {
@@ -112,46 +174,70 @@ function NFTs() {
   }, [nfts, tier, sort, search, favOnly, favs]);
 
   // Reset visible page when filters change.
-  useEffect(() => { setVisibleCount(PAGE_SIZE); }, [tier, sort, search, favOnly]);
+  useEffect(() => { setVisibleCount(PAGE_SIZE); setPageError(null); }, [tier, sort, search, favOnly]);
 
   const visible = filtered.slice(0, visibleCount);
   const hasMore = visible.length < filtered.length;
 
-  // Infinite scroll sentinel.
+  // Infinite scroll sentinel with error catch (defensive; slice can't really throw).
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
-    if (!hasMore) return;
+    if (!hasMore || pageError) return;
     const el = sentinelRef.current;
     if (!el) return;
     const obs = new IntersectionObserver((entries) => {
       if (entries.some((e) => e.isIntersecting)) {
-        setVisibleCount((c) => c + PAGE_SIZE);
+        try {
+          setVisibleCount((c) => c + PAGE_SIZE);
+        } catch (err) {
+          setPageError(err instanceof Error ? err.message : "Failed to load more.");
+        }
       }
     }, { rootMargin: "300px" });
     obs.observe(el);
     return () => obs.disconnect();
-  }, [hasMore, filtered.length]);
+  }, [hasMore, pageError, filtered.length]);
 
-  function toggleFav(id: string) {
+  const toggleFav = useCallback(async (id: string) => {
+    let willBeFav = false;
     setFavs((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
-      saveFavs(next);
+      if (next.has(id)) { next.delete(id); willBeFav = false; }
+      else { next.add(id); willBeFav = true; }
+      saveLocalFavs(next);
       return next;
     });
-  }
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      const uid = userData.user?.id;
+      if (!uid) return;
+      if (willBeFav) {
+        await supabase.from("nft_favorites").upsert({ user_id: uid, purchase_id: id });
+      } else {
+        await supabase.from("nft_favorites").delete().eq("user_id", uid).eq("purchase_id", id);
+      }
+    } catch { /* stays in localStorage; will retry on next mount */ }
+  }, []);
 
-  function openNFT(id: string) {
-    navigate({ search: (prev: { nft: string }) => ({ ...prev, nft: id }) });
-  }
+  const openNFT = useCallback((id: string) => {
+    navigate({ search: (prev: Record<string, unknown>) => ({ ...prev, nft: id }) });
+  }, [navigate]);
   const closeNFT = useCallback(() => {
-    navigate({ search: (prev: { nft: string }) => ({ ...prev, nft: "" }) });
+    navigate({ search: (prev: Record<string, unknown>) => ({ ...prev, nft: "" }) });
   }, [navigate]);
 
   const selected = useMemo(
     () => (nftParam ? nfts.find((n) => n.id === nftParam) ?? null : null),
     [nftParam, nfts]
   );
+
+  // Prev/next selection within currently filtered set.
+  const selectedIndex = selected ? filtered.findIndex((n) => n.id === selected.id) : -1;
+  const gotoDelta = useCallback((delta: number) => {
+    if (selectedIndex < 0) return;
+    const next = filtered[selectedIndex + delta];
+    if (next) openNFT(next.id);
+  }, [selectedIndex, filtered, openNFT]);
 
   function exportCSV() {
     const rows = [["id", "mint", "name", "tier", "amount_usd", "minted_at", "favorite"]];
@@ -176,14 +262,17 @@ function NFTs() {
   const total = nfts.length;
   const totalValue = nfts.reduce((s, i) => s + Number(i.amount), 0);
   const favCount = nfts.filter((n) => favs.has(n.id)).length;
-  const loading = items === null;
+  const loading = items === null && !fetchError;
 
   return (
     <div className="space-y-6 md:space-y-8">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold md:text-3xl">My NFTs</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Every package you buy mints an NFT into your collection.</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Every package you buy mints an NFT into your collection.
+            {favsSynced ? "" : " · Syncing favorites…"}
+          </p>
         </div>
         <div className="flex flex-wrap gap-2">
           <button onClick={exportCSV} disabled={!filtered.length} className="rounded-md border border-border px-3 py-2 text-xs font-medium disabled:opacity-40">Export CSV</button>
@@ -191,6 +280,21 @@ function NFTs() {
           <Link to="/packages" className="rounded-md bg-primary px-4 py-2 text-xs font-medium text-primary-foreground">Buy NFT</Link>
         </div>
       </div>
+
+      {fetchError && (
+        <div role="alert" className="flex flex-col gap-3 rounded-lg border border-destructive/40 bg-destructive/10 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <div className="text-sm font-medium text-destructive">Couldn't load your NFTs</div>
+            <div className="mt-1 text-xs text-muted-foreground">{fetchError}</div>
+          </div>
+          <button
+            onClick={() => setReloadTick((t) => t + 1)}
+            className="rounded-md bg-destructive px-3 py-2 text-xs font-medium text-destructive-foreground hover:opacity-90"
+          >
+            Retry
+          </button>
+        </div>
+      )}
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {loading
@@ -215,7 +319,7 @@ function NFTs() {
           {(["all", 10, 50, 100] as TierFilter[]).map((t) => (
             <button
               key={String(t)}
-              onClick={() => setTier(t)}
+              onClick={() => setSearchParam({ tier: String(t) })}
               aria-pressed={tier === t}
               className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${tier === t ? "bg-primary text-primary-foreground" : "border border-border text-muted-foreground hover:text-foreground"}`}
             >
@@ -223,7 +327,7 @@ function NFTs() {
             </button>
           ))}
           <button
-            onClick={() => setFavOnly((v) => !v)}
+            onClick={() => setSearchParam({ fav: favOnly ? 0 : 1 })}
             aria-pressed={favOnly}
             className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${favOnly ? "bg-primary text-primary-foreground" : "border border-border text-muted-foreground hover:text-foreground"}`}
           >
@@ -234,7 +338,7 @@ function NFTs() {
         <select
           id="nft-sort"
           value={sort}
-          onChange={(e) => setSort(e.target.value as SortKey)}
+          onChange={(e) => setSearchParam({ sort: e.target.value })}
           className="rounded-md border border-border bg-background px-2 py-1.5 text-xs"
         >
           <option value="newest">Newest first</option>
@@ -249,13 +353,13 @@ function NFTs() {
           <input
             id="nft-search"
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => setSearchParam({ q: e.target.value })}
             placeholder="Search by ID, name, or mint address…"
             className="w-full rounded-md border border-border bg-background px-3 py-1.5 pr-16 text-xs"
           />
           {search && (
             <button
-              onClick={() => setSearch("")}
+              onClick={() => setSearchParam({ q: "" })}
               className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] uppercase text-muted-foreground hover:text-foreground"
               aria-label="Clear search"
             >
@@ -283,7 +387,7 @@ function NFTs() {
         </div>
       )}
 
-      {!loading && nfts.length === 0 && (
+      {!loading && !fetchError && nfts.length === 0 && (
         <div className="rounded-2xl border border-dashed border-border bg-card/50 p-12 text-center">
           <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-xl bg-muted text-3xl text-muted-foreground">◇</div>
           <div className="mt-4 text-lg font-medium">No NFTs yet</div>
@@ -292,7 +396,7 @@ function NFTs() {
         </div>
       )}
 
-      {!loading && nfts.length > 0 && filtered.length === 0 && (
+      {!loading && !fetchError && nfts.length > 0 && filtered.length === 0 && (
         <div className="rounded-lg border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
           No NFTs match your filters.
         </div>
@@ -311,12 +415,29 @@ function NFTs() {
               />
             ))}
           </div>
-          {hasMore && (
-            <div ref={sentinelRef} className="flex justify-center py-6">
+          {pageError && (
+            <div role="alert" className="mt-4 flex flex-col gap-3 rounded-lg border border-destructive/40 bg-destructive/10 p-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="text-xs text-destructive">{pageError}</div>
+              <button
+                onClick={() => { setPageError(null); setVisibleCount((c) => c + PAGE_SIZE); }}
+                className="rounded-md border border-destructive px-3 py-1.5 text-xs font-medium text-destructive"
+              >
+                Retry
+              </button>
+            </div>
+          )}
+          {hasMore && !pageError && (
+            <div ref={sentinelRef} className="flex flex-col items-center gap-2 py-6">
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
                 <span className="h-2 w-2 animate-pulse rounded-full bg-primary" />
                 Loading more…
               </div>
+              <button
+                onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}
+                className="rounded-md border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground"
+              >
+                Load more manually
+              </button>
             </div>
           )}
           {!hasMore && filtered.length > PAGE_SIZE && (
@@ -331,6 +452,9 @@ function NFTs() {
           isFav={favs.has(selected.id)}
           onClose={closeNFT}
           onToggleFav={() => toggleFav(selected.id)}
+          onPrev={selectedIndex > 0 ? () => gotoDelta(-1) : null}
+          onNext={selectedIndex >= 0 && selectedIndex < filtered.length - 1 ? () => gotoDelta(1) : null}
+          position={selectedIndex >= 0 ? { index: selectedIndex + 1, total: filtered.length } : null}
         />
       )}
     </div>
@@ -354,6 +478,7 @@ function NFTCard({ nft, isFav, onOpen, onToggleFav }: { nft: NFT; isFav: boolean
       <button
         onClick={onOpen}
         aria-label={`Open details for ${label}`}
+        data-nft-card={nft.id}
         className="block w-full text-left focus:outline-none"
       >
         <div className={`relative flex h-44 items-center justify-center bg-gradient-to-br ${meta.grad} sm:h-48`}>
@@ -390,16 +515,46 @@ function NFTCard({ nft, isFav, onOpen, onToggleFav }: { nft: NFT; isFav: boolean
   );
 }
 
-function NFTModal({ nft, isFav, onClose, onToggleFav }: { nft: NFT; isFav: boolean; onClose: () => void; onToggleFav: () => void }) {
+function NFTModal({
+  nft, isFav, onClose, onToggleFav, onPrev, onNext, position,
+}: {
+  nft: NFT;
+  isFav: boolean;
+  onClose: () => void;
+  onToggleFav: () => void;
+  onPrev: (() => void) | null;
+  onNext: (() => void) | null;
+  position: { index: number; total: number } | null;
+}) {
   const meta = TIER_META[nft.nft_tier] ?? TIER_META[10];
   const addr = mintAddress(nft.id);
   const dialogRef = useRef<HTMLDivElement | null>(null);
   const previousActive = useRef<Element | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
 
-  // Focus trap + restore.
+  // Capture opener once, on first mount.
   useEffect(() => {
     previousActive.current = document.activeElement;
+  }, []);
+
+  // Body scroll lock (persists for whole modal lifetime, not per nft).
+  useEffect(() => {
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      // Return focus to the card that opened the modal (or last active card).
+      const opener = previousActive.current;
+      const openerId = nft.id;
+      const cardBtn = document.querySelector<HTMLElement>(`[data-nft-card="${openerId}"]`);
+      const target = cardBtn ?? (opener instanceof HTMLElement ? opener : null);
+      target?.focus();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Focus trap + key handlers (arrow keys + Esc + Tab).
+  useEffect(() => {
     const dialog = dialogRef.current;
     if (!dialog) return;
 
@@ -410,18 +565,23 @@ function NFTModal({ nft, isFav, onClose, onToggleFav }: { nft: NFT; isFav: boole
         )
       ).filter((el) => !el.hasAttribute("aria-hidden") && el.offsetParent !== null);
 
-    // Initial focus
     const initial = dialog.querySelector<HTMLElement>("[data-autofocus]") ?? getFocusable()[0];
     initial?.focus();
-
-    // Prevent body scroll
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
 
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") {
         e.preventDefault();
         onClose();
+        return;
+      }
+      if (e.key === "ArrowRight" && onNext) {
+        e.preventDefault();
+        onNext();
+        return;
+      }
+      if (e.key === "ArrowLeft" && onPrev) {
+        e.preventDefault();
+        onPrev();
         return;
       }
       if (e.key !== "Tab") return;
@@ -437,12 +597,8 @@ function NFTModal({ nft, isFav, onClose, onToggleFav }: { nft: NFT; isFav: boole
       }
     }
     document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("keydown", onKey);
-      document.body.style.overflow = prevOverflow;
-      if (previousActive.current instanceof HTMLElement) previousActive.current.focus();
-    };
-  }, [onClose]);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose, onNext, onPrev, nft.id]);
 
   async function copy(value: string, key: string) {
     try {
@@ -471,6 +627,29 @@ function NFTModal({ nft, isFav, onClose, onToggleFav }: { nft: NFT; isFav: boole
         className="relative w-full max-w-3xl overflow-hidden rounded-2xl border border-border bg-card shadow-2xl focus:outline-none"
         tabIndex={-1}
       >
+        <div className="absolute left-3 top-3 z-10 flex items-center gap-2">
+          <button
+            onClick={onPrev ?? undefined}
+            disabled={!onPrev}
+            aria-label="Previous NFT"
+            className="rounded-full bg-black/40 px-3 py-1 text-xs text-white backdrop-blur hover:bg-black/60 focus:outline-none focus:ring-2 focus:ring-white disabled:opacity-30"
+          >
+            ←
+          </button>
+          <button
+            onClick={onNext ?? undefined}
+            disabled={!onNext}
+            aria-label="Next NFT"
+            className="rounded-full bg-black/40 px-3 py-1 text-xs text-white backdrop-blur hover:bg-black/60 focus:outline-none focus:ring-2 focus:ring-white disabled:opacity-30"
+          >
+            →
+          </button>
+          {position && (
+            <span className="rounded-full bg-black/40 px-3 py-1 font-mono text-[10px] uppercase tracking-wider text-white/90 backdrop-blur">
+              {position.index} / {position.total}
+            </span>
+          )}
+        </div>
         <button
           onClick={onClose}
           data-autofocus
@@ -508,7 +687,10 @@ function NFTModal({ nft, isFav, onClose, onToggleFav }: { nft: NFT; isFav: boole
                   <span aria-hidden="true">{isFav ? "★" : "☆"}</span>
                 </button>
               </div>
-              <div id={descId} className="mt-1 text-sm text-muted-foreground">Tier {nft.nft_tier} · {meta.tag} · Minted {new Date(nft.created_at).toLocaleString()}</div>
+              <div id={descId} className="mt-1 text-sm text-muted-foreground">
+                Tier {nft.nft_tier} · {meta.tag} · Minted {new Date(nft.created_at).toLocaleString()}
+                <span className="ml-2 hidden sm:inline text-[10px] uppercase tracking-wider">Use ← → to browse · Esc to close</span>
+              </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3">

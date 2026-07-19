@@ -14,6 +14,32 @@ export type Database = {
   }
   public: {
     Tables: {
+      nft_favorites: {
+        Row: {
+          created_at: string
+          purchase_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          purchase_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          purchase_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "nft_favorites_purchase_id_fkey"
+            columns: ["purchase_id"]
+            isOneToOne: false
+            referencedRelation: "purchases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notification_reads: {
         Row: {
           category: string
