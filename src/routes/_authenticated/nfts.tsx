@@ -11,6 +11,10 @@ import {
   cancelActivePrefetch,
   isModalThumbReady,
   getPrefetchedMeta,
+  bumpCacheVersion,
+  invalidateMeta,
+  onCacheVersionChange,
+  getCacheVersion,
 } from "@/lib/nft-thumbs";
 
 const searchSchema = z.object({
