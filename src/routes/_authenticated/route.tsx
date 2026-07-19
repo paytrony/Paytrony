@@ -35,7 +35,19 @@ function AuthedLayout() {
     navigate({ to: "/", replace: true });
   }
 
-  const linkClass = "block px-4 py-2 text-sm text-muted-foreground hover:bg-muted hover:text-foreground";
+  const linkClass = "flex items-center gap-2 px-4 py-2 text-sm text-muted-foreground hover:bg-muted hover:text-foreground";
+
+  const menuItem = (to: string, label: string, icon: JSX.Element, accent?: boolean) => (
+    <Link
+      to={to}
+      className={accent ? linkClass + " text-accent" : linkClass}
+      activeProps={{ className: linkClass + " text-foreground" }}
+      onClick={() => setMenuOpen(false)}
+    >
+      {icon}
+      <span>{label}</span>
+    </Link>
+  );
 
   return (
     <div className="min-h-screen">
@@ -55,17 +67,16 @@ function AuthedLayout() {
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.75"/><circle cx="12" cy="12" r="1.75"/><circle cx="12" cy="19" r="1.75"/></svg>
               </button>
               {menuOpen && (
-                <div className="absolute right-0 z-50 mt-2 w-52 overflow-hidden rounded-md border border-border bg-background shadow-lg">
-                  <div className="px-3 py-1.5 text-[10px] font-mono uppercase text-muted-foreground">Overview</div>
-                  <Link to="/dashboard" className={linkClass} activeProps={{ className: linkClass + " text-foreground" }} onClick={() => setMenuOpen(false)}>Dashboard</Link>
-                  <Link to="/referrals" className={linkClass} activeProps={{ className: linkClass + " text-foreground" }} onClick={() => setMenuOpen(false)}>Referral dashboard</Link>
-                  <div className="mt-1 border-t border-border px-3 py-1.5 text-[10px] font-mono uppercase text-muted-foreground">NFTs</div>
-                  <Link to="/nfts" className={linkClass} activeProps={{ className: linkClass + " text-foreground" }} onClick={() => setMenuOpen(false)}>My NFTs</Link>
-                  <Link to="/packages" className={linkClass} activeProps={{ className: linkClass + " text-foreground" }} onClick={() => setMenuOpen(false)}>Buy packages</Link>
-                  <div className="mt-1 border-t border-border px-3 py-1.5 text-[10px] font-mono uppercase text-muted-foreground">Wallet</div>
-                  <Link to="/ledger" className={linkClass} activeProps={{ className: linkClass + " text-foreground" }} onClick={() => setMenuOpen(false)}>Transaction ledger</Link>
-                  <Link to="/withdraw" className={linkClass} activeProps={{ className: linkClass + " text-foreground" }} onClick={() => setMenuOpen(false)}>Withdraw</Link>
-                  {isAdmin && <><div className="mt-1 border-t border-border" /><Link to="/admin" className={linkClass + " text-accent"} onClick={() => setMenuOpen(false)}>Admin</Link></>}
+                <div className="absolute right-0 z-50 mt-2 w-56 overflow-hidden rounded-md border border-border bg-background shadow-lg">
+                  <div className="px-3 py-2 text-[10px] font-mono uppercase text-muted-foreground">Quick access</div>
+                  {menuItem("/nfts", "My NFTs", <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>)}
+                  {menuItem("/ledger", "Wallet", <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12V7H3v11a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-3"/><path d="M21 7V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v2"/><path d="M16 12h.01"/></svg>)}
+                  {menuItem("/referrals", "Referral dashboard", <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>)}
+                  <div className="mt-1 border-t border-border px-3 py-2 text-[10px] font-mono uppercase text-muted-foreground">Explore</div>
+                  {menuItem("/dashboard", "Dashboard", <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>)}
+                  {menuItem("/packages", "Buy packages", <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>)}
+                  {menuItem("/withdraw", "Withdraw", <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 3v18"/><path d="m17 8-5-5-5 5"/><path d="m17 16-5 5-5-5"/></svg>)}
+                  {isAdmin && <><div className="mt-1 border-t border-border" />{menuItem("/admin", "Admin", <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>, true)}</>}
                 </div>
               )}
             </div>
