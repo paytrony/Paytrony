@@ -549,8 +549,7 @@ function NFTCard({ nft, isFav, onOpen, onToggleFav }: { nft: NFT; isFav: boolean
         onClick={(e) => { e.stopPropagation(); onToggleFav(); }}
         aria-label={isFav ? `Remove ${nft.name} from favorites` : `Add ${nft.name} to favorites`}
         aria-pressed={isFav}
-        className={`absolute right-3 bottom-[calc(100%-11.5rem)] sm:bottom-[calc(100%-12.5rem)] z-10 flex h-9 w-9 items-center justify-center rounded-full backdrop-blur transition-colors ${isFav ? "bg-amber-400/90 text-black" : "bg-black/40 text-white hover:bg-black/60"}`}
-        style={{ top: "0.75rem" }}
+        className={`absolute right-3 top-11 z-10 flex h-9 w-9 items-center justify-center rounded-full backdrop-blur transition-colors ${isFav ? "bg-amber-400/90 text-black" : "bg-black/40 text-white hover:bg-black/60"}`}
       >
         <span aria-hidden="true" className="text-base leading-none">{isFav ? "★" : "☆"}</span>
       </button>
