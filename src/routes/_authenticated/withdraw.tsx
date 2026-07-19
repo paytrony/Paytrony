@@ -131,6 +131,7 @@ function Withdraw() {
 
   const gated = !emailVerified;
   const kycNeeded = limits && Number(amount) > limits.kyc_threshold && kycStatus !== "approved";
+  const selectedMethod = methods.find((m) => m.id === methodId);
 
   return (
     <div className="space-y-8">
