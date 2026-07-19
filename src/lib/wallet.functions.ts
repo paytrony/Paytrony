@@ -2,7 +2,10 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 
-const purchaseSchema = z.object({ amount: z.union([z.literal(10), z.literal(50), z.literal(100)]) });
+const purchaseSchema = z.object({
+  amount: z.union([z.literal(10), z.literal(50), z.literal(100)]),
+  idempotencyKey: z.string().min(8).max(100),
+});
 const withdrawSchema = z.object({
   amount: z.number().positive().max(1000000),
   note: z.string().max(500).optional().default(""),
