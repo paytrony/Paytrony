@@ -449,7 +449,7 @@ function NFTs() {
             id="nft-search"
             value={search}
             onChange={(e) => setSearchParam({ q: e.target.value })}
-            placeholder="Search by ID, name, or mint address…"
+            placeholder="Search by ID, name, or #number…"
             className="w-full rounded-md border border-border bg-background px-3 py-1.5 pr-16 text-xs"
           />
           {search && (
