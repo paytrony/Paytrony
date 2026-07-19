@@ -140,7 +140,8 @@ export type NFTPrefetchMeta = {
   mintAddress: string;
 };
 
-const META_STORAGE_KEY = "paytrony:nft-meta-lru";
+const META_STORAGE_PREFIX = "paytrony:nft-meta-lru";
+function metaStorageKey() { return `${META_STORAGE_PREFIX}:v${cacheVersion}`; }
 const META_MAX = 200;
 const metaLRU = new LRU<NFTPrefetchMeta>(META_MAX);
 
