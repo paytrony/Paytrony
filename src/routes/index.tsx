@@ -16,7 +16,7 @@ function Landing() {
     <div className="min-h-screen">
       <header className="mx-auto flex max-w-6xl items-center justify-between px-6 py-6">
         <div className="font-mono text-lg font-semibold tracking-tight">
-          <span className="text-primary">◆</span> ReferNFT
+          <span className="text-primary">◆</span> PayTrony
         </div>
         <nav className="flex items-center gap-3">
           {signedIn ? (
@@ -90,7 +90,7 @@ function Landing() {
       </section>
 
       <footer className="border-t border-border py-8 text-center text-xs text-muted-foreground">
-        © ReferNFT — demo project
+        © PayTrony — demo project
       </footer>
     </div>
   );
