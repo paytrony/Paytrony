@@ -90,11 +90,12 @@ function Withdraw() {
     const amt = Number(amount);
     if (!amt || amt <= 0) return toast.error("Enter a positive amount");
     if (!methodId) return toast.error("Select a payout method");
+    if (amt + FEE > available) return toast.error(`Insufficient balance (need $${(amt + FEE).toFixed(2)} incl. $${FEE} fee)`);
     setLoading(true);
     try {
       const idempotencyKey = (crypto as any).randomUUID?.() ?? `wd-${Date.now()}-${Math.random()}`;
       await req({ data: { amount: amt, note, idempotencyKey, payoutMethodId: methodId } });
-      toast.success("Withdrawal requested — awaiting admin approval");
+      toast.success(`Instant payout sent — $${amt.toFixed(2)} (fee $${FEE})`);
       setAmount(""); setNote("");
       await load();
     } catch (e) {
