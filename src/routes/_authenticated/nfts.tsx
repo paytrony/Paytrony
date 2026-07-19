@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { zodValidator, fallback } from "@tanstack/zod-adapter";
 import { z } from "zod";
-import { nftThumb, prefetchThumb, prefetchTiers } from "@/lib/nft-thumbs";
+import { nftThumb, prefetchThumb, prefetchTiers, prefetchNextLikelyNFT } from "@/lib/nft-thumbs";
 
 const searchSchema = z.object({
   nft: fallback(z.string(), "").default(""),
