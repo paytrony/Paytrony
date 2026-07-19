@@ -918,9 +918,8 @@ function NFTModal({
             </div>
 
             <div className="space-y-2">
-              <MetaRow label="Token ID" value={nft.id} mono />
-              <MetaRow label="Mint address" value={addr} mono />
-              <MetaRow label="Minted" value={new Date(nft.created_at).toLocaleString()} />
+              <MetaRow label="Item ID" value={nft.id} mono />
+              <MetaRow label="Purchased" value={new Date(nft.created_at).toLocaleString()} />
             </div>
 
             <div className="flex flex-wrap gap-2 pt-2">
@@ -928,13 +927,7 @@ function NFTModal({
                 onClick={() => copy(nft.id, "id")}
                 className="flex-1 rounded-md border border-border px-3 py-2 text-xs font-medium hover:bg-muted focus:outline-none focus:ring-2 focus:ring-primary"
               >
-                {copied === "id" ? "Copied!" : "Copy token ID"}
-              </button>
-              <button
-                onClick={() => copy(addr, "addr")}
-                className="flex-1 rounded-md border border-border px-3 py-2 text-xs font-medium hover:bg-muted focus:outline-none focus:ring-2 focus:ring-primary"
-              >
-                {copied === "addr" ? "Copied!" : "Copy mint addr"}
+                {copied === "id" ? "Copied!" : "Copy item ID"}
               </button>
               <button
                 onClick={() => copy(typeof window !== "undefined" ? window.location.href : "", "link")}
