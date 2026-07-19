@@ -229,7 +229,6 @@ function NFTs() {
       out = out.filter((i) =>
         i.id.toLowerCase().includes(query) ||
         i.name.toLowerCase().includes(query) ||
-        mintAddress(i.id).toLowerCase().includes(query) ||
         `#${String(i.mintNumber).padStart(4, "0")}`.includes(query) ||
         String(i.mintNumber).includes(query)
       );
