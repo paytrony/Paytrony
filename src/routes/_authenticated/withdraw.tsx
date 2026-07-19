@@ -55,6 +55,16 @@ function Withdraw() {
   }
   useEffect(() => { load(); }, [user.id]);
 
+  useEffect(() => {
+    const ch = supabase
+      .channel(`withdraw-page:${user.id}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "withdrawals", filter: `user_id=eq.${user.id}` }, () => load())
+      .on("postgres_changes", { event: "*", schema: "public", table: "wallet_transactions", filter: `user_id=eq.${user.id}` }, () => load())
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user.id]);
+
   async function addMethod() {
     if (!newLabel) return toast.error("Add a label");
     setLoading(true);
