@@ -373,43 +373,69 @@ function Withdraw() {
                   <div className="text-sm font-medium">{kind === "binance" ? "Binance" : "Bybit"} account details</div>
                   <div className="space-y-3">
                     <div className="space-y-1.5">
-                      <Label htmlFor="exUid" className="text-xs text-muted-foreground">{kind === "binance" ? "Binance" : "Bybit"} UID</Label>
-                      <Input
-                        id="exUid"
-                        value={exUid}
-                        onChange={(e) => { setExUid(e.target.value); clearError("uid"); }}
-                        placeholder={`${kind === "binance" ? "Binance" : "Bybit"} UID`}
-                        className={errors.uid ? "border-destructive focus-visible:ring-destructive" : ""}
-                      />
-                      {errors.uid && <p className="text-xs text-destructive">{errors.uid}</p>}
+                      <Label htmlFor="idType" className="text-xs text-muted-foreground">Identifier type</Label>
+                      <Select
+                        value={idType}
+                        onValueChange={(v) => {
+                          setIdType(v as "uid" | "email" | "phone");
+                          clearError("uid"); clearError("email"); clearError("phone");
+                        }}
+                      >
+                        <SelectTrigger id="idType" className="h-11">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="uid">UID</SelectItem>
+                          <SelectItem value="email">Registered email</SelectItem>
+                          <SelectItem value="phone">Registered phone number</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
-                    <div className="space-y-1.5">
-                      <Label htmlFor="exEmail" className="text-xs text-muted-foreground">Registered email</Label>
-                      <Input
-                        id="exEmail"
-                        type="email"
-                        value={exEmail}
-                        onChange={(e) => { setExEmail(e.target.value); clearError("email"); }}
-                        placeholder="Registered email"
-                        className={errors.email ? "border-destructive focus-visible:ring-destructive" : ""}
-                      />
-                      {errors.email && <p className="text-xs text-destructive">{errors.email}</p>}
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label htmlFor="exPhone" className="text-xs text-muted-foreground">Registered phone number</Label>
-                      <Input
-                        id="exPhone"
-                        value={exPhone}
-                        onChange={(e) => { setExPhone(e.target.value); clearError("phone"); }}
-                        placeholder="Registered phone number"
-                        className={errors.phone ? "border-destructive focus-visible:ring-destructive" : ""}
-                      />
-                      {errors.phone && <p className="text-xs text-destructive">{errors.phone}</p>}
-                    </div>
+                    {idType === "uid" && (
+                      <div className="space-y-1.5">
+                        <Label htmlFor="exUid" className="text-xs text-muted-foreground">{kind === "binance" ? "Binance" : "Bybit"} UID</Label>
+                        <Input
+                          id="exUid"
+                          value={exUid}
+                          onChange={(e) => { setExUid(e.target.value); clearError("uid"); }}
+                          placeholder={`${kind === "binance" ? "Binance" : "Bybit"} UID`}
+                          className={errors.uid ? "border-destructive focus-visible:ring-destructive" : ""}
+                        />
+                        {errors.uid && <p className="text-xs text-destructive">{errors.uid}</p>}
+                      </div>
+                    )}
+                    {idType === "email" && (
+                      <div className="space-y-1.5">
+                        <Label htmlFor="exEmail" className="text-xs text-muted-foreground">Registered email</Label>
+                        <Input
+                          id="exEmail"
+                          type="email"
+                          value={exEmail}
+                          onChange={(e) => { setExEmail(e.target.value); clearError("email"); }}
+                          placeholder="Registered email"
+                          className={errors.email ? "border-destructive focus-visible:ring-destructive" : ""}
+                        />
+                        {errors.email && <p className="text-xs text-destructive">{errors.email}</p>}
+                      </div>
+                    )}
+                    {idType === "phone" && (
+                      <div className="space-y-1.5">
+                        <Label htmlFor="exPhone" className="text-xs text-muted-foreground">Registered phone number</Label>
+                        <Input
+                          id="exPhone"
+                          value={exPhone}
+                          onChange={(e) => { setExPhone(e.target.value); clearError("phone"); }}
+                          placeholder="Registered phone number"
+                          className={errors.phone ? "border-destructive focus-visible:ring-destructive" : ""}
+                        />
+                        {errors.phone && <p className="text-xs text-destructive">{errors.phone}</p>}
+                      </div>
+                    )}
                   </div>
-                  <p className="text-[11px] text-muted-foreground">Provide at least one identifier. Payout is sent to your exchange account.</p>
+                  <p className="text-[11px] text-muted-foreground">Payout is sent to your exchange account using the selected identifier.</p>
                 </div>
               )}
+
 
               {kind === "wallet_address" && (
                 <div className="space-y-3 rounded-xl border border-border bg-muted/20 p-4">
