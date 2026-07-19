@@ -9,6 +9,13 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
 
 type Profile = { referral_code: string; nft_tier: number | null; email: string };
 type Txn = { id: string; amount: number; type: string; note: string | null; created_at: string };
+type NftRow = { id: string; nft_tier: number; created_at: string };
+
+const TIER_META: Record<number, { name: string; tag: string; glyph: string; grad: string; ring: string; badge: string }> = {
+  10: { name: "Starter", tag: "Common", glyph: "◆", grad: "from-emerald-400 via-teal-400 to-cyan-500", ring: "shadow-[inset_0_0_60px_-20px_rgb(45,212,191,0.55)]", badge: "bg-teal-500/15 text-teal-300 border-teal-500/30" },
+  50: { name: "Pro", tag: "Rare", glyph: "◈", grad: "from-violet-500 via-fuchsia-500 to-pink-500", ring: "shadow-[inset_0_0_60px_-20px_rgb(217,70,239,0.55)]", badge: "bg-fuchsia-500/15 text-fuchsia-300 border-fuchsia-500/30" },
+  100: { name: "Elite", tag: "Legendary", glyph: "✦", grad: "from-amber-400 via-orange-500 to-rose-500", ring: "shadow-[inset_0_0_60px_-20px_rgb(251,146,60,0.6)]", badge: "bg-amber-500/15 text-amber-300 border-amber-500/30" },
+};
 
 function Dashboard() {
   const { user } = Route.useRouteContext();
@@ -18,12 +25,15 @@ function Dashboard() {
   const [txns, setTxns] = useState<Txn[]>([]);
   const [refCount, setRefCount] = useState(0);
 
+  const [nfts, setNfts] = useState<NftRow[]>([]);
+
   async function reload() {
-    const [{ data: p }, { data: t }, { data: w }, { count }] = await Promise.all([
+    const [{ data: p }, { data: t }, { data: w }, { count }, { data: n }] = await Promise.all([
       supabase.from("profiles").select("referral_code,nft_tier,email").eq("id", user.id).maybeSingle(),
       supabase.from("wallet_transactions").select("*").eq("user_id", user.id).order("created_at", { ascending: false }).limit(20),
       supabase.from("withdrawals").select("amount").eq("user_id", user.id).eq("status", "pending"),
       supabase.from("profiles").select("id", { count: "exact", head: true }).eq("referred_by", user.id),
+      supabase.from("purchases").select("id, nft_tier, created_at").eq("user_id", user.id).order("created_at", { ascending: false }),
     ]);
     if (p) setProfile(p as Profile);
     const bal = (t ?? []).reduce((s, r: any) => s + (r.type === "referral_credit" ? Number(r.amount) : -Number(r.amount)), 0);
@@ -32,15 +42,16 @@ function Dashboard() {
     setPending(pen);
     setTxns((t ?? []) as Txn[]);
     setRefCount(count ?? 0);
+    setNfts((n ?? []) as NftRow[]);
   }
 
   useEffect(() => {
     reload();
-    // Realtime: refresh balance + activity whenever wallet_transactions or withdrawals change for this user.
     const channel = supabase
       .channel(`wallet:${user.id}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "wallet_transactions", filter: `user_id=eq.${user.id}` }, () => reload())
       .on("postgres_changes", { event: "*", schema: "public", table: "withdrawals", filter: `user_id=eq.${user.id}` }, () => reload())
+      .on("postgres_changes", { event: "*", schema: "public", table: "purchases", filter: `user_id=eq.${user.id}` }, () => reload())
       .subscribe();
     return () => { supabase.removeChannel(channel); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -74,22 +85,65 @@ function Dashboard() {
           </Link>
         </div>
 
-        <div className="rounded-2xl border border-border bg-card p-6">
-          <div className="font-mono text-xs uppercase text-muted-foreground">Your NFT</div>
-          {profile?.nft_tier ? (
-            <>
-              <div className="mt-2 flex h-20 w-20 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-accent text-3xl font-bold text-primary-foreground">
-                ${profile.nft_tier}
+        {(() => {
+          const tier = profile?.nft_tier ?? null;
+          const meta = tier ? TIER_META[tier] ?? TIER_META[10] : null;
+          const latest = nfts[0];
+          const shortId = latest ? latest.id.slice(0, 8) : null;
+          return (
+            <div className={`relative overflow-hidden rounded-2xl border border-border bg-card p-6 ${meta?.ring ?? ""}`}>
+              <div className="flex items-start justify-between">
+                <div className="font-mono text-xs uppercase tracking-wider text-muted-foreground">Your NFT</div>
+                {meta && (
+                  <span className={`rounded-full border px-2.5 py-0.5 text-[10px] font-mono uppercase tracking-wider ${meta.badge}`}>
+                    {meta.tag}
+                  </span>
+                )}
               </div>
-              <div className="mt-2 text-sm">Tier {profile.nft_tier} holder</div>
-            </>
-          ) : (
-            <>
-              <div className="mt-2 text-sm text-muted-foreground">No NFT yet.</div>
-              <Link to="/packages" className="mt-4 inline-block rounded-md border border-border px-4 py-2 text-sm">Claim one</Link>
-            </>
-          )}
-        </div>
+
+              {tier && meta ? (
+                <>
+                  <div className="mt-4 flex items-center gap-4">
+                    <div className={`relative h-24 w-24 shrink-0 overflow-hidden rounded-2xl bg-gradient-to-br ${meta.grad} shadow-lg`}>
+                      <div className="absolute inset-0 bg-gradient-to-tr from-white/30 via-transparent to-transparent mix-blend-overlay" />
+                      <div className="absolute right-1.5 top-1 text-lg text-white/50">{meta.glyph}</div>
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <span className="text-2xl font-black tracking-tight text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.35)]">
+                          ${tier}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-base font-semibold leading-tight">{meta.name} tier</div>
+                      <div className="mt-0.5 text-xs text-muted-foreground">Tier {tier} holder</div>
+                      {shortId && (
+                        <div className="mt-2 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                          {nfts.length} in collection · #{shortId}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div className="mt-4 flex justify-end">
+                    <Link to="/nfts" className="text-xs font-medium text-primary hover:underline">
+                      View collection →
+                    </Link>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="mt-4 flex h-24 w-24 items-center justify-center rounded-2xl border-2 border-dashed border-border/70 text-muted-foreground/60">
+                    <span className="text-3xl">+</span>
+                  </div>
+                  <div className="mt-3 text-sm font-medium">No NFT minted yet</div>
+                  <div className="mt-0.5 text-xs text-muted-foreground">Buy a package to mint your first collectible.</div>
+                  <Link to="/packages" className="mt-4 inline-block rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground">
+                    Browse packages
+                  </Link>
+                </>
+              )}
+            </div>
+          );
+        })()}
 
         <div className="rounded-2xl border border-border bg-card p-6">
           <div className="font-mono text-xs uppercase text-muted-foreground">Referrals</div>
