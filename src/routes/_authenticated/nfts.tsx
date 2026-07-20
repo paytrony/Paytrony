@@ -75,7 +75,7 @@ function saveLocalFavs(s: Set<string>) {
 
 function NFTs() {
   const { nft: nftParam, q, tier: tierParam, sort: sortParam, fav: favParam } = Route.useSearch();
-  const navigate = useNavigate({ from: "/_authenticated/nfts" });
+  const navigate = useNavigate();
 
   const tier: TierFilter = tierParam === "10" ? 10 : tierParam === "50" ? 50 : tierParam === "100" ? 100 : "all";
   const sort: SortKey = (SORT_KEYS as string[]).includes(sortParam) ? (sortParam as SortKey) : "newest";
@@ -83,7 +83,7 @@ function NFTs() {
   const search = q;
 
   const setSearchParam = useCallback((patch: Record<string, string | number>) => {
-    navigate({ search: (prev: Record<string, unknown>) => ({ ...prev, ...patch }) });
+    navigate({ to: ".", search: ((prev: Record<string, unknown>) => ({ ...prev, ...patch })) as never });
   }, [navigate]);
 
   const [items, setItems] = useState<Purchase[] | null>(null);
