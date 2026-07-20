@@ -93,7 +93,26 @@ function MiningPage() {
   }
 
   function openConfirm() {
-    if (!canMine || mining || selectedTiers.length === 0) return;
+    setErrorInfo(null);
+    if (ownedTiers.length === 0) {
+      setErrorInfo({
+        code: "no_nfts",
+        title: "No mineable NFTs",
+        detail: "You need at least one Starter, Pro, or Elite package to mine.",
+        fix: "Buy a package from the Packages page to start earning daily rewards.",
+      });
+      return;
+    }
+    if (!canMine) {
+      setErrorInfo({
+        code: "cooldown_active",
+        title: "Cooldown active",
+        detail: `Next claim available at ${new Date(nextAt).toLocaleString()}.`,
+        fix: "Come back after the countdown reaches zero — the timer keeps running across refreshes and re-logins.",
+      });
+      return;
+    }
+    if (mining || selectedTiers.length === 0) return;
     setConfirmOpen(true);
   }
 
@@ -101,14 +120,62 @@ function MiningPage() {
     if (!canMine || mining) return;
     setConfirmOpen(false);
     setMining(true);
-    const { data, error } = await supabase.rpc("mine_now", { _user_id: user.id });
+    setErrorInfo(null);
+    // Cooldown-window-scoped key: any retry inside the same 24h window
+    // resolves to the same row on the server (idempotent replay).
+    const windowStart = lastClaim ? new Date(lastClaim).getTime() + 24 * 3600 * 1000 : Date.now();
+    const key = idemKeyFor(user.id, windowStart);
+    const { data, error } = await supabase.rpc("mine_now", { _user_id: user.id, _idempotency_key: key });
     setMining(false);
     if (error) {
-      toast.error(error.message || "Mining failed");
+      const raw = String(error.message || "");
+      if (raw.includes("cooldown_active")) {
+        setErrorInfo({
+          code: "cooldown_active",
+          title: "Cooldown still active",
+          detail: raw.replace(/^.*cooldown_active:\s*/, ""),
+          fix: "Wait until the countdown reaches zero, then click Mine again.",
+        });
+      } else if (raw.includes("no_nfts")) {
+        setErrorInfo({
+          code: "no_nfts",
+          title: "No mineable NFTs",
+          detail: "Your account has no Starter, Pro, or Elite package.",
+          fix: "Buy a package to unlock daily mining.",
+        });
+      } else if (raw.includes("wallet_error")) {
+        setErrorInfo({
+          code: "wallet_error",
+          title: "Wallet credit failed",
+          detail: raw.replace(/^.*wallet_error:\s*/, ""),
+          fix: "Your claim was not recorded. Click Mine again to retry — you will not be double-charged.",
+        });
+      } else if (raw.includes("not_authorized")) {
+        setErrorInfo({
+          code: "not_authorized",
+          title: "Session expired",
+          detail: "You are not signed in.",
+          fix: "Sign in again to continue mining.",
+        });
+      } else {
+        setErrorInfo({
+          code: "unknown",
+          title: "Mining failed",
+          detail: raw || "Something went wrong.",
+          fix: "Please try again. If it persists, refresh the page.",
+        });
+      }
+      toast.error("Mining could not complete — see details on the page.");
+      reload();
       return;
     }
-    const amt = Number((data as any)?.amount ?? 0).toFixed(2);
-    toast.success(`+$${amt} mined and credited to your wallet`);
+    const payload = data as any;
+    const amt = Number(payload?.amount ?? 0).toFixed(2);
+    if (payload?.idempotent) {
+      toast.info(`Already credited $${amt} for this cooldown window.`);
+    } else {
+      toast.success(`+$${amt} mined and credited to your wallet`);
+    }
     reload();
   }
 
@@ -119,6 +186,7 @@ function MiningPage() {
       return next;
     });
   }
+
 
   return (
     <div className="space-y-8">
