@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Copy, Loader2, CheckCircle2, XCircle, Clock, QrCode, Wallet, Smartphone, Zap, CreditCard, ChevronLeft, Lock } from "lucide-react";
 import { MetaMaskPay } from "@/components/checkout/MetaMaskPay";
 import { SolanaPay } from "@/components/checkout/SolanaPay";
+import { WalletConnectPay } from "@/components/checkout/WalletConnectPay";
 
 export const Route = createFileRoute("/_authenticated/packages")({
   component: Packages,
@@ -50,7 +51,7 @@ function buildTiles(cfg: { walletConnectProjectId: string | null; solanaEnabled:
     { id: "tron", label: "Binance / Bybit QR", subtitle: "USDT on Tron (TRC20)", fee: "gas ≈ $1 · ~30s", icon: QrCode },
     { id: "metamask", label: "MetaMask", subtitle: "USDT/USDC on BSC, Polygon, Arbitrum, Optimism, Base, ETH", fee: "gas ≈ $0.01–2", icon: Wallet },
     { id: "solana", label: "Solana Pay", subtitle: "USDC on Solana (Phantom, Solflare, Backpack)", fee: solOn ? "gas < $0.01" : "Setup required", icon: Zap, disabled: !solOn, disabledHint: "Site owner: set SOLANA_USDC_ADDRESS" },
-    { id: "walletconnect", label: "WalletConnect", subtitle: "Trust, Rainbow, any mobile wallet", fee: wcOn ? "gas ≈ chain fee" : "Coming soon", icon: Smartphone, disabled: true, disabledHint: wcOn ? "WalletConnect UI coming shortly" : "Site owner: set WALLETCONNECT_PROJECT_ID" },
+    { id: "walletconnect", label: "WalletConnect", subtitle: "Trust, Rainbow, MetaMask Mobile, any WC wallet", fee: wcOn ? "gas ≈ chain fee" : "Setup required", icon: Smartphone, disabled: !wcOn, disabledHint: wcOn ? undefined : "Site owner: set WALLETCONNECT_PROJECT_ID" },
     { id: "card", label: "Credit / Debit card", subtitle: "Visa, Mastercard, Amex via Stripe", fee: stripeOn ? "2.9% + 30¢" : "Coming soon", icon: CreditCard, disabled: true, disabledHint: stripeOn ? "Card checkout coming shortly" : "Enable Stripe payments to activate" },
   ];
 }
@@ -278,6 +279,10 @@ function Packages() {
 
           {status === "pending" && method === "solana" && openTier !== null && (
             <SolanaPay tier={openTier} />
+          )}
+
+          {status === "pending" && method === "walletconnect" && openTier !== null && (
+            <WalletConnectPay tier={openTier} />
           )}
 
           {status === "paid" && (
