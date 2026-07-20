@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { buildMiningTransferIdempotencyKey } from "@/lib/mining-transfer-idempotency";
+import { tierRates as computeTierRates } from "@/lib/mining-rates";
 
 
 
@@ -79,7 +80,7 @@ function Dashboard() {
 
   const available = balance - pending;
 
-  const tierRates: Record<number, number> = { 10: 1.2, 50: 5.2, 100: 11.2 };
+  const tierRates: Record<number, number> = useMemo(() => computeTierRates(refCount), [refCount]);
   const ownedTiers = useMemo(() => Array.from(new Set(nfts.map((n) => n.nft_tier))), [nfts]);
   const dailyRate = ownedTiers.reduce((s, tier) => s + (tierRates[tier] ?? 0), 0);
   const totalMined = txns.filter((t) => t.type === "mining_reward").reduce((s, t) => s + Number(t.amount), 0);
@@ -236,6 +237,9 @@ function Dashboard() {
           <div className="mt-1 text-xs text-muted-foreground">
             <span className="text-primary font-semibold">${miningAvailable.toFixed(2)}</span> mined balance · ${totalMined.toFixed(2)} all-time
             {cooldownMs > 0 && ` · next in ${formatCountdown(cooldownMs)}`}
+          </div>
+          <div className="mt-1 text-[11px] text-muted-foreground">
+            Referral boost: {refCount >= 10 ? "max rate unlocked" : `${refCount}/10 refs → invite ${10 - refCount} more for full rate`}
           </div>
           <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-muted">
             <div

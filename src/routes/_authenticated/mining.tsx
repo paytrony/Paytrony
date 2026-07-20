@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Pickaxe, Timer, Coins, Sparkles, Loader2 } from "lucide-react";
+import { tierRates as computeTierRates, MAX_RATES, BASE_RATES } from "@/lib/mining-rates";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -24,7 +25,7 @@ export const Route = createFileRoute("/_authenticated/mining")({
   component: MiningPage,
 });
 
-const RATES: Record<number, number> = { 10: 1.2, 50: 5.2, 100: 11.2 };
+// Rates below scale with referrals. RATES is computed from user's referral count.
 
 type Claim = { id: string; amount: number; tiers: number[]; created_at: string };
 
@@ -40,6 +41,8 @@ function MiningPage() {
   const [now, setNow] = useState(Date.now());
   const [errorInfo, setErrorInfo] = useState<{ code: string; title: string; detail: string; fix: string } | null>(null);
   const [balance, setBalance] = useState<number | null>(null);
+  const [refCount, setRefCount] = useState(0);
+  const RATES = useMemo(() => computeTierRates(refCount), [refCount]);
 
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 1000);
@@ -54,9 +57,10 @@ function MiningPage() {
 
 
   async function reload() {
-    const [{ data: purchases }, { data: c }] = await Promise.all([
+    const [{ data: purchases }, { data: c }, { data: refs }] = await Promise.all([
       supabase.from("purchases").select("nft_tier").eq("user_id", user.id),
       supabase.from("mining_claims").select("id, amount, tiers, created_at").eq("user_id", user.id).order("created_at", { ascending: false }).limit(20),
+      supabase.rpc("get_referred_users"),
     ]);
     const tiers = Array.from(new Set((purchases ?? []).map((p: any) => Number(p.nft_tier)).filter((t) => [10, 50, 100].includes(t)))).sort((a, b) => a - b);
     setOwnedTiers(tiers);
@@ -64,6 +68,7 @@ function MiningPage() {
     const list = (c ?? []) as Claim[];
     setClaims(list);
     setLastClaim(list[0]?.created_at ?? null);
+    setRefCount((refs ?? []).length);
     setLoading(false);
   }
 
@@ -258,7 +263,21 @@ function MiningPage() {
         </div>
       )}
 
-
+      <div className="rounded-2xl border border-primary/30 bg-primary/5 p-4 sm:p-5">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <div className="text-sm font-semibold">Referral boost {refCount >= 10 ? "— max unlocked" : `— ${refCount}/10 referrals`}</div>
+            <div className="text-xs text-muted-foreground">
+              Mining pays 10% of the max at 0 referrals and scales linearly to the full rate at 10 referrals.
+              {refCount < 10 && ` Invite ${10 - refCount} more to hit max ($${MAX_RATES[10].toFixed(2)} / $${MAX_RATES[50].toFixed(2)} / $${MAX_RATES[100].toFixed(2)} per day).`}
+            </div>
+          </div>
+          <div className="font-mono text-sm text-primary">×{(Math.min(refCount, 10) / 10 * 0.9 + 0.1).toFixed(2)}</div>
+        </div>
+        <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-muted">
+          <div className="h-full bg-primary transition-all" style={{ width: `${Math.min(refCount, 10) * 10}%` }} />
+        </div>
+      </div>
 
 
       <div className="grid gap-4 md:grid-cols-3">
@@ -333,6 +352,7 @@ function MiningPage() {
                     )}
                   </div>
                   <div className="mt-2 text-2xl font-bold">${RATES[tier].toFixed(2)}<span className="text-sm font-normal text-muted-foreground">/day</span></div>
+                  <div className="mt-1 text-[10px] font-mono text-muted-foreground">Base ${BASE_RATES[tier].toFixed(2)} → Max ${MAX_RATES[tier].toFixed(2)}</div>
                   <div className="mt-1 text-xs text-muted-foreground">{owned ? "Owned" : "Not owned"}</div>
                 </button>
               );
