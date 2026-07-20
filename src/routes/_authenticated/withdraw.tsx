@@ -30,7 +30,7 @@ export const Route = createFileRoute("/_authenticated/withdraw")({
 const FEE = 1;
 
 type W = { id: string; amount: number; status: string; payout_note: string | null; admin_note: string | null; created_at: string; resolved_at: string | null };
-type Limits = { min_amount: number; daily_cap: number; kyc_threshold: number; cooldown_minutes: number };
+type Limits = { min_amount: number; daily_cap: number; cooldown_minutes: number };
 type KindKey = "binance" | "bybit" | "wallet_address" | "upi" | "paypal" | "bank";
 
 type MethodDef = {
@@ -67,7 +67,7 @@ function Withdraw() {
   const [history, setHistory] = useState<W[]>([]);
   const [limits, setLimits] = useState<Limits | null>(null);
   const [emailVerified, setEmailVerified] = useState(false);
-  const [kycStatus, setKycStatus] = useState<string>("none");
+  
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [signing, setSigning] = useState(false);
   const [signError, setSignError] = useState<string | null>(null);
@@ -139,12 +139,11 @@ function Withdraw() {
 
 
   async function load() {
-    const [{ data: t }, { data: w }, { data: lim }, { data: u }, { data: prof }] = await Promise.all([
+    const [{ data: t }, { data: w }, { data: lim }, { data: u }] = await Promise.all([
       supabase.from("wallet_transactions").select("amount,type").eq("user_id", user.id),
       supabase.from("withdrawals").select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
       supabase.from("withdrawal_limits").select("*").eq("id", true).maybeSingle(),
       supabase.auth.getUser(),
-      supabase.from("profiles").select("kyc_status").eq("id", user.id).maybeSingle(),
     ]);
     const bal = (t ?? []).reduce((s, r: any) => s + (r.type === "referral_credit" ? Number(r.amount) : -Number(r.amount)), 0);
     const pen = (w ?? []).filter((r: any) => r.status === "pending").reduce((s, r: any) => s + Number(r.amount), 0);
@@ -152,7 +151,6 @@ function Withdraw() {
     setHistory((w ?? []) as W[]);
     setLimits(lim as Limits | null);
     setEmailVerified(!!u.user?.email_confirmed_at);
-    setKycStatus((prof as any)?.kyc_status ?? "none");
   }
   useEffect(() => { load(); }, [user.id]);
 
@@ -276,7 +274,6 @@ function Withdraw() {
   }
 
   const gated = !emailVerified;
-  const kycNeeded = limits && Number(amount) > limits.kyc_threshold && kycStatus !== "approved";
   const methodReady = (kind === "binance" || kind === "bybit") ? !!(idType === "uid" ? exUid.trim() : idType === "email" ? exEmail.trim() : exPhone.trim()) : kind === "wallet_address" ? !!walletAddress.trim() : false;
   const amt = Number(amount) || 0;
   const net = amt; // user receives the full requested amount; fee is debited separately
@@ -300,10 +297,9 @@ function Withdraw() {
       )}
 
       {limits && (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <Stat label="Minimum" v={`$${limits.min_amount}`} />
           <Stat label="Daily cap" v={`$${limits.daily_cap}`} />
-          <Stat label="KYC over" v={`$${limits.kyc_threshold}`} />
           <Stat label="Cooldown" v={`${limits.cooldown_minutes}m`} />
         </div>
       )}
@@ -335,9 +331,6 @@ function Withdraw() {
                   />
                 </div>
                 {errors.amount && <p className="text-xs text-destructive">{errors.amount}</p>}
-                {kycNeeded && (
-                  <p className="text-xs text-accent">KYC approval required above ${limits!.kyc_threshold}. <Link to="/settings" className="underline">Submit KYC</Link></p>
-                )}
               </div>
 
               <div className="rounded-xl border border-border bg-muted/30 p-4">
