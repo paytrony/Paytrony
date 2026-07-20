@@ -130,7 +130,7 @@ export const adminPaymentIntentAction = createServerFn({ method: "POST" })
     if (data.action === "mark_paid") {
       const { data: res, error } = await supabaseAdmin.rpc("admin_mark_intent_paid", {
         _intent_id: data.intentId,
-        _tx_hash: data.txHash || null,
+        _tx_hash: data.txHash || undefined,
       });
       if (error) throw new Error(error.message);
       return res;
