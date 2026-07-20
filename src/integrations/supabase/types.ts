@@ -448,6 +448,7 @@ export type Database = {
           }
       test_e2e_flow: { Args: never; Returns: string }
       test_evm_webhook_flow: { Args: never; Returns: string }
+      transfer_mining_to_wallet: { Args: { _amount: number }; Returns: Json }
     }
     Enums: {
       app_role: "admin" | "user"
@@ -465,7 +466,11 @@ export type Database = {
         | "binance"
         | "bybit"
         | "wallet_address"
-      txn_type: "referral_credit" | "withdrawal" | "mining_reward"
+      txn_type:
+        | "referral_credit"
+        | "withdrawal"
+        | "mining_reward"
+        | "mining_transfer"
       withdrawal_status: "pending" | "approved" | "rejected"
     }
     CompositeTypes: {
@@ -611,7 +616,12 @@ export const Constants = {
         "bybit",
         "wallet_address",
       ],
-      txn_type: ["referral_credit", "withdrawal", "mining_reward"],
+      txn_type: [
+        "referral_credit",
+        "withdrawal",
+        "mining_reward",
+        "mining_transfer",
+      ],
       withdrawal_status: ["pending", "approved", "rejected"],
     },
   },
