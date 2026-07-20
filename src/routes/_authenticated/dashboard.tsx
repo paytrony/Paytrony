@@ -25,8 +25,7 @@ const TIER_META: Record<number, { name: string; tag: string; glyph: string; grad
 function Dashboard() {
   const { user } = Route.useRouteContext();
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [balance, setBalance] = useState(0);
-  const [pending, setPending] = useState(0);
+  const [wallet, setWallet] = useState<WalletBalance>(EMPTY_WALLET_BALANCE);
   const [txns, setTxns] = useState<Txn[]>([]);
   const [refCount, setRefCount] = useState(0);
 
@@ -36,25 +35,16 @@ function Dashboard() {
   const [nowTs, setNowTs] = useState(Date.now());
 
   async function reload() {
-    const [{ data: p }, { data: t }, { data: w }, { data: refs }, { data: n }, { data: mc }] = await Promise.all([
+    const [{ data: p }, { data: t }, { data: refs }, { data: n }, { data: mc }, wb] = await Promise.all([
       supabase.from("profiles").select("referral_code,nft_tier,email").eq("id", user.id).maybeSingle(),
       supabase.from("wallet_transactions").select("*").eq("user_id", user.id).order("created_at", { ascending: false }).limit(20),
-      supabase.from("withdrawals").select("amount").eq("user_id", user.id).eq("status", "pending"),
       supabase.rpc("get_referred_users"),
       supabase.from("purchases").select("id, nft_tier, created_at").eq("user_id", user.id).order("created_at", { ascending: false }),
       supabase.from("mining_claims").select("created_at").eq("user_id", user.id).order("created_at", { ascending: false }).limit(1).maybeSingle(),
+      fetchWalletBalance().catch(() => EMPTY_WALLET_BALANCE),
     ]);
     if (p) setProfile(p as Profile);
-    // Wallet balance excludes raw mining_reward — those live in the mining bucket
-    // until explicitly transferred (mining_transfer) into the withdrawable wallet.
-    const bal = (t ?? []).reduce((s, r: any) => {
-      if (r.type === "referral_credit" || r.type === "mining_transfer") return s + Number(r.amount);
-      if (r.type === "withdrawal") return s - Number(r.amount);
-      return s;
-    }, 0);
-    const pen = (w ?? []).reduce((s, r: any) => s + Number(r.amount), 0);
-    setBalance(bal);
-    setPending(pen);
+    setWallet(wb);
     setTxns((t ?? []) as Txn[]);
     setRefCount((refs ?? []).length);
     setNfts((n ?? []) as NftRow[]);
@@ -79,14 +69,16 @@ function Dashboard() {
     return () => clearInterval(id);
   }, []);
 
-  const available = balance - pending;
+  const balance = wallet.balance;
+  const pending = wallet.pending;
+  const available = wallet.available;
 
   const tierRates: Record<number, number> = useMemo(() => computeTierRates(refCount), [refCount]);
   const ownedTiers = useMemo(() => Array.from(new Set(nfts.map((n) => n.nft_tier))), [nfts]);
   const dailyRate = ownedTiers.reduce((s, tier) => s + (tierRates[tier] ?? 0), 0);
-  const totalMined = txns.filter((t) => t.type === "mining_reward").reduce((s, t) => s + Number(t.amount), 0);
-  const totalTransferred = txns.filter((t) => t.type === "mining_transfer").reduce((s, t) => s + Number(t.amount), 0);
-  const miningAvailable = Math.max(0, totalMined - totalTransferred);
+  const totalMined = wallet.mining_earned;
+  const totalTransferred = wallet.mining_transferred;
+  const miningAvailable = wallet.mining_available;
   const [transferring, setTransferring] = useState(false);
   async function handleTransfer() {
     if (transferring || miningAvailable <= 0) return;
