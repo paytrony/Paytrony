@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { buildMiningTransferIdempotencyKey } from "@/lib/mining-transfer-idempotency";
 import { tierRates as computeTierRates } from "@/lib/mining-rates";
+import { fetchWalletBalance, EMPTY_WALLET_BALANCE, type WalletBalance } from "@/lib/wallet-balance";
 
 
 
