@@ -38,6 +38,7 @@ export const TIER_BENEFITS: Record<Tier, TierBenefits> = {
     tagline: "Maximum earning power",
     benefits: [
       "Top-tier Elite NFT with premium art",
+      "Mine $11.20/day — highest daily yield",
       "Maximum $100 per referral, instant payout",
       "Early access to marketplace resale (coming soon)",
       "Highest visibility across leaderboards",
