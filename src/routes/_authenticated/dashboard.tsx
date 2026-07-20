@@ -1,6 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+
 
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
@@ -26,14 +28,18 @@ function Dashboard() {
   const [refCount, setRefCount] = useState(0);
 
   const [nfts, setNfts] = useState<NftRow[]>([]);
+  const [lastClaimAt, setLastClaimAt] = useState<string | null>(null);
+  const [mining, setMining] = useState(false);
+  const [nowTs, setNowTs] = useState(Date.now());
 
   async function reload() {
-    const [{ data: p }, { data: t }, { data: w }, { data: refs }, { data: n }] = await Promise.all([
+    const [{ data: p }, { data: t }, { data: w }, { data: refs }, { data: n }, { data: mc }] = await Promise.all([
       supabase.from("profiles").select("referral_code,nft_tier,email").eq("id", user.id).maybeSingle(),
       supabase.from("wallet_transactions").select("*").eq("user_id", user.id).order("created_at", { ascending: false }).limit(20),
       supabase.from("withdrawals").select("amount").eq("user_id", user.id).eq("status", "pending"),
       supabase.rpc("get_referred_users"),
       supabase.from("purchases").select("id, nft_tier, created_at").eq("user_id", user.id).order("created_at", { ascending: false }),
+      supabase.from("mining_claims").select("created_at").eq("user_id", user.id).order("created_at", { ascending: false }).limit(1).maybeSingle(),
     ]);
     if (p) setProfile(p as Profile);
     const bal = (t ?? []).reduce((s, r: any) => s + ((r.type === "referral_credit" || r.type === "mining_reward") ? Number(r.amount) : -Number(r.amount)), 0);
@@ -43,7 +49,9 @@ function Dashboard() {
     setTxns((t ?? []) as Txn[]);
     setRefCount((refs ?? []).length);
     setNfts((n ?? []) as NftRow[]);
+    setLastClaimAt((mc as any)?.created_at ?? null);
   }
+
 
   useEffect(() => {
     reload();
@@ -57,7 +65,50 @@ function Dashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user.id]);
 
+  useEffect(() => {
+    const id = setInterval(() => setNowTs(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+
   const available = balance - pending;
+
+  const tierRates: Record<number, number> = { 10: 1.2, 50: 5.2, 100: 11.2 };
+  const ownedTiers = useMemo(() => Array.from(new Set(nfts.map((n) => n.nft_tier))), [nfts]);
+  const dailyRate = ownedTiers.reduce((s, tier) => s + (tierRates[tier] ?? 0), 0);
+  const totalMined = txns.filter((t) => t.type === "mining_reward").reduce((s, t) => s + Number(t.amount), 0);
+  const nextClaimAt = lastClaimAt ? new Date(lastClaimAt).getTime() + 24 * 3600 * 1000 : 0;
+  const cooldownMs = Math.max(0, nextClaimAt - nowTs);
+  const canMine = ownedTiers.length > 0 && cooldownMs === 0;
+
+  function formatCountdown(ms: number) {
+    const s = Math.ceil(ms / 1000);
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    const sec = s % 60;
+    return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
+  }
+
+  async function handleMine() {
+    if (mining || !canMine) return;
+    setMining(true);
+    const key = `mine:${user.id}:${new Date().toISOString().slice(0, 10)}:${Date.now()}`;
+    try {
+      const { data, error } = await supabase.rpc("mine_now", { _user_id: user.id, _idempotency_key: key });
+      if (error) throw error;
+      const amt = Number((data as any)?.amount ?? 0);
+      toast.success(`Mined $${amt.toFixed(2)} — credited to your wallet`);
+      await reload();
+    } catch (e: any) {
+      const msg = String(e?.message ?? "Mining failed");
+      if (msg.includes("cooldown_active")) toast.error("Cooldown active — try again later");
+      else if (msg.includes("no_nfts")) toast.error("Buy an NFT package to start mining");
+      else toast.error(msg);
+    } finally {
+      setMining(false);
+    }
+  }
+
+
 
 
   return (
@@ -140,22 +191,37 @@ function Dashboard() {
           );
         })()}
 
-        {(() => {
-          const tierRates: Record<number, number> = { 10: 1.2, 50: 5.2, 100: 11.2 };
-          const ownedTiers = Array.from(new Set(nfts.map((n) => n.nft_tier)));
-          const dailyRate = ownedTiers.reduce((s, tier) => s + (tierRates[tier] ?? 0), 0);
-          const totalMined = txns.filter((t) => t.type === "mining_reward").reduce((s, t) => s + Number(t.amount), 0);
-          return (
-            <div className="rounded-2xl border border-border bg-card p-6">
-              <div className="font-mono text-xs uppercase text-muted-foreground">Mining</div>
-              <div className="mt-2 text-4xl font-bold text-primary">${dailyRate.toFixed(2)}<span className="text-sm text-muted-foreground font-normal">/day</span></div>
-              <div className="mt-1 text-xs text-muted-foreground">${totalMined.toFixed(2)} mined all-time</div>
-              <Link to="/mining" className="mt-4 inline-block rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground">
-                {dailyRate > 0 ? "Mine now" : "Start mining"}
-              </Link>
-            </div>
-          );
-        })()}
+        <div className="rounded-2xl border border-border bg-card p-6">
+          <div className="flex items-center justify-between">
+            <div className="font-mono text-xs uppercase text-muted-foreground">Mining</div>
+            {ownedTiers.length > 0 && (
+              <span className="font-mono text-[10px] uppercase text-muted-foreground">
+                {ownedTiers.map((t) => `$${t}`).join(" + ")}
+              </span>
+            )}
+          </div>
+          <div className="mt-2 text-4xl font-bold text-primary">
+            ${dailyRate.toFixed(2)}<span className="text-sm text-muted-foreground font-normal">/day</span>
+          </div>
+          <div className="mt-1 text-xs text-muted-foreground">
+            ${totalMined.toFixed(2)} mined all-time
+            {cooldownMs > 0 && ` · next in ${formatCountdown(cooldownMs)}`}
+          </div>
+          {ownedTiers.length === 0 ? (
+            <Link to="/packages" className="mt-4 inline-block rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground">
+              Buy NFT to mine
+            </Link>
+          ) : (
+            <button
+              onClick={handleMine}
+              disabled={!canMine || mining}
+              className="mt-4 inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {mining ? "Mining…" : cooldownMs > 0 ? `Wait ${formatCountdown(cooldownMs)}` : "Mine now"}
+            </button>
+          )}
+        </div>
+
       </div>
 
 
