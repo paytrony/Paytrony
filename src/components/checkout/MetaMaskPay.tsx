@@ -223,7 +223,7 @@ export function MetaMaskPay({ tier }: { tier: 10 | 50 | 100 }) {
       ) : (
         <>
           <Button onClick={pay} className="w-full" disabled={status !== "idle"}>
-            {status === "idle" && `Pay $${tier} USDT with MetaMask`}
+            {status === "idle" && `Pay $${tier} ${CHAIN_META[chain].token} with MetaMask`}
             {status === "creating" && (<><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Preparing…</>)}
             {status === "switching" && (<><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Switching network…</>)}
             {status === "signing" && (<><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Confirm in MetaMask…</>)}
