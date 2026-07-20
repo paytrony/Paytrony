@@ -227,7 +227,21 @@ function Packages() {
           </DialogHeader>
 
           {status === "pending" && method === "chooser" && openTier !== null && (
-            <div className="space-y-2">
+            <div className="space-y-3">
+              <div className="rounded-lg border border-primary/30 bg-primary/5 p-3">
+                <div className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-primary">
+                  {TIER_BENEFITS[openTier].tag} · what you get
+                </div>
+                <ul className="space-y-1 text-xs">
+                  {TIER_BENEFITS[openTier].benefits.slice(0, 3).map((b) => (
+                    <li key={b} className="flex items-start gap-2">
+                      <Check className="mt-0.5 h-3 w-3 shrink-0 text-primary" strokeWidth={2.5} />
+                      <span className="text-foreground/85">{b}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div className="space-y-2">
               {tiles.map((tile) => {
                 const Icon = tile.icon;
                 return (
