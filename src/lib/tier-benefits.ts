@@ -13,6 +13,7 @@ export const TIER_BENEFITS: Record<Tier, TierBenefits> = {
     tagline: "Get started with the basics",
     benefits: [
       "Instant NFT mint on Tier 10",
+      "Mine $1.20/day — every 24h claim",
       "100% referral payout ($10) to your inviter, credited instantly",
       "Unlock your own referral link to start earning",
       "Withdraw anytime, flat $1 fee",
@@ -25,6 +26,7 @@ export const TIER_BENEFITS: Record<Tier, TierBenefits> = {
     popular: true,
     benefits: [
       "Everything in Starter, upgraded Tier 50 NFT",
+      "Mine $5.20/day — 4.3× faster than Starter",
       "5× higher referral earnings — $50 per invited Pro",
       "Priority listing on the upcoming marketplace",
       "Real-time wallet + email alerts on every credit",
@@ -36,6 +38,7 @@ export const TIER_BENEFITS: Record<Tier, TierBenefits> = {
     tagline: "Maximum earning power",
     benefits: [
       "Top-tier Elite NFT with premium art",
+      "Mine $11.20/day — highest daily yield",
       "Maximum $100 per referral, instant payout",
       "Early access to marketplace resale (coming soon)",
       "Highest visibility across leaderboards",
