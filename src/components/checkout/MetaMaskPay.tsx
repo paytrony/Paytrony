@@ -7,11 +7,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Loader2, Wallet, CheckCircle2, XCircle, ExternalLink, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 
-type Chain = "bsc" | "eth" | "polygon";
-const CHAIN_META: Record<Chain, { label: string; native: string; explorer: (h: string) => string }> = {
-  bsc: { label: "BNB Smart Chain (cheap fees)", native: "BNB", explorer: (h) => `https://bscscan.com/tx/${h}` },
-  polygon: { label: "Polygon (very cheap)", native: "POL", explorer: (h) => `https://polygonscan.com/tx/${h}` },
-  eth: { label: "Ethereum (highest fees)", native: "ETH", explorer: (h) => `https://etherscan.io/tx/${h}` },
+type Chain = "bsc" | "polygon" | "arbitrum" | "optimism" | "base" | "eth";
+const CHAIN_META: Record<Chain, { label: string; native: string; explorer: (h: string) => string; token: string }> = {
+  bsc: { label: "BNB Smart Chain (cheap fees)", native: "BNB", token: "USDT", explorer: (h) => `https://bscscan.com/tx/${h}` },
+  polygon: { label: "Polygon (very cheap)", native: "POL", token: "USDT", explorer: (h) => `https://polygonscan.com/tx/${h}` },
+  arbitrum: { label: "Arbitrum One (cheap L2)", native: "ETH", token: "USDT", explorer: (h) => `https://arbiscan.io/tx/${h}` },
+  optimism: { label: "Optimism (cheap L2)", native: "ETH", token: "USDT", explorer: (h) => `https://optimistic.etherscan.io/tx/${h}` },
+  base: { label: "Base (USDC, very cheap)", native: "ETH", token: "USDC", explorer: (h) => `https://basescan.org/tx/${h}` },
+  eth: { label: "Ethereum (highest fees)", native: "ETH", token: "USDT", explorer: (h) => `https://etherscan.io/tx/${h}` },
 };
 
 type Intent = {
