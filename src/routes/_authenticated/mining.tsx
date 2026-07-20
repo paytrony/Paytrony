@@ -67,8 +67,34 @@ function MiningPage() {
     setLoading(false);
   }
 
+  async function fetchBalance() {
+    const CREDIT_TYPES = new Set(["referral_credit", "mining_reward"]);
+    const [{ data: txns }, { data: pending }] = await Promise.all([
+      supabase.from("wallet_transactions").select("amount,type").eq("user_id", user.id),
+      supabase.from("withdrawals").select("amount").eq("user_id", user.id).eq("status", "pending"),
+    ]);
+    const totalEarned = (txns ?? []).filter((t: any) => CREDIT_TYPES.has(t.type)).reduce((s, t: any) => s + Number(t.amount), 0);
+    const totalSpent = (txns ?? []).filter((t: any) => !CREDIT_TYPES.has(t.type)).reduce((s, t: any) => s + Number(t.amount), 0);
+    const pendingAmt = (pending ?? []).reduce((s, r: any) => s + Number(r.amount), 0);
+    return totalEarned - totalSpent - pendingAmt;
+  }
+
+  async function refreshPostMine() {
+    const [{ data: c }, freshBalance] = await Promise.all([
+      supabase.from("mining_claims").select("id, amount, tiers, created_at").eq("user_id", user.id).order("created_at", { ascending: false }).limit(20),
+      fetchBalance(),
+    ]);
+    const list = (c ?? []) as Claim[];
+    setClaims(list);
+    setLastClaim(list[0]?.created_at ?? null);
+    setBalance(freshBalance);
+    const nextAtMs = list[0]?.created_at ? new Date(list[0].created_at).getTime() + 24 * 3600 * 1000 : 0;
+    return { balance: freshBalance, nextAtMs };
+  }
+
   useEffect(() => {
     reload();
+    fetchBalance().then(setBalance).catch(() => setBalance(null));
     const ch = supabase
       .channel(`mining:${user.id}`)
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "mining_claims", filter: `user_id=eq.${user.id}` }, () => reload())
@@ -77,6 +103,15 @@ function MiningPage() {
     return () => { supabase.removeChannel(ch); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user.id]);
+
+  // Poll mining state while a request is in progress so the cooldown banner
+  // and Mine availability stay accurate without waiting for the realtime event.
+  useEffect(() => {
+    if (!mining) return;
+    const id = setInterval(() => reload(), 3000);
+    return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mining]);
 
   const nextAt = lastClaim ? new Date(lastClaim).getTime() + 24 * 3600 * 1000 : 0;
   const msLeft = Math.max(0, nextAt - now);
