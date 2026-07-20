@@ -338,6 +338,7 @@ function MiningPage() {
                     )}
                   </div>
                   <div className="mt-2 text-2xl font-bold">${RATES[tier].toFixed(2)}<span className="text-sm font-normal text-muted-foreground">/day</span></div>
+                  <div className="mt-1 text-[10px] font-mono text-muted-foreground">Base ${BASE_RATES[tier].toFixed(2)} → Max ${MAX_RATES[tier].toFixed(2)}</div>
                   <div className="mt-1 text-xs text-muted-foreground">{owned ? "Owned" : "Not owned"}</div>
                 </button>
               );
