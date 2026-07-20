@@ -28,11 +28,11 @@ function Dashboard() {
   const [nfts, setNfts] = useState<NftRow[]>([]);
 
   async function reload() {
-    const [{ data: p }, { data: t }, { data: w }, { count }, { data: n }] = await Promise.all([
+    const [{ data: p }, { data: t }, { data: w }, { data: refs }, { data: n }] = await Promise.all([
       supabase.from("profiles").select("referral_code,nft_tier,email").eq("id", user.id).maybeSingle(),
       supabase.from("wallet_transactions").select("*").eq("user_id", user.id).order("created_at", { ascending: false }).limit(20),
       supabase.from("withdrawals").select("amount").eq("user_id", user.id).eq("status", "pending"),
-      supabase.from("profiles").select("id", { count: "exact", head: true }).eq("referred_by", user.id),
+      supabase.rpc("get_referred_users"),
       supabase.from("purchases").select("id, nft_tier, created_at").eq("user_id", user.id).order("created_at", { ascending: false }),
     ]);
     if (p) setProfile(p as Profile);
@@ -41,7 +41,7 @@ function Dashboard() {
     setBalance(bal);
     setPending(pen);
     setTxns((t ?? []) as Txn[]);
-    setRefCount(count ?? 0);
+    setRefCount((refs ?? []).length);
     setNfts((n ?? []) as NftRow[]);
   }
 
