@@ -257,7 +257,7 @@ function Withdraw() {
 
       const idempotencyKey = (crypto as any).randomUUID?.() ?? `wd-${Date.now()}-${Math.random()}`;
       const res = await req({ data: { amount: amt, note, idempotencyKey, payoutMethodId: pm.id } });
-      toast.success(`Instant payout sent — $${net.toFixed(2)} (fee $${FEE} from $${amt.toFixed(2)})`);
+      toast.success(`Withdrawal request submitted — pending admin approval (up to 24 hours). You'll receive $${net.toFixed(2)} once approved.`);
       setReceipt({ id: res.id, amount: amt, fee: FEE, net, method: methodLabel, createdAt: new Date().toISOString() });
       setAmount(""); setNote(""); setExUid(""); setExEmail(""); setExPhone(""); setWalletAddress("");
       setErrors({});
