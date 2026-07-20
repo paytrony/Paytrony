@@ -291,8 +291,8 @@ function Dashboard() {
                   <div className="text-sm">{t.note ?? t.type}</div>
                   <div className="text-xs text-muted-foreground">{new Date(t.created_at).toLocaleString()}</div>
                 </div>
-                <div className={`font-mono font-semibold ${(t.type === "referral_credit" || t.type === "mining_reward") ? "text-primary" : "text-muted-foreground"}`}>
-                  {(t.type === "referral_credit" || t.type === "mining_reward") ? "+" : "−"}${Number(t.amount).toFixed(2)}
+                <div className={`font-mono font-semibold ${(t.type === "referral_credit" || t.type === "mining_reward" || t.type === "mining_transfer") ? "text-primary" : "text-muted-foreground"}`}>
+                  {(t.type === "referral_credit" || t.type === "mining_reward" || t.type === "mining_transfer") ? "+" : "−"}${Number(t.amount).toFixed(2)}
                 </div>
               </div>
             ))}
