@@ -341,6 +341,7 @@ export type Database = {
           payout_note: string | null
           resolved_at: string | null
           status: Database["public"]["Enums"]["withdrawal_status"]
+          tx_hash: string | null
           user_id: string
         }
         Insert: {
@@ -352,6 +353,7 @@ export type Database = {
           payout_note?: string | null
           resolved_at?: string | null
           status?: Database["public"]["Enums"]["withdrawal_status"]
+          tx_hash?: string | null
           user_id: string
         }
         Update: {
@@ -363,6 +365,7 @@ export type Database = {
           payout_note?: string | null
           resolved_at?: string | null
           status?: Database["public"]["Enums"]["withdrawal_status"]
+          tx_hash?: string | null
           user_id?: string
         }
         Relationships: []
@@ -423,15 +426,26 @@ export type Database = {
         }
         Returns: string
       }
-      resolve_withdrawal: {
-        Args: {
-          _admin_id: string
-          _admin_note: string
-          _approve: boolean
-          _withdrawal_id: string
-        }
-        Returns: undefined
-      }
+      resolve_withdrawal:
+        | {
+            Args: {
+              _admin_id: string
+              _admin_note: string
+              _approve: boolean
+              _withdrawal_id: string
+            }
+            Returns: undefined
+          }
+        | {
+            Args: {
+              _admin_id: string
+              _admin_note: string
+              _approve: boolean
+              _tx_hash?: string
+              _withdrawal_id: string
+            }
+            Returns: undefined
+          }
       test_e2e_flow: { Args: never; Returns: string }
       test_evm_webhook_flow: { Args: never; Returns: string }
     }
