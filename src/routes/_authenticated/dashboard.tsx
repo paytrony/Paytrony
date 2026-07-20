@@ -253,13 +253,23 @@ function Dashboard() {
               Buy NFT to mine
             </Link>
           ) : (
-            <button
-              onClick={handleMine}
-              disabled={!canMine || mining}
-              className="mt-4 inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {mining ? "Mining…" : cooldownMs > 0 ? `Wait ${formatCountdown(cooldownMs)}` : "Mine now"}
-            </button>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <button
+                onClick={handleMine}
+                disabled={!canMine || mining}
+                className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {mining ? "Mining…" : cooldownMs > 0 ? `Wait ${formatCountdown(cooldownMs)}` : "Mine now"}
+              </button>
+              <button
+                onClick={handleTransfer}
+                disabled={miningAvailable <= 0 || transferring}
+                title={miningAvailable <= 0 ? "Nothing to transfer yet" : `Move $${miningAvailable.toFixed(2)} to your wallet`}
+                className="inline-flex items-center gap-2 rounded-md border border-primary/40 bg-primary/10 px-4 py-2 text-sm font-medium text-primary hover:bg-primary/20 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {transferring ? "Transferring…" : `Transfer to wallet${miningAvailable > 0 ? ` ($${miningAvailable.toFixed(2)})` : ""}`}
+              </button>
+            </div>
           )}
         </div>
 
