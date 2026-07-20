@@ -324,7 +324,7 @@ function Withdraw() {
                     type="number"
                     step="0.01"
                     min={limits?.min_amount ?? 0.01}
-                    max={Math.max(0, available - FEE)}
+                    max={Math.max(0, available)}
                     required
                     value={amount}
                     onChange={(e) => { setAmount(e.target.value); clearError("amount"); }}
