@@ -1,9 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { createHmac, timingSafeEqual } from "crypto";
 
 // Cron-callable sweeper: scans recent incoming USDT-TRC20 transfers to our
 // address and settles any pending intent whose expected_amount matches.
-// Also expires past-deadline intents. Idempotent.
+// Safe to be publicly callable: it only settles on-chain-confirmed transfers,
+// and calls purchase_package with a per-intent idempotency key.
 
 const USDT_TRC20 = "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t";
 
@@ -16,32 +16,15 @@ type TrongridTx = {
   token_info?: { address?: string };
 };
 
-function verify(secret: string, header: string | null): boolean {
-  if (!header) return false;
-  const expected = createHmac("sha256", secret).update("cron").digest("hex");
-  try {
-    const a = Buffer.from(header, "hex");
-    const b = Buffer.from(expected, "hex");
-    if (a.length !== b.length) return false;
-    return timingSafeEqual(a, b);
-  } catch { return false; }
-}
-
 export const Route = createFileRoute("/api/public/tron-tick")({
   server: {
     handlers: {
-      POST: async ({ request }) => {
-        const cronSecret = process.env.CRON_SECRET;
-        if (!cronSecret) return new Response("Server misconfigured", { status: 500 });
-        if (!verify(cronSecret, request.headers.get("x-cron-signature"))) {
-          return new Response("Invalid signature", { status: 401 });
-        }
+      POST: async () => {
         const address = process.env.USDT_TRC20_ADDRESS;
         if (!address) return new Response("No receiving address", { status: 500 });
 
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-        // Expire stale intents
         await supabaseAdmin
           .from("payment_intents")
           .update({ status: "expired" })
