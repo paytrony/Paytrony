@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Pickaxe, Timer, Coins, Sparkles } from "lucide-react";
+import { Pickaxe, Timer, Coins, Sparkles, Loader2 } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -328,10 +328,21 @@ function MiningPage() {
           <button
             onClick={openConfirm}
             disabled={!canMine || mining || selectedTiers.length === 0}
+            aria-busy={mining}
+            aria-disabled={!canMine || mining || selectedTiers.length === 0}
             className="inline-flex items-center gap-2 rounded-md bg-primary px-8 py-3 text-base font-semibold text-primary-foreground shadow-lg transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            <Pickaxe className="h-5 w-5" />
-            {mining ? "Mining…" : canMine ? `Mine $${selectedRate.toFixed(2)}` : `Next claim in ${fmtCountdown(msLeft)}`}
+            {mining ? (
+              <>
+                <Loader2 className="h-5 w-5 animate-spin" />
+                Mining…
+              </>
+            ) : (
+              <>
+                <Pickaxe className="h-5 w-5" />
+                {canMine ? `Mine $${selectedRate.toFixed(2)}` : `Next claim in ${fmtCountdown(msLeft)}`}
+              </>
+            )}
           </button>
           <p className="text-xs text-muted-foreground">
             Note: mining rewards are calculated on all owned tiers on the server. Deselect above to preview a subset — the actual payout uses every tier you own.
@@ -428,7 +439,7 @@ function MiningPage() {
         )}
       </div>
 
-      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+      <AlertDialog open={confirmOpen} onOpenChange={(open) => { if (!mining) setConfirmOpen(open); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Confirm mining claim</AlertDialogTitle>
@@ -449,9 +460,18 @@ function MiningPage() {
             After confirming, your wallet will be credited and the 24-hour cooldown will begin.
           </p>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setConfirmOpen(false)}>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmMine} disabled={mining || !canMine}>
-              {mining ? "Crediting…" : `Confirm and credit $${totalRate.toFixed(2)}`}
+            <AlertDialogCancel onClick={() => setConfirmOpen(false)} disabled={mining}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={confirmMine} disabled={mining || !canMine} aria-busy={mining}>
+              {mining ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Crediting…
+                </>
+              ) : (
+                `Confirm and credit $${totalRate.toFixed(2)}`
+              )}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
