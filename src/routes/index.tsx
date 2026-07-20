@@ -64,7 +64,7 @@ function Landing() {
           <Link to="/auth" search={{ mode: "signup" }} className="glow rounded-md bg-primary px-6 py-3 text-sm font-medium text-primary-foreground">
             Claim your NFT
           </Link>
-          <a href="#tiers" className="rounded-md border border-border bg-card/60 px-6 py-3 text-sm font-medium">How it works</a>
+          
         </div>
       </section>
 
