@@ -298,8 +298,15 @@ function Withdraw() {
 
       await load();
     } catch (e) {
-      setSignError(e instanceof Error ? e.message : "Failed");
+      const msg = e instanceof Error ? e.message : "Withdrawal request failed. Please try again.";
+      setSignError(msg);
+      setLocked(false); // re-enable the form so the user can adjust and retry
+      toast.error(msg);
     } finally { setSigning(false); }
+  }
+
+  function dismissSignError() {
+    setSignError(null);
   }
 
   // Poll the submitted withdrawal every 4s (in addition to the realtime channel)
