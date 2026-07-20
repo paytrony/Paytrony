@@ -26,6 +26,7 @@ export const TIER_BENEFITS: Record<Tier, TierBenefits> = {
     popular: true,
     benefits: [
       "Everything in Starter, upgraded Tier 50 NFT",
+      "Mine $5.20/day — 4.3× faster than Starter",
       "5× higher referral earnings — $50 per invited Pro",
       "Priority listing on the upcoming marketplace",
       "Real-time wallet + email alerts on every credit",
