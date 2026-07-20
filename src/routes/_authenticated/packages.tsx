@@ -7,7 +7,8 @@ import { toast } from "sonner";
 import QRCode from "qrcode";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Copy, Loader2, CheckCircle2, XCircle, Clock, QrCode, Wallet, Smartphone, Zap, CreditCard, ChevronLeft, Lock } from "lucide-react";
+import { Copy, Loader2, CheckCircle2, XCircle, Clock, QrCode, Wallet, Smartphone, Zap, CreditCard, ChevronLeft, Lock, Check } from "lucide-react";
+import { TIER_BENEFITS } from "@/lib/tier-benefits";
 import { MetaMaskPay } from "@/components/checkout/MetaMaskPay";
 import { SolanaPay } from "@/components/checkout/SolanaPay";
 import { WalletConnectPay } from "@/components/checkout/WalletConnectPay";
@@ -167,22 +168,38 @@ function Packages() {
       </div>
 
       <div className="grid gap-6 md:grid-cols-3">
-        {TIERS.map((t) => (
-          <div key={t.p} className={`rounded-2xl border-2 ${t.cls} bg-card p-8 text-center`}>
-            <div className="font-mono text-xs uppercase text-muted-foreground">{t.tag}</div>
-            <div className="mt-2 text-5xl font-bold">${t.p}</div>
-            <div className="mt-2 text-sm text-muted-foreground">{t.desc}</div>
-            <div className="mt-4 mx-auto flex h-24 w-24 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-accent text-3xl font-bold text-primary-foreground">◆</div>
-            <div className="mt-2 text-xs text-muted-foreground">NFT Tier {t.p}</div>
-            <button
-              onClick={() => { setOpenTier(t.p); setMethod("chooser"); }}
-              disabled={openTier !== null}
-              className="mt-6 w-full rounded-md bg-primary py-2.5 font-medium text-primary-foreground disabled:opacity-50"
-            >
-              Mint ${t.p}
-            </button>
-          </div>
-        ))}
+        {TIERS.map((t) => {
+          const info = TIER_BENEFITS[t.p];
+          return (
+            <div key={t.p} className={`relative flex flex-col rounded-2xl border-2 ${t.cls} bg-card p-8 text-center`}>
+              {info.popular && (
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-primary px-3 py-0.5 text-[10px] font-semibold uppercase tracking-widest text-primary-foreground">
+                  Most popular
+                </div>
+              )}
+              <div className="font-mono text-xs uppercase text-muted-foreground">{t.tag}</div>
+              <div className="mt-2 text-5xl font-bold">${t.p}</div>
+              <div className="mt-2 text-sm text-muted-foreground">{t.desc}</div>
+              <div className="mt-4 mx-auto flex h-24 w-24 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-accent text-3xl font-bold text-primary-foreground">◆</div>
+              <div className="mt-2 text-xs text-muted-foreground">NFT Tier {t.p}</div>
+              <ul className="mt-5 space-y-2 text-left text-sm">
+                {info.benefits.map((b) => (
+                  <li key={b} className="flex items-start gap-2">
+                    <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" strokeWidth={2.5} />
+                    <span className="text-foreground/85">{b}</span>
+                  </li>
+                ))}
+              </ul>
+              <button
+                onClick={() => { setOpenTier(t.p); setMethod("chooser"); }}
+                disabled={openTier !== null}
+                className="mt-6 w-full rounded-md bg-primary py-2.5 font-medium text-primary-foreground disabled:opacity-50"
+              >
+                Mint ${t.p}
+              </button>
+            </div>
+          );
+        })}
       </div>
 
       <Dialog open={openTier !== null} onOpenChange={(o) => { if (!o) closeModal(); }}>
@@ -210,7 +227,21 @@ function Packages() {
           </DialogHeader>
 
           {status === "pending" && method === "chooser" && openTier !== null && (
-            <div className="space-y-2">
+            <div className="space-y-3">
+              <div className="rounded-lg border border-primary/30 bg-primary/5 p-3">
+                <div className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-primary">
+                  {TIER_BENEFITS[openTier].tag} · what you get
+                </div>
+                <ul className="space-y-1 text-xs">
+                  {TIER_BENEFITS[openTier].benefits.slice(0, 3).map((b) => (
+                    <li key={b} className="flex items-start gap-2">
+                      <Check className="mt-0.5 h-3 w-3 shrink-0 text-primary" strokeWidth={2.5} />
+                      <span className="text-foreground/85">{b}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div className="space-y-2">
               {tiles.map((tile) => {
                 const Icon = tile.icon;
                 return (
@@ -232,6 +263,7 @@ function Packages() {
                   </button>
                 );
               })}
+              </div>
             </div>
           )}
 
