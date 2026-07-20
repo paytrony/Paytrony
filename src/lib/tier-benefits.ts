@@ -41,6 +41,7 @@ export const TIER_BENEFITS: Record<Tier, TierBenefits> = {
     benefits: [
       "Top-tier Elite NFT with premium art",
       "Mine up to $11.20/day — starts at $1.12/day, hits full rate with 10 referrals",
+      "Up to $336/month payout at full rate",
       "Maximum $100 per referral, instant payout",
       "Early access to marketplace resale (coming soon)",
       "Highest visibility across leaderboards",
