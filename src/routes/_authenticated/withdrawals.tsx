@@ -45,7 +45,7 @@ function WithdrawalsStatus() {
     (async () => {
       const { data } = await supabase
         .from("withdrawals")
-        .select("id, amount, status, payout_note, admin_note, created_at, resolved_at")
+        .select("id, amount, status, payout_note, admin_note, created_at, resolved_at, tx_hash")
         .eq("user_id", user.id)
         .order("created_at", { ascending: false });
       if (mounted) setRows((data as W[]) ?? []);
