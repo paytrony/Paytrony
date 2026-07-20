@@ -606,7 +606,7 @@ function Withdraw() {
           <DialogHeader>
             <DialogTitle>Review & confirm withdrawal</DialogTitle>
             <DialogDescription>
-              Please double-check every detail before submitting. Withdrawals are processed instantly.
+              Please double-check every detail before submitting. Withdrawals are reviewed by an admin and typically approved within 24 hours.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
