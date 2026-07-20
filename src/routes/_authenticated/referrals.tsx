@@ -9,7 +9,7 @@ export const Route = createFileRoute("/_authenticated/referrals")({
 
 type Referred = {
   id: string;
-  email: string;
+  referral_code: string;
   nft_tier: number | null;
   created_at: string;
 };
