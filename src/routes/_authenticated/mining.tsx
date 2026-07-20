@@ -224,6 +224,26 @@ function MiningPage() {
         </div>
       </div>
 
+      {errorInfo && (
+        <div role="alert" className="rounded-2xl border border-red-500/40 bg-red-500/5 p-4 sm:p-5">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <div className="text-sm font-semibold text-red-400">{errorInfo.title}</div>
+              <div className="mt-1 text-xs text-muted-foreground">{errorInfo.detail}</div>
+              <div className="mt-2 text-xs"><span className="font-semibold text-foreground">What to do: </span>{errorInfo.fix}</div>
+            </div>
+            <button
+              onClick={() => setErrorInfo(null)}
+              className="rounded-md border border-border px-2 py-1 text-xs text-muted-foreground hover:bg-muted"
+            >
+              Dismiss
+            </button>
+          </div>
+        </div>
+      )}
+
+
+
 
       <div className="grid gap-4 md:grid-cols-3">
         <div className="rounded-2xl border border-primary/40 bg-card p-6 glow">
