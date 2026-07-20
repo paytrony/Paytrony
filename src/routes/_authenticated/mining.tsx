@@ -38,11 +38,19 @@ function MiningPage() {
   const [mining, setMining] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [now, setNow] = useState(Date.now());
+  const [errorInfo, setErrorInfo] = useState<{ code: string; title: string; detail: string; fix: string } | null>(null);
 
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(t);
   }, []);
+
+  // Idempotency key scoped to the current cooldown window. Regenerated only
+  // after a successful claim so retries/refreshes within a window replay safely.
+  function idemKeyFor(userId: string, windowStart: number) {
+    return `mine:${userId}:${Math.floor(windowStart / 1000)}`;
+  }
+
 
   async function reload() {
     const [{ data: purchases }, { data: c }] = await Promise.all([
