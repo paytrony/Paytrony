@@ -31,6 +31,7 @@ function WalletPage() {
   const [refCount, setRefCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [flash, setFlash] = useState(false);
+  const [transferring, setTransferring] = useState(false);
 
   async function reload(flashOnDone = false) {
     const [{ data: t }, { data: w }, { data: refs }] = await Promise.all([
