@@ -160,8 +160,6 @@ export type Database = {
           display_name: string | null
           email: string
           id: string
-          kyc_status: string
-          kyc_submitted_at: string | null
           nft_tier: number | null
           referral_code: string
           referred_by: string | null
@@ -172,8 +170,6 @@ export type Database = {
           display_name?: string | null
           email: string
           id: string
-          kyc_status?: string
-          kyc_submitted_at?: string | null
           nft_tier?: number | null
           referral_code: string
           referred_by?: string | null
@@ -184,8 +180,6 @@ export type Database = {
           display_name?: string | null
           email?: string
           id?: string
-          kyc_status?: string
-          kyc_submitted_at?: string | null
           nft_tier?: number | null
           referral_code?: string
           referred_by?: string | null
@@ -291,7 +285,6 @@ export type Database = {
           cooldown_minutes: number
           daily_cap: number
           id: boolean
-          kyc_threshold: number
           min_amount: number
           updated_at: string
         }
@@ -299,7 +292,6 @@ export type Database = {
           cooldown_minutes?: number
           daily_cap?: number
           id?: boolean
-          kyc_threshold?: number
           min_amount?: number
           updated_at?: string
         }
@@ -307,7 +299,6 @@ export type Database = {
           cooldown_minutes?: number
           daily_cap?: number
           id?: boolean
-          kyc_threshold?: number
           min_amount?: number
           updated_at?: string
         }
@@ -389,10 +380,6 @@ export type Database = {
         }
         Returns: string
       }
-      resolve_kyc: {
-        Args: { _admin_id: string; _approve: boolean; _user_id: string }
-        Returns: undefined
-      }
       resolve_withdrawal: {
         Args: {
           _admin_id: string
@@ -402,7 +389,6 @@ export type Database = {
         }
         Returns: undefined
       }
-      submit_kyc: { Args: { _user_id: string }; Returns: undefined }
       test_e2e_flow: { Args: never; Returns: string }
       test_evm_webhook_flow: { Args: never; Returns: string }
     }
