@@ -19,6 +19,7 @@ export type Database = {
           amount: number
           created_at: string
           id: string
+          idempotency_key: string | null
           tiers: number[]
           user_id: string
         }
@@ -26,6 +27,7 @@ export type Database = {
           amount: number
           created_at?: string
           id?: string
+          idempotency_key?: string | null
           tiers: number[]
           user_id: string
         }
@@ -33,6 +35,7 @@ export type Database = {
           amount?: number
           created_at?: string
           id?: string
+          idempotency_key?: string | null
           tiers?: number[]
           user_id?: string
         }
@@ -396,7 +399,12 @@ export type Database = {
         Args: { _category: string }
         Returns: undefined
       }
-      mine_now: { Args: { _user_id: string }; Returns: Json }
+      mine_now:
+        | { Args: { _user_id: string }; Returns: Json }
+        | {
+            Args: { _idempotency_key?: string; _user_id: string }
+            Returns: Json
+          }
       purchase_package: {
         Args: { _amount: number; _idempotency_key?: string; _user_id: string }
         Returns: Json
