@@ -608,11 +608,11 @@ function Withdraw() {
 
                 <Button
                   type="submit"
-                  disabled={signing || available <= FEE || gated || !methodReady || COMING_SOON.includes(kind)}
+                  disabled={busy || available <= FEE || gated || !methodReady || COMING_SOON.includes(kind)}
                   className="w-full py-5 text-base font-medium"
                 >
-                  {signing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                  {signing ? "Processing…" : "Review & withdraw"}
+                  {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                  {signing ? "Processing…" : locked ? "Awaiting confirmation…" : "Review & withdraw"}
                 </Button>
               </form>
 
