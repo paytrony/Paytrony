@@ -39,6 +39,7 @@ function MiningPage() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [now, setNow] = useState(Date.now());
   const [errorInfo, setErrorInfo] = useState<{ code: string; title: string; detail: string; fix: string } | null>(null);
+  const [balance, setBalance] = useState<number | null>(null);
 
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 1000);
@@ -66,8 +67,34 @@ function MiningPage() {
     setLoading(false);
   }
 
+  async function fetchBalance() {
+    const CREDIT_TYPES = new Set(["referral_credit", "mining_reward"]);
+    const [{ data: txns }, { data: pending }] = await Promise.all([
+      supabase.from("wallet_transactions").select("amount,type").eq("user_id", user.id),
+      supabase.from("withdrawals").select("amount").eq("user_id", user.id).eq("status", "pending"),
+    ]);
+    const totalEarned = (txns ?? []).filter((t: any) => CREDIT_TYPES.has(t.type)).reduce((s, t: any) => s + Number(t.amount), 0);
+    const totalSpent = (txns ?? []).filter((t: any) => !CREDIT_TYPES.has(t.type)).reduce((s, t: any) => s + Number(t.amount), 0);
+    const pendingAmt = (pending ?? []).reduce((s, r: any) => s + Number(r.amount), 0);
+    return totalEarned - totalSpent - pendingAmt;
+  }
+
+  async function refreshPostMine() {
+    const [{ data: c }, freshBalance] = await Promise.all([
+      supabase.from("mining_claims").select("id, amount, tiers, created_at").eq("user_id", user.id).order("created_at", { ascending: false }).limit(20),
+      fetchBalance(),
+    ]);
+    const list = (c ?? []) as Claim[];
+    setClaims(list);
+    setLastClaim(list[0]?.created_at ?? null);
+    setBalance(freshBalance);
+    const nextAtMs = list[0]?.created_at ? new Date(list[0].created_at).getTime() + 24 * 3600 * 1000 : 0;
+    return { balance: freshBalance, nextAtMs };
+  }
+
   useEffect(() => {
     reload();
+    fetchBalance().then(setBalance).catch(() => setBalance(null));
     const ch = supabase
       .channel(`mining:${user.id}`)
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "mining_claims", filter: `user_id=eq.${user.id}` }, () => reload())
@@ -76,6 +103,15 @@ function MiningPage() {
     return () => { supabase.removeChannel(ch); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user.id]);
+
+  // Poll mining state while a request is in progress so the cooldown banner
+  // and Mine availability stay accurate without waiting for the realtime event.
+  useEffect(() => {
+    if (!mining) return;
+    const id = setInterval(() => reload(), 3000);
+    return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mining]);
 
   const nextAt = lastClaim ? new Date(lastClaim).getTime() + 24 * 3600 * 1000 : 0;
   const msLeft = Math.max(0, nextAt - now);
@@ -127,56 +163,36 @@ function MiningPage() {
     const key = idemKeyFor(user.id, windowStart);
     const { data, error } = await supabase.rpc("mine_now", { _user_id: user.id, _idempotency_key: key });
     setMining(false);
+    const fallbackNextStr = nextAt ? new Date(nextAt).toLocaleString() : "now";
+
     if (error) {
       const raw = String(error.message || "");
+      let info = { code: "unknown", title: "Mining failed", detail: raw || "Something went wrong.", fix: "Please try again. If it persists, refresh the page." };
       if (raw.includes("cooldown_active")) {
-        setErrorInfo({
-          code: "cooldown_active",
-          title: "Cooldown still active",
-          detail: raw.replace(/^.*cooldown_active:\s*/, ""),
-          fix: "Wait until the countdown reaches zero, then click Mine again.",
-        });
+        info = { code: "cooldown_active", title: "Cooldown still active", detail: raw.replace(/^.*cooldown_active:\s*/, ""), fix: "Wait until the countdown reaches zero, then click Mine again." };
       } else if (raw.includes("no_nfts")) {
-        setErrorInfo({
-          code: "no_nfts",
-          title: "No mineable NFTs",
-          detail: "Your account has no Starter, Pro, or Elite package.",
-          fix: "Buy a package to unlock daily mining.",
-        });
+        info = { code: "no_nfts", title: "No mineable NFTs", detail: "Your account has no Starter, Pro, or Elite package.", fix: "Buy a package to unlock daily mining." };
       } else if (raw.includes("wallet_error")) {
-        setErrorInfo({
-          code: "wallet_error",
-          title: "Wallet credit failed",
-          detail: raw.replace(/^.*wallet_error:\s*/, ""),
-          fix: "Your claim was not recorded. Click Mine again to retry — you will not be double-charged.",
-        });
+        info = { code: "wallet_error", title: "Wallet credit failed", detail: raw.replace(/^.*wallet_error:\s*/, ""), fix: "Your claim was not recorded. Click Mine again to retry — you will not be double-charged." };
       } else if (raw.includes("not_authorized")) {
-        setErrorInfo({
-          code: "not_authorized",
-          title: "Session expired",
-          detail: "You are not signed in.",
-          fix: "Sign in again to continue mining.",
-        });
-      } else {
-        setErrorInfo({
-          code: "unknown",
-          title: "Mining failed",
-          detail: raw || "Something went wrong.",
-          fix: "Please try again. If it persists, refresh the page.",
-        });
+        info = { code: "not_authorized", title: "Session expired", detail: "You are not signed in.", fix: "Sign in again to continue mining." };
       }
-      toast.error("Mining could not complete — see details on the page.");
-      reload();
+      setErrorInfo(info);
+      const { balance: freshBalance, nextAtMs } = await refreshPostMine();
+      const nextStr = nextAtMs ? new Date(nextAtMs).toLocaleString() : fallbackNextStr;
+      toast.error(`Mining failed: ${info.title}. Wallet balance $${freshBalance.toFixed(2)}. Next claim at ${nextStr}.`);
       return;
     }
+
     const payload = data as any;
     const amt = Number(payload?.amount ?? 0).toFixed(2);
+    const { balance: freshBalance, nextAtMs } = await refreshPostMine();
+    const nextStr = nextAtMs ? new Date(nextAtMs).toLocaleString() : fallbackNextStr;
     if (payload?.idempotent) {
-      toast.info(`Already credited $${amt} for this cooldown window.`);
+      toast.info(`Already credited $${amt} for this cooldown window. Wallet balance $${freshBalance.toFixed(2)}. Next claim at ${nextStr}.`);
     } else {
-      toast.success(`+$${amt} mined and credited to your wallet`);
+      toast.success(`+$${amt} mined. Wallet balance $${freshBalance.toFixed(2)}. Next claim at ${nextStr}.`);
     }
-    reload();
   }
 
   function toggle(t: number) {
