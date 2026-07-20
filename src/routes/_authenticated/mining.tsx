@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Pickaxe, Timer, Coins, Sparkles } from "lucide-react";
+import { Pickaxe, Timer, Coins, Sparkles, Loader2 } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
