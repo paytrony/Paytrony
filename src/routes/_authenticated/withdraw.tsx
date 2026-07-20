@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState, useRef } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { requestWithdrawal } from "@/lib/wallet.functions";
+import { buildWithdrawIdempotencyKey } from "@/lib/withdraw-idempotency";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -70,8 +71,10 @@ function Withdraw() {
   
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [signing, setSigning] = useState(false);
+  const [locked, setLocked] = useState(false);
   const [signError, setSignError] = useState<string | null>(null);
-  const [receipt, setReceipt] = useState<{ id: string; amount: number; fee: number; net: number; method: string; createdAt: string } | null>(null);
+  const [receipt, setReceipt] = useState<{ id: string; amount: number; fee: number; net: number; method: string; createdAt: string; existed: boolean; status: string } | null>(null);
+  const [trackId, setTrackId] = useState<string | null>(null);
   const confirmBtnRef = useRef<HTMLButtonElement>(null);
 
   const [kind, setKind] = useState<KindKey>("binance");
@@ -238,6 +241,7 @@ function Withdraw() {
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!validateForm()) return;
+    setLocked(true);
     setConfirmOpen(true);
   }
 
@@ -257,17 +261,34 @@ function Withdraw() {
 
       // Deterministic idempotency key: same (user, amount, method, note) can never
       // create two withdrawal rows even on refresh/double-click. Server returns the existing row.
-      // Excludes pm.id so a resubmitted identical form maps to the same key.
-      const keyPayload = JSON.stringify({ u: user.id, a: amt.toFixed(2), k: kind, d: built.details, n: note });
-      let hash = 0;
-      for (let i = 0; i < keyPayload.length; i++) hash = ((hash << 5) - hash + keyPayload.charCodeAt(i)) | 0;
-      const idempotencyKey = `wd-${user.id.slice(0, 8)}-${Math.abs(hash).toString(36)}-${amt.toFixed(2)}`;
+      const idempotencyKey = buildWithdrawIdempotencyKey({
+        userId: user.id, amount: amt, kind, details: built.details, note,
+      });
       const res = await req({ data: { amount: amt, note, idempotencyKey, payoutMethodId: pm.id } });
-      toast.success(`Withdrawal request submitted — pending admin approval (up to 24 hours). You'll receive $${net.toFixed(2)} once approved.`);
-      setReceipt({ id: res.id, amount: amt, fee: FEE, net, method: methodLabel, createdAt: new Date().toISOString() });
+
+      // Fetch the actual row: server returns the pre-existing withdrawal when the
+      // idempotency key already matched, so we surface those real details instead of
+      // creating a duplicate or leaving the user staring at a stale success screen.
+      const { data: row } = await supabase
+        .from("withdrawals")
+        .select("id,amount,status,created_at")
+        .eq("id", res.id)
+        .maybeSingle();
+      const createdAt = row?.created_at ?? new Date().toISOString();
+      const status = row?.status ?? "pending";
+      const existed = row ? (Date.now() - new Date(row.created_at).getTime() > 5000) : false;
+
+      if (existed) {
+        toast.info(`We already have this exact withdrawal on file (status: ${status}). Showing the existing request.`);
+      } else {
+        toast.success(`Withdrawal request submitted — pending admin approval (up to 24 hours). You'll receive $${net.toFixed(2)} once approved.`);
+      }
+      setReceipt({ id: res.id, amount: Number(row?.amount ?? amt), fee: FEE, net, method: methodLabel, createdAt, existed, status });
+      setTrackId(res.id);
       setAmount(""); setNote(""); setExUid(""); setExEmail(""); setExPhone(""); setWalletAddress("");
       setErrors({});
       setConfirmOpen(false);
+      setLocked(false);
       if (typeof window !== "undefined") {
         try {
           window.localStorage.removeItem(amountKey);
@@ -281,11 +302,46 @@ function Withdraw() {
     } finally { setSigning(false); }
   }
 
+  // Poll the submitted withdrawal every 4s (in addition to the realtime channel)
+  // so status transitions from Pending → Approved/Rejected surface without a refresh
+  // even if the realtime socket drops.
+  useEffect(() => {
+    if (!trackId) return;
+    let cancelled = false;
+    const tick = async () => {
+      const { data } = await supabase
+        .from("withdrawals")
+        .select("id,status,resolved_at,tx_hash,admin_note,amount,created_at,payout_note")
+        .eq("id", trackId)
+        .maybeSingle();
+      if (cancelled || !data) return;
+      setHistory((prev) => {
+        const rest = prev.filter((r) => r.id !== data.id);
+        return [data as W, ...rest].sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
+      });
+      setReceipt((prev) => (prev && prev.id === data.id ? { ...prev, status: data.status } : prev));
+      if (data.status !== "pending") {
+        toast[data.status === "approved" ? "success" : "error"](
+          data.status === "approved"
+            ? `Withdrawal approved${data.tx_hash ? ` · tx ${String(data.tx_hash).slice(0, 10)}…` : ""}`
+            : `Withdrawal rejected${data.admin_note ? ` · ${data.admin_note}` : ""}`,
+        );
+        setTrackId(null);
+      }
+    };
+    tick();
+    const iv = window.setInterval(tick, 4000);
+    return () => { cancelled = true; window.clearInterval(iv); };
+  }, [trackId]);
+
   const gated = !emailVerified;
   const methodReady = (kind === "binance" || kind === "bybit") ? !!(idType === "uid" ? exUid.trim() : idType === "email" ? exEmail.trim() : exPhone.trim()) : kind === "wallet_address" ? !!walletAddress.trim() : false;
   const amt = Number(amount) || 0;
   const totalDebit = amt; // amount entered is what leaves the wallet
   const net = Math.max(0, amt - FEE); // fee is taken out of the amount
+  // Fields lock as soon as the user clicks "Review & withdraw" and stay locked
+  // while the request is in flight. Cancelling the confirm dialog unlocks them.
+  const busy = signing || locked;
 
   return (
     <div className="mx-auto max-w-6xl space-y-8">
@@ -323,8 +379,8 @@ function Withdraw() {
             <div className="relative">
               <form
                 onSubmit={onSubmit}
-                aria-busy={signing}
-                className={`space-y-6 transition-opacity ${signing ? "pointer-events-none opacity-60" : ""}`}
+                aria-busy={busy}
+                className={`space-y-6 transition-opacity ${busy ? "pointer-events-none opacity-60" : ""}`}
               >
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
@@ -351,7 +407,7 @@ function Withdraw() {
                       min={limits?.min_amount ?? 0.01}
                       max={Math.max(0, available)}
                       required
-                      disabled={signing}
+                      disabled={busy}
                       value={amount}
                       onChange={(e) => { setAmount(e.target.value); clearError("amount"); }}
                       className={`pl-7 text-base ${errors.amount ? "border-destructive focus-visible:ring-destructive" : ""}`}
@@ -398,7 +454,7 @@ function Withdraw() {
                       clearError("chain");
                       clearError("address");
                     }}
-                    disabled={signing}
+                    disabled={busy}
                   >
                     <SelectTrigger id="payout-method" className="h-11">
                       <SelectValue placeholder="Select a payout method" />
@@ -436,7 +492,7 @@ function Withdraw() {
                             setIdType(v as "uid" | "email" | "phone");
                             clearError("uid"); clearError("email"); clearError("phone");
                           }}
-                          disabled={signing}
+                          disabled={busy}
                         >
                           <SelectTrigger id="idType" className="h-11">
                             <SelectValue />
@@ -454,7 +510,7 @@ function Withdraw() {
                           <Input
                             id="exUid"
                             value={exUid}
-                            disabled={signing}
+                            disabled={busy}
                             onChange={(e) => { setExUid(e.target.value); clearError("uid"); }}
                             placeholder={`${kind === "binance" ? "Binance" : "Bybit"} UID`}
                             className={errors.uid ? "border-destructive focus-visible:ring-destructive" : ""}
@@ -469,7 +525,7 @@ function Withdraw() {
                             id="exEmail"
                             type="email"
                             value={exEmail}
-                            disabled={signing}
+                            disabled={busy}
                             onChange={(e) => { setExEmail(e.target.value); clearError("email"); }}
                             placeholder="Registered email"
                             className={errors.email ? "border-destructive focus-visible:ring-destructive" : ""}
@@ -483,7 +539,7 @@ function Withdraw() {
                           <Input
                             id="exPhone"
                             value={exPhone}
-                            disabled={signing}
+                            disabled={busy}
                             onChange={(e) => { setExPhone(e.target.value); clearError("phone"); }}
                             placeholder="Registered phone number"
                             className={errors.phone ? "border-destructive focus-visible:ring-destructive" : ""}
@@ -506,7 +562,7 @@ function Withdraw() {
                         <select
                           id="chain"
                           value={walletChain}
-                          disabled={signing}
+                          disabled={busy}
                           onChange={(e) => { setWalletChain(e.target.value); clearError("chain"); }}
                           className={`w-full rounded-md border bg-input px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${errors.chain ? "border-destructive" : "border-input"}`}
                         >
@@ -519,7 +575,7 @@ function Withdraw() {
                         <Input
                           id="walletAddress"
                           value={walletAddress}
-                          disabled={signing}
+                          disabled={busy}
                           onChange={(e) => { setWalletAddress(e.target.value); clearError("address"); }}
                           placeholder="Destination wallet address"
                           className={`font-mono text-xs ${errors.address ? "border-destructive focus-visible:ring-destructive" : ""}`}
@@ -544,7 +600,7 @@ function Withdraw() {
                     id="note"
                     rows={2}
                     value={note}
-                    disabled={signing}
+                    disabled={busy}
                     onChange={(e) => setNote(e.target.value)}
                     className="w-full rounded-md border border-input bg-input px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
                   />
@@ -552,11 +608,11 @@ function Withdraw() {
 
                 <Button
                   type="submit"
-                  disabled={signing || available <= FEE || gated || !methodReady || COMING_SOON.includes(kind)}
+                  disabled={busy || available <= FEE || gated || !methodReady || COMING_SOON.includes(kind)}
                   className="w-full py-5 text-base font-medium"
                 >
-                  {signing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                  {signing ? "Processing…" : "Review & withdraw"}
+                  {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                  {signing ? "Processing…" : locked ? "Awaiting confirmation…" : "Review & withdraw"}
                 </Button>
               </form>
 
@@ -577,17 +633,26 @@ function Withdraw() {
               <div className="mb-4 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <CheckCircle2 className="h-5 w-5 text-primary" />
-                  <h2 className="text-lg font-semibold text-primary">Withdrawal confirmed</h2>
+                  <h2 className="text-lg font-semibold text-primary">
+                    {receipt.existed ? "Existing withdrawal found" : "Withdrawal confirmed"}
+                  </h2>
                 </div>
-                <Badge variant="outline" className="font-mono text-[10px] uppercase">{receipt.id.slice(0, 8)}</Badge>
+                <StatusBadge s={receipt.status} />
               </div>
+              {receipt.existed && (
+                <div className="mb-3 rounded-md border border-accent/30 bg-accent/10 p-2 text-[11px] text-accent">
+                  We detected an identical request already on file, so nothing new was created — you're seeing the original request.
+                </div>
+              )}
               <div className="space-y-2 text-sm">
+                <div className="flex justify-between"><span className="text-muted-foreground">ID</span><span className="font-mono text-[11px]">{receipt.id.slice(0, 8)}</span></div>
                 <div className="flex justify-between"><span className="text-muted-foreground">Requested</span><span className="font-medium">${receipt.amount.toFixed(2)}</span></div>
                 <div className="flex justify-between"><span className="text-muted-foreground">Fee</span><span className="font-medium text-destructive">- ${receipt.fee.toFixed(2)}</span></div>
                 <Separator />
                 <div className="flex justify-between"><span className="text-muted-foreground">Net payout</span><span className="font-semibold text-primary">${receipt.net.toFixed(2)}</span></div>
                 <div className="flex justify-between"><span className="text-muted-foreground">Destination</span><span className="truncate max-w-[160px]" title={receipt.method}>{receipt.method}</span></div>
                 <div className="flex justify-between"><span className="text-muted-foreground">Time</span><span>{new Date(receipt.createdAt).toLocaleString()}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Live status</span><span className="font-medium capitalize">{receipt.status}</span></div>
               </div>
               <div className="mt-4 flex gap-2">
                 <Button asChild variant="default" className="flex-1">
@@ -636,7 +701,7 @@ function Withdraw() {
         </div>
       </div>
 
-      <Dialog open={confirmOpen} onOpenChange={(open) => { if (!signing) setConfirmOpen(open); }}>
+      <Dialog open={confirmOpen} onOpenChange={(open) => { if (signing) return; setConfirmOpen(open); if (!open) setLocked(false); }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Review & confirm withdrawal</DialogTitle>
@@ -714,7 +779,7 @@ function Withdraw() {
           </div>
           <div className="flex flex-col gap-3">
             <div className="flex gap-3">
-              <Button variant="outline" className="flex-1" onClick={() => setConfirmOpen(false)} disabled={signing}>Go back & edit</Button>
+              <Button variant="outline" className="flex-1" onClick={() => { setConfirmOpen(false); setLocked(false); }} disabled={signing}>Go back & edit</Button>
               <Button ref={confirmBtnRef} className="flex-1" onClick={confirmWithdraw} disabled={signing}>
                 {signing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                 {signing ? "Processing…" : "Submit withdrawal"}
