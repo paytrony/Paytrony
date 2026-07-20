@@ -196,6 +196,7 @@ function WalletPage() {
         <p className="mt-3 text-[11px] text-muted-foreground">
           Mining rewards live in a separate bucket. Transfer them to your wallet balance to make them instantly withdrawable.
         </p>
+      </div>
 
       <div className="rounded-2xl border border-border bg-card">
         <div className="flex items-center justify-between border-b border-border px-6 py-4">
