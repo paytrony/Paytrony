@@ -78,14 +78,28 @@ function Landing() {
             { p: 100 as const, tag: "Elite", desc: "Instant credit", icon: Crown, color: "border-accent glow-accent" },
           ]).map((t) => {
             const Icon = t.icon;
+            const info = TIER_BENEFITS[t.p];
             const card = (
-              <div className={`group relative h-full rounded-2xl border-2 ${t.color} bg-card/80 p-8 backdrop-blur-sm transition-transform hover:-translate-y-0.5 hover:shadow-xl`}>
+              <div className={`group relative flex h-full flex-col rounded-2xl border-2 ${t.color} bg-card/80 p-8 backdrop-blur-sm transition-transform hover:-translate-y-0.5 hover:shadow-xl`}>
+                {info.popular && (
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-primary px-3 py-0.5 text-[10px] font-semibold uppercase tracking-widest text-primary-foreground">
+                    Most popular
+                  </div>
+                )}
                 <div className="flex items-center justify-between">
                   <Icon className="h-8 w-8 text-primary" strokeWidth={1.5} />
                   <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">{t.tag}</div>
                 </div>
                 <div className="mt-4 text-5xl font-bold">${t.p}</div>
                 <div className="mt-3 text-sm text-muted-foreground">{t.desc}</div>
+                <ul className="mt-6 space-y-2 text-sm">
+                  {info.benefits.map((b) => (
+                    <li key={b} className="flex items-start gap-2">
+                      <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" strokeWidth={2.5} />
+                      <span className="text-foreground/85">{b}</span>
+                    </li>
+                  ))}
+                </ul>
                 <div className="mt-6 text-sm font-medium text-primary opacity-0 transition-opacity group-hover:opacity-100">
                   {signedIn ? "Checkout →" : "Sign up & buy →"}
                 </div>
@@ -99,6 +113,7 @@ function Landing() {
           })}
         </div>
       </section>
+
 
       <section className="relative mx-auto max-w-4xl px-6 pb-12">
         <div className="rounded-lg border border-accent/30 bg-accent/5 p-4 text-xs text-muted-foreground">
