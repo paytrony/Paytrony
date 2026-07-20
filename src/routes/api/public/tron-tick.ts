@@ -1,9 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { timingSafeEqual } from "node:crypto";
 
 // Cron-callable sweeper: scans recent incoming USDT-TRC20 transfers to our
 // address and settles any pending intent whose expected_amount matches.
-// Safe to be publicly callable: it only settles on-chain-confirmed transfers,
-// and calls purchase_package with a per-intent idempotency key.
+//
+// Publicly routable but authenticated: callers must present the shared
+// TRON_TICK_SECRET in the `x-tron-tick-secret` header. Even though the
+// settlement itself only credits on-chain-confirmed transfers via
+// `purchase_package` (idempotent), the endpoint fetches TronGrid on every
+// call — so unauthenticated hits let an attacker burn our TronGrid quota.
 
 const USDT_TRC20 = "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t";
 
@@ -16,10 +21,25 @@ type TrongridTx = {
   token_info?: { address?: string };
 };
 
+function safeEqual(a: string, b: string): boolean {
+  const ab = Buffer.from(a, "utf8");
+  const bb = Buffer.from(b, "utf8");
+  if (ab.length !== bb.length) return false;
+  return timingSafeEqual(ab, bb);
+}
+
 export const Route = createFileRoute("/api/public/tron-tick")({
   server: {
     handlers: {
-      POST: async () => {
+      POST: async ({ request }) => {
+        const expected = process.env.TRON_TICK_SECRET;
+        if (!expected) return new Response("Sweeper disabled", { status: 503 });
+
+        const provided = request.headers.get("x-tron-tick-secret") ?? "";
+        if (!safeEqual(provided, expected)) {
+          return new Response("Unauthorized", { status: 401 });
+        }
+
         const address = process.env.USDT_TRC20_ADDRESS;
         if (!address) return new Response("No receiving address", { status: 500 });
 
