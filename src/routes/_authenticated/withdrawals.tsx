@@ -24,6 +24,7 @@ type W = {
   admin_note: string | null;
   created_at: string;
   resolved_at: string | null;
+  tx_hash: string | null;
 };
 
 type Filter = "all" | "processing" | "completed" | "failed";
