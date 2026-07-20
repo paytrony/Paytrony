@@ -5,8 +5,10 @@ import { createPaymentIntent, checkPaymentIntent, cancelPaymentIntent } from "@/
 import { toast } from "sonner";
 import QRCode from "qrcode";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { Copy, Loader2, CheckCircle2, XCircle, Clock } from "lucide-react";
+import { Copy, Loader2, CheckCircle2, XCircle, Clock, QrCode, Wallet } from "lucide-react";
+import { MetaMaskPay } from "@/components/checkout/MetaMaskPay";
 
 export const Route = createFileRoute("/_authenticated/packages")({
   component: Packages,
