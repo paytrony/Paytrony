@@ -145,12 +145,12 @@ function ReferralsPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="text-left text-xs uppercase text-muted-foreground">
-                <tr><th className="pb-2">Email</th><th className="pb-2">Tier</th><th className="pb-2">Joined</th><th className="pb-2 text-right">Earnings from them</th></tr>
+                <tr><th className="pb-2">Referral code</th><th className="pb-2">Tier</th><th className="pb-2">Joined</th><th className="pb-2 text-right">Earnings from them</th></tr>
               </thead>
               <tbody className="divide-y divide-border">
                 {refs.map((r) => (
                   <tr key={r.id}>
-                    <td className="py-2">{r.email}</td>
+                    <td className="py-2 font-mono">{r.referral_code}</td>
                     <td className="py-2">{r.nft_tier ? `$${r.nft_tier}` : "—"}</td>
                     <td className="py-2 text-muted-foreground">{new Date(r.created_at).toLocaleDateString()}</td>
                     <td className="py-2 text-right font-mono text-primary">+${(perUserEarnings[r.id] ?? 0).toFixed(2)}</td>
