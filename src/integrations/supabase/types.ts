@@ -451,7 +451,7 @@ export type Database = {
         | "binance"
         | "bybit"
         | "wallet_address"
-      txn_type: "referral_credit" | "withdrawal"
+      txn_type: "referral_credit" | "withdrawal" | "mining_reward"
       withdrawal_status: "pending" | "approved" | "rejected"
     }
     CompositeTypes: {
@@ -597,7 +597,7 @@ export const Constants = {
         "bybit",
         "wallet_address",
       ],
-      txn_type: ["referral_credit", "withdrawal"],
+      txn_type: ["referral_credit", "withdrawal", "mining_reward"],
       withdrawal_status: ["pending", "approved", "rejected"],
     },
   },
