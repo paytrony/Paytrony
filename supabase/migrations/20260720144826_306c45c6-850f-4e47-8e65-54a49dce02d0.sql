@@ -1,0 +1,2 @@
+REVOKE EXECUTE ON FUNCTION public.request_withdrawal(uuid, numeric, text, text, uuid) FROM anon, PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.resolve_withdrawal(uuid, uuid, boolean, text, text) FROM anon, PUBLIC;
