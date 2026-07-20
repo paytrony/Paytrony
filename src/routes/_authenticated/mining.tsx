@@ -328,10 +328,21 @@ function MiningPage() {
           <button
             onClick={openConfirm}
             disabled={!canMine || mining || selectedTiers.length === 0}
+            aria-busy={mining}
+            aria-disabled={!canMine || mining || selectedTiers.length === 0}
             className="inline-flex items-center gap-2 rounded-md bg-primary px-8 py-3 text-base font-semibold text-primary-foreground shadow-lg transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            <Pickaxe className="h-5 w-5" />
-            {mining ? "Mining…" : canMine ? `Mine $${selectedRate.toFixed(2)}` : `Next claim in ${fmtCountdown(msLeft)}`}
+            {mining ? (
+              <>
+                <Loader2 className="h-5 w-5 animate-spin" />
+                Mining…
+              </>
+            ) : (
+              <>
+                <Pickaxe className="h-5 w-5" />
+                {canMine ? `Mine $${selectedRate.toFixed(2)}` : `Next claim in ${fmtCountdown(msLeft)}`}
+              </>
+            )}
           </button>
           <p className="text-xs text-muted-foreground">
             Note: mining rewards are calculated on all owned tiers on the server. Deselect above to preview a subset — the actual payout uses every tier you own.
