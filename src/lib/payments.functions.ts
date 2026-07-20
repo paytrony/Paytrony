@@ -173,3 +173,233 @@ export const cancelPaymentIntent = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { ok: true };
   });
+
+// ============================================================
+// EVM (MetaMask) USDT payment flow — BSC / Ethereum / Polygon
+// ============================================================
+
+const EVM_RECEIVER = "0xEaad65C5c22AC57DAA4dEEB4458370Dd723b933c";
+
+type EvmChain = "bsc" | "eth" | "polygon";
+
+const EVM_CHAINS: Record<EvmChain, {
+  chainIdHex: string;
+  chainIdDec: number;
+  name: string;
+  nativeSymbol: string;
+  usdt: string;
+  usdtDecimals: number;
+  rpcs: string[];
+  explorerTx: (h: string) => string;
+}> = {
+  bsc: {
+    chainIdHex: "0x38", chainIdDec: 56, name: "BNB Smart Chain", nativeSymbol: "BNB",
+    usdt: "0x55d398326f99059fF775485246999027B3197955", usdtDecimals: 18,
+    rpcs: ["https://bsc-dataseed.binance.org", "https://bsc-dataseed1.defibit.io"],
+    explorerTx: (h) => `https://bscscan.com/tx/${h}`,
+  },
+  eth: {
+    chainIdHex: "0x1", chainIdDec: 1, name: "Ethereum", nativeSymbol: "ETH",
+    usdt: "0xdAC17F958D2ee523a2206206994597C13D831ec7", usdtDecimals: 6,
+    rpcs: ["https://ethereum-rpc.publicnode.com", "https://eth.llamarpc.com"],
+    explorerTx: (h) => `https://etherscan.io/tx/${h}`,
+  },
+  polygon: {
+    chainIdHex: "0x89", chainIdDec: 137, name: "Polygon", nativeSymbol: "POL",
+    usdt: "0xc2132D05D31c914a87C6611C10748AEb04B58e8F", usdtDecimals: 6,
+    rpcs: ["https://polygon-rpc.com", "https://polygon.llamarpc.com"],
+    explorerTx: (h) => `https://polygonscan.com/tx/${h}`,
+  },
+};
+
+// Public chain metadata so the browser doesn't need to duplicate constants.
+export function getEvmChainInfo(chain: EvmChain) {
+  const c = EVM_CHAINS[chain];
+  return {
+    chain,
+    chainIdHex: c.chainIdHex,
+    chainIdDec: c.chainIdDec,
+    name: c.name,
+    nativeSymbol: c.nativeSymbol,
+    usdt: c.usdt,
+    usdtDecimals: c.usdtDecimals,
+    explorerTxBase: c.explorerTx("").replace(/\/$/, ""),
+  };
+}
+
+const createEvmSchema = z.object({
+  tier: z.union([z.literal(10), z.literal(50), z.literal(100)]),
+  chain: z.enum(["bsc", "eth", "polygon"]),
+});
+
+const submitTxSchema = z.object({
+  id: z.string().uuid(),
+  txHash: z.string().regex(/^0x[a-fA-F0-9]{64}$/),
+  fromAddress: z.string().regex(/^0x[a-fA-F0-9]{40}$/).optional(),
+});
+
+export const createEvmPaymentIntent = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((d: unknown) => createEvmSchema.parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const cfg = EVM_CHAINS[data.chain];
+
+    let lastErr: unknown = null;
+    for (let attempt = 0; attempt < 8; attempt++) {
+      const expected = Number((data.tier + randomCents()).toFixed(6));
+      const expires = new Date(Date.now() + INTENT_TTL_MIN * 60_000).toISOString();
+      const { data: row, error } = await supabaseAdmin
+        .from("payment_intents")
+        .insert({
+          user_id: context.userId,
+          tier: data.tier,
+          expected_amount: expected,
+          address: EVM_RECEIVER,
+          chain: data.chain.toUpperCase(),
+          method: "evm",
+          evm_chain: data.chain,
+          expires_at: expires,
+        })
+        .select("*")
+        .single();
+      if (!error && row) {
+        return {
+          id: row.id,
+          to: EVM_RECEIVER,
+          chain: data.chain,
+          chainIdHex: cfg.chainIdHex,
+          chainName: cfg.name,
+          usdt: cfg.usdt,
+          usdtDecimals: cfg.usdtDecimals,
+          tier: row.tier,
+          expectedAmount: Number(row.expected_amount),
+          expiresAt: row.expires_at,
+        };
+      }
+      lastErr = error;
+      if ((error as { code?: string } | null)?.code !== "23505") break;
+    }
+    throw new Error(lastErr instanceof Error ? lastErr.message : "Could not allocate payment amount, try again");
+  });
+
+export const submitEvmTxHash = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((d: unknown) => submitTxSchema.parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { error } = await supabaseAdmin
+      .from("payment_intents")
+      .update({ tx_hash: data.txHash, from_address: data.fromAddress ?? null })
+      .eq("id", data.id)
+      .eq("user_id", context.userId)
+      .eq("status", "pending");
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+// USDT ERC20 Transfer(address,address,uint256) event topic
+const TRANSFER_TOPIC = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef";
+
+async function rpcCall(rpcs: string[], method: string, params: unknown[]): Promise<unknown> {
+  let lastErr: unknown = null;
+  for (const url of rpcs) {
+    try {
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
+      });
+      if (!res.ok) { lastErr = new Error(`RPC ${res.status}`); continue; }
+      const json = await res.json() as { result?: unknown; error?: { message: string } };
+      if (json.error) { lastErr = new Error(json.error.message); continue; }
+      return json.result;
+    } catch (e) {
+      lastErr = e;
+    }
+  }
+  throw lastErr instanceof Error ? lastErr : new Error("RPC failed");
+}
+
+function hexToBigInt(h: string): bigint {
+  return BigInt(h);
+}
+
+function topicToAddress(topic: string): string {
+  return ("0x" + topic.slice(-40)).toLowerCase();
+}
+
+export const checkEvmPaymentIntent = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((d: unknown) => idSchema.parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: intent, error } = await supabaseAdmin
+      .from("payment_intents")
+      .select("*")
+      .eq("id", data.id)
+      .eq("user_id", context.userId)
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    if (!intent) throw new Error("Not found");
+
+    if (intent.status !== "pending") {
+      return { status: intent.status, purchaseId: intent.purchase_id, txHash: intent.tx_hash };
+    }
+    if (new Date(intent.expires_at).getTime() < Date.now() && !intent.tx_hash) {
+      await supabaseAdmin.from("payment_intents").update({ status: "expired" }).eq("id", intent.id).eq("status", "pending");
+      return { status: "expired" as const };
+    }
+    if (!intent.tx_hash) {
+      return { status: "pending" as const, waitingFor: "tx" as const };
+    }
+    const chain = intent.evm_chain as EvmChain | null;
+    if (!chain || !(chain in EVM_CHAINS)) {
+      return { status: "pending" as const, error: "unknown chain" };
+    }
+    const cfg = EVM_CHAINS[chain];
+
+    let receipt: { status?: string; logs?: Array<{ address: string; topics: string[]; data: string }>; blockNumber?: string } | null = null;
+    try {
+      receipt = await rpcCall(cfg.rpcs, "eth_getTransactionReceipt", [intent.tx_hash]) as typeof receipt;
+    } catch (e) {
+      return { status: "pending" as const, error: e instanceof Error ? e.message : "rpc failed" };
+    }
+    if (!receipt) return { status: "pending" as const, waitingFor: "confirmation" as const };
+    if (receipt.status !== "0x1") {
+      await supabaseAdmin.from("payment_intents").update({ status: "failed" }).eq("id", intent.id).eq("status", "pending");
+      return { status: "failed" as const };
+    }
+
+    // Find a Transfer(from, to=receiver, value=expected) log on the USDT contract
+    const expectedRaw = BigInt(Math.round(Number(intent.expected_amount) * 10 ** cfg.usdtDecimals));
+    const receiver = intent.address.toLowerCase();
+    const match = (receipt.logs ?? []).find((log) => {
+      if (log.address.toLowerCase() !== cfg.usdt.toLowerCase()) return false;
+      if (log.topics[0]?.toLowerCase() !== TRANSFER_TOPIC) return false;
+      if (topicToAddress(log.topics[2] ?? "") !== receiver) return false;
+      try { return hexToBigInt(log.data) === expectedRaw; } catch { return false; }
+    });
+    if (!match) {
+      // tx confirmed but doesn't match — reject
+      await supabaseAdmin.from("payment_intents").update({ status: "failed" }).eq("id", intent.id).eq("status", "pending");
+      return { status: "failed" as const, error: "tx does not match expected transfer" };
+    }
+
+    const { data: purchase, error: rpcErr } = await supabaseAdmin.rpc("purchase_package", {
+      _user_id: intent.user_id,
+      _amount: intent.tier,
+      _idempotency_key: `intent:${intent.id}`,
+    });
+    if (rpcErr) throw new Error(rpcErr.message);
+    const purchaseId = (purchase as { purchase_id?: string } | null)?.purchase_id ?? null;
+
+    await supabaseAdmin
+      .from("payment_intents")
+      .update({ status: "paid", paid_at: new Date().toISOString(), purchase_id: purchaseId })
+      .eq("id", intent.id)
+      .eq("status", "pending");
+
+    return { status: "paid" as const, txHash: intent.tx_hash, purchaseId };
+  });
+
