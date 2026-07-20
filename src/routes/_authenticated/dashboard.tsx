@@ -141,30 +141,24 @@ function Dashboard() {
           );
         })()}
 
-        <div className="rounded-2xl border border-border bg-card p-6">
-          <div className="font-mono text-xs uppercase text-muted-foreground">Referrals</div>
-          <div className="mt-2 text-4xl font-bold">{refCount}</div>
-          <div className="mt-1 text-xs text-muted-foreground">users signed up with your code</div>
-          <Link to="/referrals" className="mt-4 inline-block text-sm text-primary hover:underline">View analytics →</Link>
-        </div>
+        {(() => {
+          const tierRates: Record<number, number> = { 10: 1.2, 50: 5.2, 100: 11.2 };
+          const ownedTiers = Array.from(new Set(nfts.map((n) => n.nft_tier)));
+          const dailyRate = ownedTiers.reduce((s, tier) => s + (tierRates[tier] ?? 0), 0);
+          const totalMined = txns.filter((t) => t.type === "mining_reward").reduce((s, t) => s + Number(t.amount), 0);
+          return (
+            <div className="rounded-2xl border border-border bg-card p-6">
+              <div className="font-mono text-xs uppercase text-muted-foreground">Mining</div>
+              <div className="mt-2 text-4xl font-bold text-primary">${dailyRate.toFixed(2)}<span className="text-sm text-muted-foreground font-normal">/day</span></div>
+              <div className="mt-1 text-xs text-muted-foreground">${totalMined.toFixed(2)} mined all-time</div>
+              <Link to="/mining" className="mt-4 inline-block rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground">
+                {dailyRate > 0 ? "Mine now" : "Start mining"}
+              </Link>
+            </div>
+          );
+        })()}
       </div>
 
-      <div className="rounded-2xl border border-border bg-card p-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <div className="font-mono text-xs uppercase text-muted-foreground">Your referral link</div>
-            <div className="mt-1 font-mono text-sm break-all">{referralUrl}</div>
-          </div>
-          <button
-            onClick={() => { navigator.clipboard.writeText(referralUrl); toast.success("Copied!"); }}
-            className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shrink-0 ml-4">
-            Copy
-          </button>
-        </div>
-        <div className="mt-3 text-xs text-muted-foreground">
-          Code: <span className="font-mono text-primary">{profile?.referral_code}</span>
-        </div>
-      </div>
 
       <div className="rounded-2xl border border-border bg-card p-6">
         <div className="mb-4 flex items-center justify-between">
