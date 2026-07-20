@@ -84,8 +84,14 @@ function MiningPage() {
     return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
   }
 
-  async function mine() {
+  function openConfirm() {
+    if (!canMine || mining || selectedTiers.length === 0) return;
+    setConfirmOpen(true);
+  }
+
+  async function confirmMine() {
     if (!canMine || mining) return;
+    setConfirmOpen(false);
     setMining(true);
     const { data, error } = await supabase.rpc("mine_now", { _user_id: user.id });
     setMining(false);
