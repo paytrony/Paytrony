@@ -121,7 +121,7 @@ function ReferralsPage() {
                 <div className="flex items-center gap-3">
                   <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted font-mono text-xs">#{i + 1}</div>
                   <div>
-                    <div className="text-sm">{r.email}</div>
+                    <div className="text-sm font-mono">{r.referral_code}</div>
                     <div className="text-xs text-muted-foreground">
                       Joined {new Date(r.created_at).toLocaleDateString()} · Tier {r.nft_tier ?? "—"}
                     </div>
