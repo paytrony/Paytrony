@@ -28,14 +28,18 @@ function Dashboard() {
   const [refCount, setRefCount] = useState(0);
 
   const [nfts, setNfts] = useState<NftRow[]>([]);
+  const [lastClaimAt, setLastClaimAt] = useState<string | null>(null);
+  const [mining, setMining] = useState(false);
+  const [nowTs, setNowTs] = useState(Date.now());
 
   async function reload() {
-    const [{ data: p }, { data: t }, { data: w }, { data: refs }, { data: n }] = await Promise.all([
+    const [{ data: p }, { data: t }, { data: w }, { data: refs }, { data: n }, { data: mc }] = await Promise.all([
       supabase.from("profiles").select("referral_code,nft_tier,email").eq("id", user.id).maybeSingle(),
       supabase.from("wallet_transactions").select("*").eq("user_id", user.id).order("created_at", { ascending: false }).limit(20),
       supabase.from("withdrawals").select("amount").eq("user_id", user.id).eq("status", "pending"),
       supabase.rpc("get_referred_users"),
       supabase.from("purchases").select("id, nft_tier, created_at").eq("user_id", user.id).order("created_at", { ascending: false }),
+      supabase.from("mining_claims").select("created_at").eq("user_id", user.id).order("created_at", { ascending: false }).limit(1).maybeSingle(),
     ]);
     if (p) setProfile(p as Profile);
     const bal = (t ?? []).reduce((s, r: any) => s + ((r.type === "referral_credit" || r.type === "mining_reward") ? Number(r.amount) : -Number(r.amount)), 0);
@@ -45,7 +49,9 @@ function Dashboard() {
     setTxns((t ?? []) as Txn[]);
     setRefCount((refs ?? []).length);
     setNfts((n ?? []) as NftRow[]);
+    setLastClaimAt((mc as any)?.created_at ?? null);
   }
+
 
   useEffect(() => {
     reload();
