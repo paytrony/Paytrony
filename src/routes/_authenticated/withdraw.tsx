@@ -770,7 +770,7 @@ function Withdraw() {
           </div>
           <div className="flex flex-col gap-3">
             <div className="flex gap-3">
-              <Button variant="outline" className="flex-1" onClick={() => setConfirmOpen(false)} disabled={signing}>Go back & edit</Button>
+              <Button variant="outline" className="flex-1" onClick={() => { setConfirmOpen(false); setLocked(false); }} disabled={signing}>Go back & edit</Button>
               <Button ref={confirmBtnRef} className="flex-1" onClick={confirmWithdraw} disabled={signing}>
                 {signing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                 {signing ? "Processing…" : "Submit withdrawal"}
