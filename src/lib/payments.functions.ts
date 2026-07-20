@@ -425,3 +425,178 @@ export const checkEvmPaymentIntent = createServerFn({ method: "POST" })
     return { status: "paid" as const, txHash: intent.tx_hash, purchaseId };
   });
 
+
+// ============================================================
+// Solana Pay — USDC on Solana (Phantom, Solflare, any SPL wallet)
+// ============================================================
+
+const SOLANA_USDC_MINT = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
+const SOLANA_USDC_DECIMALS = 6;
+const SOLANA_RPCS = [
+  "https://api.mainnet-beta.solana.com",
+  "https://solana-rpc.publicnode.com",
+];
+
+const createSplSchema = z.object({
+  tier: z.union([z.literal(10), z.literal(50), z.literal(100)]),
+});
+
+async function getSolanaReceiver(): Promise<string> {
+  const addr = process.env.SOLANA_USDC_ADDRESS;
+  if (!addr) throw new Error("Solana USDC address not configured. Ask the site owner to set SOLANA_USDC_ADDRESS.");
+  return addr;
+}
+
+export const createSplPaymentIntent = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((d: unknown) => createSplSchema.parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const address = await getSolanaReceiver();
+
+    let lastErr: unknown = null;
+    for (let attempt = 0; attempt < 8; attempt++) {
+      const expected = Number((data.tier + randomCents()).toFixed(6));
+      const expires = new Date(Date.now() + INTENT_TTL_MIN * 60_000).toISOString();
+      const { data: row, error } = await supabaseAdmin
+        .from("payment_intents")
+        .insert({
+          user_id: context.userId,
+          tier: data.tier,
+          expected_amount: expected,
+          address,
+          chain: "SOLANA",
+          method: "spl",
+          expires_at: expires,
+        })
+        .select("*")
+        .single();
+      if (!error && row) {
+        return {
+          id: row.id,
+          address: row.address,
+          mint: SOLANA_USDC_MINT,
+          tokenSymbol: "USDC",
+          tier: row.tier,
+          expectedAmount: Number(row.expected_amount),
+          expiresAt: row.expires_at,
+        };
+      }
+      lastErr = error;
+      if ((error as { code?: string } | null)?.code !== "23505") break;
+    }
+    throw new Error(lastErr instanceof Error ? lastErr.message : "Could not allocate payment amount, try again");
+  });
+
+async function solRpc(method: string, params: unknown[]): Promise<unknown> {
+  let lastErr: unknown = null;
+  for (const url of SOLANA_RPCS) {
+    try {
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
+      });
+      if (!res.ok) { lastErr = new Error(`Solana RPC ${res.status}`); continue; }
+      const json = await res.json() as { result?: unknown; error?: { message: string } };
+      if (json.error) { lastErr = new Error(json.error.message); continue; }
+      return json.result;
+    } catch (e) { lastErr = e; }
+  }
+  throw lastErr instanceof Error ? lastErr : new Error("Solana RPC failed");
+}
+
+type SolSig = { signature: string; blockTime: number | null; err: unknown };
+type SolTx = {
+  meta: {
+    err: unknown;
+    preTokenBalances?: Array<{ owner?: string; mint: string; uiTokenAmount: { amount: string; decimals: number } }>;
+    postTokenBalances?: Array<{ owner?: string; mint: string; uiTokenAmount: { amount: string; decimals: number } }>;
+  } | null;
+  blockTime?: number | null;
+};
+
+export const checkSplPaymentIntent = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((d: unknown) => idSchema.parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: intent, error } = await supabaseAdmin
+      .from("payment_intents")
+      .select("*")
+      .eq("id", data.id)
+      .eq("user_id", context.userId)
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    if (!intent) throw new Error("Not found");
+
+    if (intent.status !== "pending") {
+      return { status: intent.status, purchaseId: intent.purchase_id, txHash: intent.tx_hash };
+    }
+    if (new Date(intent.expires_at).getTime() < Date.now()) {
+      await supabaseAdmin.from("payment_intents").update({ status: "expired" }).eq("id", intent.id).eq("status", "pending");
+      return { status: "expired" as const };
+    }
+
+    // Scan recent signatures touching the recipient wallet.
+    let sigs: SolSig[] = [];
+    try {
+      sigs = (await solRpc("getSignaturesForAddress", [intent.address, { limit: 25 }])) as SolSig[];
+    } catch (e) {
+      return { status: "pending" as const, error: e instanceof Error ? e.message : "rpc failed" };
+    }
+
+    const sinceSec = Math.floor((new Date(intent.created_at).getTime() - 60_000) / 1000);
+    const expectedRaw = BigInt(Math.round(Number(intent.expected_amount) * 10 ** SOLANA_USDC_DECIMALS));
+    const receiver = intent.address;
+
+    for (const sig of sigs) {
+      if (sig.err) continue;
+      if (sig.blockTime && sig.blockTime < sinceSec) break;
+      let tx: SolTx | null = null;
+      try {
+        tx = (await solRpc("getTransaction", [sig.signature, { encoding: "jsonParsed", maxSupportedTransactionVersion: 0 }])) as SolTx | null;
+      } catch { continue; }
+      if (!tx || tx.meta?.err) continue;
+      const pre = tx.meta?.preTokenBalances ?? [];
+      const post = tx.meta?.postTokenBalances ?? [];
+      const preAmt = pre.find((b) => b.owner === receiver && b.mint === SOLANA_USDC_MINT);
+      const postAmt = post.find((b) => b.owner === receiver && b.mint === SOLANA_USDC_MINT);
+      if (!postAmt) continue;
+      const delta = BigInt(postAmt.uiTokenAmount.amount) - BigInt(preAmt?.uiTokenAmount.amount ?? "0");
+      if (delta === expectedRaw) {
+        const { data: purchase, error: rpcErr } = await supabaseAdmin.rpc("purchase_package", {
+          _user_id: intent.user_id,
+          _amount: intent.tier,
+          _idempotency_key: `intent:${intent.id}`,
+        });
+        if (rpcErr) throw new Error(rpcErr.message);
+        const purchaseId = (purchase as { purchase_id?: string } | null)?.purchase_id ?? null;
+        await supabaseAdmin
+          .from("payment_intents")
+          .update({
+            status: "paid",
+            tx_hash: sig.signature,
+            paid_at: sig.blockTime ? new Date(sig.blockTime * 1000).toISOString() : new Date().toISOString(),
+            purchase_id: purchaseId,
+          })
+          .eq("id", intent.id)
+          .eq("status", "pending");
+        return { status: "paid" as const, txHash: sig.signature, purchaseId };
+      }
+    }
+    return { status: "pending" as const };
+  });
+
+// ============================================================
+// Public config (publishable values only) — safe to expose to browser
+// ============================================================
+
+export const getPublicPaymentConfig = createServerFn({ method: "GET" })
+  .handler(async () => {
+    return {
+      walletConnectProjectId: process.env.WALLETCONNECT_PROJECT_ID ?? null,
+      solanaEnabled: !!process.env.SOLANA_USDC_ADDRESS,
+      stripeEnabled: !!process.env.STRIPE_SECRET_KEY,
+    };
+  });

@@ -72,6 +72,7 @@ export type Database = {
           paid_at: string | null
           purchase_id: string | null
           status: Database["public"]["Enums"]["payment_intent_status"]
+          stripe_session_id: string | null
           tier: number
           tx_hash: string | null
           user_id: string
@@ -89,6 +90,7 @@ export type Database = {
           paid_at?: string | null
           purchase_id?: string | null
           status?: Database["public"]["Enums"]["payment_intent_status"]
+          stripe_session_id?: string | null
           tier: number
           tx_hash?: string | null
           user_id: string
@@ -106,6 +108,7 @@ export type Database = {
           paid_at?: string | null
           purchase_id?: string | null
           status?: Database["public"]["Enums"]["payment_intent_status"]
+          stripe_session_id?: string | null
           tier?: number
           tx_hash?: string | null
           user_id?: string
