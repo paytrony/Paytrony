@@ -14,6 +14,7 @@ export const TIER_BENEFITS: Record<Tier, TierBenefits> = {
     benefits: [
       "Instant NFT mint on Tier 10",
       "Mine up to $1.20/day — starts at $0.12/day, grows with your referrals (10 refs = full rate)",
+      "Up to $36/month payout at full rate",
       "100% referral payout ($10) to your inviter, credited instantly",
       "Unlock your own referral link to start earning",
       "Withdraw anytime, flat $1 fee",
