@@ -730,7 +730,7 @@ function StatusBadge({ s }: { s: string }) {
   );
 }
 
-function WithdrawalTimeline({ w }: { w: { status: string; created_at: string; resolved_at: string | null } }) {
+function WithdrawalTimeline({ w }: { w: { status: string; created_at: string; resolved_at: string | null; admin_note?: string | null; tx_hash?: string | null } }) {
   const requestedAt = w.created_at;
   const resolvedAt = w.resolved_at;
   const rejected = w.status === "rejected";
@@ -738,10 +738,10 @@ function WithdrawalTimeline({ w }: { w: { status: string; created_at: string; re
   const pending = w.status === "pending";
 
   const steps = [
-    { key: "requested", label: "Requested", at: requestedAt, done: true, active: pending && !approved && !rejected },
-    { key: "approved", label: rejected ? "Rejected" : "Auto-approved", at: resolvedAt, done: approved || rejected, active: pending, bad: rejected },
-    { key: "sent", label: "Payout sent", at: resolvedAt, done: approved, active: false },
-    { key: "completed", label: "Completed", at: resolvedAt, done: approved, active: false },
+    { key: "requested", label: "Requested", at: requestedAt, done: true, active: false, bad: false },
+    { key: "review", label: pending ? "Under admin review" : rejected ? "Reviewed by admin" : "Approved by admin", at: (approved || rejected) ? resolvedAt : null, done: approved || rejected, active: pending, bad: false },
+    { key: "outcome", label: rejected ? "Rejected — funds restored to wallet" : "Payout sent", at: resolvedAt, done: approved || rejected, active: false, bad: rejected },
+    { key: "completed", label: rejected ? "Closed" : "Completed", at: resolvedAt, done: approved || rejected, active: false, bad: false },
   ];
 
   return (
