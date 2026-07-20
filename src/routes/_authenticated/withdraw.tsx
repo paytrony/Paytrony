@@ -175,10 +175,28 @@ function Withdraw() {
 
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+  // Per-chain address shape checks. Not exhaustive on-chain validation, but
+  // catches typos, wrong-network paste, and empty/short values before the user
+  // submits — the server RPC is still the source of truth.
+  function chainAddressError(chain: string, addr: string): string | null {
+    const a = addr.trim();
+    if (!a) return "Enter a destination wallet address";
+    if (chain === "TRON") {
+      if (!/^T[1-9A-HJ-NP-Za-km-z]{33}$/.test(a)) return "Enter a valid Tron (TRC-20) address starting with T (34 chars)";
+    } else if (chain === "SOLANA") {
+      if (!/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(a)) return "Enter a valid Solana address (base58, 32–44 chars)";
+    } else {
+      // EVM: BSC / Polygon / Arbitrum / Optimism
+      if (!/^0x[a-fA-F0-9]{40}$/.test(a)) return "Enter a valid EVM address (0x + 40 hex characters)";
+    }
+    return null;
+  }
+
   function validateForm(): boolean {
     const next: typeof errors = {};
     const amt = Number(amount);
     const min = limits?.min_amount ?? 0.01;
+    const cap = limits?.daily_cap;
 
     if (!amount || Number.isNaN(amt)) {
       next.amount = "Enter an amount";
@@ -188,15 +206,19 @@ function Withdraw() {
       next.amount = `Minimum withdrawal is $${min.toFixed(2)}`;
     } else if (amt <= FEE) {
       next.amount = `Amount must be more than the $${FEE} fee`;
+    } else if (cap && amt > cap) {
+      next.amount = `Daily cap is $${cap.toFixed(2)} per withdrawal`;
     } else if (amt > available) {
       next.amount = `Insufficient balance (available $${available.toFixed(2)})`;
     }
 
     if (COMING_SOON.includes(kind)) {
-      next.method = "This payout method is coming soon";
+      next.method = "This payout method is coming soon — pick Binance, Bybit, or Wallet Address";
     } else if (kind === "binance" || kind === "bybit") {
       if (idType === "uid") {
-        if (!exUid.trim()) next.uid = "Enter your UID";
+        const v = exUid.trim();
+        if (!v) next.uid = "Enter your UID";
+        else if (!/^\d{6,15}$/.test(v)) next.uid = "UID should be 6–15 digits";
       } else if (idType === "email") {
         if (!exEmail.trim()) next.email = "Enter your registered email";
         else if (!emailRegex.test(exEmail.trim())) next.email = "Enter a valid email address";
@@ -204,19 +226,26 @@ function Withdraw() {
         if (!exPhone.trim()) next.phone = "Enter your registered phone number";
         else if (!/^\+?[\d\s\-()]{7,20}$/.test(exPhone.trim())) next.phone = "Enter a valid phone number";
       }
-    
+
     } else if (kind === "wallet_address") {
       if (!walletChain) next.chain = "Select a chain";
-      if (!walletAddress.trim()) {
-        next.address = "Enter a destination wallet address";
-      } else if (walletAddress.trim().length < 10) {
-        next.address = "Address looks too short";
-      }
+      const addrErr = chainAddressError(walletChain, walletAddress);
+      if (addrErr) next.address = addrErr;
     }
 
     setErrors(next);
     return Object.keys(next).length === 0;
   }
+
+  // Live re-validate whenever the user changes any input so the inline errors
+  // update without waiting for another submit — but only after they've tried
+  // submitting at least once (so we don't yell at a blank untouched form).
+  const hasErrors = Object.keys(errors).length > 0;
+  useEffect(() => {
+    if (!hasErrors) return;
+    validateForm();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [amount, kind, idType, exUid, exEmail, exPhone, walletChain, walletAddress, available]);
 
   function clearError(key: keyof typeof errors) {
     setErrors((prev) => {
