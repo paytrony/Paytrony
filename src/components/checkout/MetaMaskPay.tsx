@@ -7,11 +7,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Loader2, Wallet, CheckCircle2, XCircle, ExternalLink, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 
-type Chain = "bsc" | "eth" | "polygon";
-const CHAIN_META: Record<Chain, { label: string; native: string; explorer: (h: string) => string }> = {
-  bsc: { label: "BNB Smart Chain (cheap fees)", native: "BNB", explorer: (h) => `https://bscscan.com/tx/${h}` },
-  polygon: { label: "Polygon (very cheap)", native: "POL", explorer: (h) => `https://polygonscan.com/tx/${h}` },
-  eth: { label: "Ethereum (highest fees)", native: "ETH", explorer: (h) => `https://etherscan.io/tx/${h}` },
+type Chain = "bsc" | "polygon" | "arbitrum" | "optimism" | "base" | "eth";
+const CHAIN_META: Record<Chain, { label: string; native: string; explorer: (h: string) => string; token: string }> = {
+  bsc: { label: "BNB Smart Chain (cheap fees)", native: "BNB", token: "USDT", explorer: (h) => `https://bscscan.com/tx/${h}` },
+  polygon: { label: "Polygon (very cheap)", native: "POL", token: "USDT", explorer: (h) => `https://polygonscan.com/tx/${h}` },
+  arbitrum: { label: "Arbitrum One (cheap L2)", native: "ETH", token: "USDT", explorer: (h) => `https://arbiscan.io/tx/${h}` },
+  optimism: { label: "Optimism (cheap L2)", native: "ETH", token: "USDT", explorer: (h) => `https://optimistic.etherscan.io/tx/${h}` },
+  base: { label: "Base (USDC, very cheap)", native: "ETH", token: "USDC", explorer: (h) => `https://basescan.org/tx/${h}` },
+  eth: { label: "Ethereum (highest fees)", native: "ETH", token: "USDT", explorer: (h) => `https://etherscan.io/tx/${h}` },
 };
 
 type Intent = {
@@ -78,12 +81,15 @@ export function MetaMaskPay({ tier }: { tier: 10 | 50 | 100 }) {
     } catch (err) {
       const code = (err as { code?: number }).code;
       if (code === 4902) {
-        const add = {
+        const add: Record<Chain, { chainId: string; chainName: string; nativeCurrency: { name: string; symbol: string; decimals: number }; rpcUrls: string[]; blockExplorerUrls: string[] }> = {
           bsc: { chainId: "0x38", chainName: "BNB Smart Chain", nativeCurrency: { name: "BNB", symbol: "BNB", decimals: 18 }, rpcUrls: ["https://bsc-dataseed.binance.org"], blockExplorerUrls: ["https://bscscan.com"] },
           polygon: { chainId: "0x89", chainName: "Polygon", nativeCurrency: { name: "POL", symbol: "POL", decimals: 18 }, rpcUrls: ["https://polygon-rpc.com"], blockExplorerUrls: ["https://polygonscan.com"] },
+          arbitrum: { chainId: "0xa4b1", chainName: "Arbitrum One", nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 }, rpcUrls: ["https://arb1.arbitrum.io/rpc"], blockExplorerUrls: ["https://arbiscan.io"] },
+          optimism: { chainId: "0xa", chainName: "Optimism", nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 }, rpcUrls: ["https://mainnet.optimism.io"], blockExplorerUrls: ["https://optimistic.etherscan.io"] },
+          base: { chainId: "0x2105", chainName: "Base", nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 }, rpcUrls: ["https://mainnet.base.org"], blockExplorerUrls: ["https://basescan.org"] },
           eth: { chainId: "0x1", chainName: "Ethereum", nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 }, rpcUrls: ["https://ethereum-rpc.publicnode.com"], blockExplorerUrls: ["https://etherscan.io"] },
-        }[chainKey];
-        await window.ethereum.request({ method: "wallet_addEthereumChain", params: [add] });
+        };
+        await window.ethereum.request({ method: "wallet_addEthereumChain", params: [add[chainKey]] });
       } else {
         throw err;
       }
@@ -172,12 +178,12 @@ export function MetaMaskPay({ tier }: { tier: 10 | 50 | 100 }) {
       <div className="rounded-md border bg-muted/40 p-3 text-sm">
         <div className="flex items-center justify-between">
           <span className="text-muted-foreground">Amount</span>
-          <span className="font-mono font-bold">${tier}.00 USDT</span>
+          <span className="font-mono font-bold">${tier}.00 {CHAIN_META[chain].token}</span>
         </div>
         {intent && (
           <div className="mt-1 flex items-center justify-between">
             <span className="text-muted-foreground">Exact amount to send</span>
-            <span className="font-mono font-bold">{intent.expectedAmount} USDT</span>
+            <span className="font-mono font-bold">{intent.expectedAmount} {CHAIN_META[chain].token}</span>
           </div>
         )}
         <div className="mt-1 flex items-center justify-between">
@@ -217,7 +223,7 @@ export function MetaMaskPay({ tier }: { tier: 10 | 50 | 100 }) {
       ) : (
         <>
           <Button onClick={pay} className="w-full" disabled={status !== "idle"}>
-            {status === "idle" && `Pay $${tier} USDT with MetaMask`}
+            {status === "idle" && `Pay $${tier} ${CHAIN_META[chain].token} with MetaMask`}
             {status === "creating" && (<><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Preparing…</>)}
             {status === "switching" && (<><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Switching network…</>)}
             {status === "signing" && (<><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Confirm in MetaMask…</>)}

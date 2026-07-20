@@ -1,50 +1,76 @@
+
 ## Goal
 
-Let users pay for a $10 / $50 / $100 package by connecting MetaMask and sending USDT on BSC, Ethereum, or Polygon — in addition to the existing USDT-TRC20 QR flow. Receiving address: `0xEaad65C5c22AC57DAA4dEEB4458370Dd723b933c`.
+Expand `/packages` Mint checkout from 2 methods (Tron QR, MetaMask) to 5, behind a chooser screen. Match the existing intent + auto-detect pattern so referral crediting and NFT minting keep working unchanged.
 
-## User flow
+## Method chooser (new default view)
 
-1. On `/packages`, "Buy" opens the checkout modal with two tabs: **Scan QR (Tron)** and **MetaMask (EVM)**.
-2. MetaMask tab: user picks chain (BSC / Ethereum / Polygon), clicks **Connect Wallet**, then **Pay $X USDT**.
-3. App creates a payment intent (unique cents to disambiguate), asks MetaMask to switch/add the chain if needed, then triggers a USDT `transfer(to, amount)` call.
-4. Once MetaMask returns a tx hash, the app saves it on the intent and polls the chain's RPC/explorer for confirmation.
-5. On confirmation → mark intent paid → run `purchase_package` RPC → success screen and wallet credit, same as the Tron path.
+When the Mint dialog opens, show a 5-tile chooser instead of tabs. Selecting a tile mounts that method's flow; a "Back" button returns to the chooser and cancels any pending intent.
 
-## Data changes (one migration)
+Tiles:
+1. **Binance/Bybit QR (Tron USDT)** — existing flow
+2. **MetaMask (USDT on BSC / Polygon / ETH / Arbitrum / Optimism / Base)** — existing flow, extended
+3. **WalletConnect (Trust, Rainbow, mobile wallets)** — new
+4. **Solana Pay (USDC on Solana)** — new
+5. **Card (Visa / Mastercard via Stripe)** — new, requires enabling Lovable Payments
 
-Extend `payment_intents` to support EVM:
-- Add columns: `method text not null default 'trc20'` (values: `trc20`, `evm`), `evm_chain text null` (`bsc` | `eth` | `polygon`), `from_address text null`.
-- Loosen the unique-pending-amount index to be scoped by `(method, chain/evm_chain, address, expected_amount)` so Tron and each EVM chain don't collide.
-- Keep existing RLS and grants.
+## 1. More EVM chains for MetaMask + WalletConnect
 
-## Server functions (`src/lib/payments.functions.ts`)
+Extend `EVM_CHAINS` in `src/lib/payments.functions.ts` with Arbitrum (USDT `0xFd08…`, 6 dec), Optimism (USDT `0x94b0…`, 6 dec), Base (USDC — Base has no canonical USDT; use USDC `0x8335…`, 6 dec, and treat as stablecoin-equivalent for this tier).
 
-Add EVM siblings to the Tron functions:
-- `createEvmPaymentIntent({ tier, chain })` — allocates unique amount, stores `method='evm'`, `evm_chain`, returns `{ id, chainId, usdtContract, to, expectedAmount, expiresAt }`.
-- `submitEvmTxHash({ id, txHash, fromAddress })` — records the tx hash on the intent (status stays `pending`) so a background sweep can also settle it.
-- `checkEvmPaymentIntent({ id })` — queries the chain's public RPC (`eth_getTransactionReceipt` + parse USDT `Transfer` log) via a public endpoint per chain; on match to `(to, expectedAmount)` with ≥ N confirmations, mark paid and run `purchase_package` with `intent:<id>` idempotency key.
+Update the `createEvmSchema` enum and `payment_intents.chain` allowed values. Add explorer + RPC entries. `MetaMaskPay.tsx` gets these networks in its Select.
 
-Chain config (hardcoded constants):
-- BSC: chainId `0x38`, USDT `0x55d398326f99059fF775485246999027B3197955` (18 decimals), RPC `https://bsc-dataseed.binance.org`.
-- Ethereum: chainId `0x1`, USDT `0xdAC17F958D2ee523a2206206994597C13D831ec7` (6 decimals), RPC `https://ethereum-rpc.publicnode.com`.
-- Polygon: chainId `0x89`, USDT `0xc2132D05D31c914a87C6611C10748AEb04B58e8F` (6 decimals), RPC `https://polygon-rpc.com`.
+## 2. WalletConnect
 
-Receiving address `0xEaad65…933c` hardcoded (no new secret needed; matches the user's request). Public RPCs used first; if we later want reliability we can add an Alchemy/Infura key.
+- Install `@reown/appkit`, `@reown/appkit-adapter-wagmi`, `wagmi`, `viem`, `@tanstack/react-query` (already present).
+- Ask user for a **WalletConnect (Reown) Project ID** — free from cloud.reown.com — and store as `VITE_WALLETCONNECT_PROJECT_ID` (publishable, safe in client). Add via secret request.
+- New `src/components/checkout/WalletConnectPay.tsx`: initializes AppKit with the same 6 EVM chains, opens the wallet modal, then reuses `createEvmPaymentIntent` / `submitEvmTxHash` / `checkEvmPaymentIntent` — no server changes needed since the payment path is identical to MetaMask.
+- Provider is mounted only inside the checkout dialog to avoid app-wide side effects.
 
-## Frontend
+## 3. Solana Pay (USDC)
 
-- `src/routes/_authenticated/packages.tsx`: convert existing checkout dialog into a tabbed dialog (`Tron QR` | `MetaMask`).
-- New component `src/components/checkout/MetaMaskPay.tsx`:
-  - Detect `window.ethereum`; if missing, show install-MetaMask CTA (link to metamask.io).
-  - Chain selector (BSC default — cheap fees).
-  - "Connect Wallet" → `eth_requestAccounts`.
-  - "Pay $X USDT" → call `createEvmPaymentIntent`, then `wallet_switchEthereumChain` (with `wallet_addEthereumChain` fallback), then `eth_sendTransaction` to the USDT contract with ABI-encoded `transfer(to, amount)` (amount = expected × 10^decimals).
-  - On hash: call `submitEvmTxHash`, then poll `checkEvmPaymentIntent` every 5s until `paid` or `expired`; show status with block explorer link.
-- No new npm deps — use raw `window.ethereum` + hand-rolled ABI encoding (function selector `0xa9059cbb` + padded address + padded amount). Keeps bundle small.
+- Migration: extend `payment_intents.method` to accept `spl`, add `chain = 'SOLANA'`. Extend unique pending-amount index (`method`, `chain`, `expected_amount`).
+- Add `SOLANA_USDC_ADDRESS` secret (user's Solana wallet) and optional `HELIUS_API_KEY` (or use public `https://api.mainnet-beta.solana.com`).
+- New server fns in `payments.functions.ts`:
+  - `createSolanaPaymentIntent({ tier })` — allocates unique micro-USDC amount, returns Solana Pay URL `solana:<recipient>?amount=<x>&spl-token=EPjF…USDC&reference=<intentId>&label=NFT%20Tier%20$X`.
+  - `checkSolanaPaymentIntent({ id })` — polls Solana RPC `getSignaturesForAddress` on the `reference` pubkey; when a confirmed tx with a matching USDC transfer of the exact amount to the recipient exists, mark paid and call the same `purchase_package` RPC used by Tron/EVM flows.
+- New `src/components/checkout/SolanaPay.tsx`: renders QR (reuse `qrcode` lib) + copy-address, live 6s polling, same UX as Tron tab.
 
-## Notes / non-goals
+## 4. Card checkout (Stripe)
 
-- No wallet libraries (wagmi/ethers) added — direct EIP-1193 calls only.
-- Gas is paid by the user in the chain's native token; we surface a hint ("You'll need a small amount of BNB/ETH/MATIC for gas").
-- No cron sweep for EVM in this pass — polling from the open tab is enough; can add a `/api/public/evm-tick` route later mirroring the Tron sweeper.
-- Tron flow untouched.
+Requires enabling Lovable Payments. Flow this turn:
+1. Run `recommend_payment_provider` → likely Stripe (digital NFT-tier product).
+2. Explain in chat that Stripe seamless will handle card + tax, then call `enable_stripe_payments` (user completes form).
+3. Create 3 one-time products via `batch_create_product` for $10 / $50 / $100 tiers with the digital-goods tax code.
+4. Add `createStripeCheckout({ tier })` server fn that creates a Stripe Checkout Session (using the seamless client from the Stripe knowledge that lands after enable), success URL `/nfts?paid=1&intent=…`, cancel URL `/packages`.
+5. Add `src/routes/api/public/stripe-webhook.ts` verifying the Stripe signature; on `checkout.session.completed`, look up the intent and call `purchase_package` — mirrors the Tron webhook.
+6. New `src/components/checkout/CardPay.tsx`: single "Pay $X with card" button that opens Stripe Checkout in a new tab and polls a lightweight `getPaymentIntent({id})` for status → success animation → redirect to `/nfts`.
+
+Card option is disabled with "Enable card checkout" hint until Stripe is enabled — after enable it becomes fully live.
+
+## 5. Modal UX rewrite
+
+`src/routes/_authenticated/packages.tsx`:
+- Replace `Tabs` with `useState<'chooser' | 'tron' | 'metamask' | 'walletconnect' | 'solana' | 'card'>('chooser')`.
+- Chooser: 5 large tiles with icon, label, subtitle (e.g. "Cheapest • ~30s", "Any EVM wallet", "USDC on Solana", "Instant card"), and gas/fee hint.
+- Back button in dialog header when a method is active; cancels the intent (existing `cancelPaymentIntent` for on-chain flows).
+- Existing Tron and MetaMask components move behind chooser unchanged.
+
+## Technical details
+
+- `payment_intents` schema change (single migration): widen `method` values and `chain` check, extend unique index, add optional `stripe_session_id text` column, GRANTs unchanged (server-only writes to status still enforced).
+- All new server fns follow existing `createServerFn().middleware([requireSupabaseAuth]).validator(...).handler(...)` shape. Admin client only loaded inside handlers.
+- Solana + WalletConnect libs are dynamically imported inside their components to keep initial bundle lean.
+- Real-time `wallet_transactions` + `purchases` subscriptions already refresh the UI; no changes needed there.
+
+## Secrets to request from you (in order)
+
+1. `VITE_WALLETCONNECT_PROJECT_ID` — for WalletConnect.
+2. `SOLANA_USDC_ADDRESS` — your Solana wallet address for USDC receipts. Optional `HELIUS_API_KEY` if you want faster/higher-limit RPC.
+3. Stripe: no key needed — `enable_stripe_payments` handles it.
+
+## Out of scope
+
+- Coinbase Onramp / fiat-to-crypto conversion inside a wallet.
+- Native-coin (BNB/ETH/MATIC) payments with oracle pricing.
+- Refund UI (Stripe refunds handled from dashboard).

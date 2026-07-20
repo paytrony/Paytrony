@@ -180,7 +180,7 @@ export const cancelPaymentIntent = createServerFn({ method: "POST" })
 
 const EVM_RECEIVER = "0xEaad65C5c22AC57DAA4dEEB4458370Dd723b933c";
 
-type EvmChain = "bsc" | "eth" | "polygon";
+type EvmChain = "bsc" | "eth" | "polygon" | "arbitrum" | "optimism" | "base";
 
 const EVM_CHAINS: Record<EvmChain, {
   chainIdHex: string;
@@ -189,26 +189,46 @@ const EVM_CHAINS: Record<EvmChain, {
   nativeSymbol: string;
   usdt: string;
   usdtDecimals: number;
+  tokenSymbol: string;
   rpcs: string[];
   explorerTx: (h: string) => string;
 }> = {
   bsc: {
     chainIdHex: "0x38", chainIdDec: 56, name: "BNB Smart Chain", nativeSymbol: "BNB",
-    usdt: "0x55d398326f99059fF775485246999027B3197955", usdtDecimals: 18,
+    usdt: "0x55d398326f99059fF775485246999027B3197955", usdtDecimals: 18, tokenSymbol: "USDT",
     rpcs: ["https://bsc-dataseed.binance.org", "https://bsc-dataseed1.defibit.io"],
     explorerTx: (h) => `https://bscscan.com/tx/${h}`,
   },
   eth: {
     chainIdHex: "0x1", chainIdDec: 1, name: "Ethereum", nativeSymbol: "ETH",
-    usdt: "0xdAC17F958D2ee523a2206206994597C13D831ec7", usdtDecimals: 6,
+    usdt: "0xdAC17F958D2ee523a2206206994597C13D831ec7", usdtDecimals: 6, tokenSymbol: "USDT",
     rpcs: ["https://ethereum-rpc.publicnode.com", "https://eth.llamarpc.com"],
     explorerTx: (h) => `https://etherscan.io/tx/${h}`,
   },
   polygon: {
     chainIdHex: "0x89", chainIdDec: 137, name: "Polygon", nativeSymbol: "POL",
-    usdt: "0xc2132D05D31c914a87C6611C10748AEb04B58e8F", usdtDecimals: 6,
+    usdt: "0xc2132D05D31c914a87C6611C10748AEb04B58e8F", usdtDecimals: 6, tokenSymbol: "USDT",
     rpcs: ["https://polygon-rpc.com", "https://polygon.llamarpc.com"],
     explorerTx: (h) => `https://polygonscan.com/tx/${h}`,
+  },
+  arbitrum: {
+    chainIdHex: "0xa4b1", chainIdDec: 42161, name: "Arbitrum One", nativeSymbol: "ETH",
+    usdt: "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9", usdtDecimals: 6, tokenSymbol: "USDT",
+    rpcs: ["https://arb1.arbitrum.io/rpc", "https://arbitrum.llamarpc.com"],
+    explorerTx: (h) => `https://arbiscan.io/tx/${h}`,
+  },
+  optimism: {
+    chainIdHex: "0xa", chainIdDec: 10, name: "Optimism", nativeSymbol: "ETH",
+    usdt: "0x94b008aA00579c1307B0EF2c499aD98a8ce58e58", usdtDecimals: 6, tokenSymbol: "USDT",
+    rpcs: ["https://mainnet.optimism.io", "https://optimism.llamarpc.com"],
+    explorerTx: (h) => `https://optimistic.etherscan.io/tx/${h}`,
+  },
+  base: {
+    // Base has no canonical USDT — use USDC as the stablecoin.
+    chainIdHex: "0x2105", chainIdDec: 8453, name: "Base", nativeSymbol: "ETH",
+    usdt: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", usdtDecimals: 6, tokenSymbol: "USDC",
+    rpcs: ["https://mainnet.base.org", "https://base.llamarpc.com"],
+    explorerTx: (h) => `https://basescan.org/tx/${h}`,
   },
 };
 
@@ -223,13 +243,14 @@ export function getEvmChainInfo(chain: EvmChain) {
     nativeSymbol: c.nativeSymbol,
     usdt: c.usdt,
     usdtDecimals: c.usdtDecimals,
+    tokenSymbol: c.tokenSymbol,
     explorerTxBase: c.explorerTx("").replace(/\/$/, ""),
   };
 }
 
 const createEvmSchema = z.object({
   tier: z.union([z.literal(10), z.literal(50), z.literal(100)]),
-  chain: z.enum(["bsc", "eth", "polygon"]),
+  chain: z.enum(["bsc", "eth", "polygon", "arbitrum", "optimism", "base"]),
 });
 
 const submitTxSchema = z.object({
