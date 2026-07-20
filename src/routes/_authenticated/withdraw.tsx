@@ -183,8 +183,10 @@ function Withdraw() {
       next.amount = "Amount must be greater than $0";
     } else if (amt < min) {
       next.amount = `Minimum withdrawal is $${min.toFixed(2)}`;
-    } else if (amt + FEE > available) {
-      next.amount = `Insufficient balance (need $${(amt + FEE).toFixed(2)} including $${FEE} fee)`;
+    } else if (amt <= FEE) {
+      next.amount = `Amount must be more than the $${FEE} fee`;
+    } else if (amt > available) {
+      next.amount = `Insufficient balance (available $${available.toFixed(2)})`;
     }
 
     if (COMING_SOON.includes(kind)) {
@@ -255,8 +257,8 @@ function Withdraw() {
 
       const idempotencyKey = (crypto as any).randomUUID?.() ?? `wd-${Date.now()}-${Math.random()}`;
       const res = await req({ data: { amount: amt, note, idempotencyKey, payoutMethodId: pm.id } });
-      toast.success(`Instant payout sent — $${amt.toFixed(2)} (fee $${FEE})`);
-      setReceipt({ id: res.id, amount: amt, fee: FEE, net: amt, method: methodLabel, createdAt: new Date().toISOString() });
+      toast.success(`Instant payout sent — $${net.toFixed(2)} (fee $${FEE} from $${amt.toFixed(2)})`);
+      setReceipt({ id: res.id, amount: amt, fee: FEE, net, method: methodLabel, createdAt: new Date().toISOString() });
       setAmount(""); setNote(""); setExUid(""); setExEmail(""); setExPhone(""); setWalletAddress("");
       setErrors({});
       setConfirmOpen(false);
@@ -276,8 +278,8 @@ function Withdraw() {
   const gated = !emailVerified;
   const methodReady = (kind === "binance" || kind === "bybit") ? !!(idType === "uid" ? exUid.trim() : idType === "email" ? exEmail.trim() : exPhone.trim()) : kind === "wallet_address" ? !!walletAddress.trim() : false;
   const amt = Number(amount) || 0;
-  const net = amt; // user receives the full requested amount; fee is debited separately
-  const totalDebit = amt + FEE;
+  const totalDebit = amt; // amount entered is what leaves the wallet
+  const net = Math.max(0, amt - FEE); // fee is taken out of the amount
 
   return (
     <div className="mx-auto max-w-6xl space-y-8">
@@ -322,7 +324,7 @@ function Withdraw() {
                     type="number"
                     step="0.01"
                     min={limits?.min_amount ?? 0.01}
-                    max={Math.max(0, available - FEE)}
+                    max={Math.max(0, available)}
                     required
                     value={amount}
                     onChange={(e) => { setAmount(e.target.value); clearError("amount"); }}
@@ -598,17 +600,21 @@ function Withdraw() {
               <div className="mb-3 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Payout summary</div>
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Amount you receive</span>
-                  <span className="font-semibold text-primary">${Number(amount || 0).toFixed(2)}</span>
+                  <span className="text-muted-foreground">Amount</span>
+                  <span className="font-medium">${amt.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Withdrawal fee</span>
-                  <span className="font-medium text-destructive">+ ${FEE.toFixed(2)}</span>
+                  <span className="font-medium text-destructive">- ${FEE.toFixed(2)}</span>
                 </div>
                 <Separator />
                 <div className="flex justify-between">
-                  <span className="text-foreground">Total debited from wallet</span>
+                  <span className="text-muted-foreground">Total debited from wallet</span>
                   <span className="font-semibold">${totalDebit.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-foreground">You receive</span>
+                  <span className="font-semibold text-primary">${net.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Available after</span>
