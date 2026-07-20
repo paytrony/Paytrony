@@ -339,6 +339,9 @@ function Withdraw() {
   const amt = Number(amount) || 0;
   const totalDebit = amt; // amount entered is what leaves the wallet
   const net = Math.max(0, amt - FEE); // fee is taken out of the amount
+  // Fields lock as soon as the user clicks "Review & withdraw" and stay locked
+  // while the request is in flight. Cancelling the confirm dialog unlocks them.
+  const busy = signing || locked;
 
   return (
     <div className="mx-auto max-w-6xl space-y-8">
