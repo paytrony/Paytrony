@@ -411,6 +411,7 @@ export type Database = {
             Args: { _idempotency_key?: string; _user_id: string }
             Returns: Json
           }
+      mining_daily_rate: { Args: { _user_id: string }; Returns: Json }
       purchase_package: {
         Args: { _amount: number; _idempotency_key?: string; _user_id: string }
         Returns: Json
