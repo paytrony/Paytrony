@@ -276,8 +276,8 @@ function Withdraw() {
   const gated = !emailVerified;
   const methodReady = (kind === "binance" || kind === "bybit") ? !!(idType === "uid" ? exUid.trim() : idType === "email" ? exEmail.trim() : exPhone.trim()) : kind === "wallet_address" ? !!walletAddress.trim() : false;
   const amt = Number(amount) || 0;
-  const net = amt; // user receives the full requested amount; fee is debited separately
-  const totalDebit = amt + FEE;
+  const totalDebit = amt; // amount entered is what leaves the wallet
+  const net = Math.max(0, amt - FEE); // fee is taken out of the amount
 
   return (
     <div className="mx-auto max-w-6xl space-y-8">
