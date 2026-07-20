@@ -38,11 +38,19 @@ function MiningPage() {
   const [mining, setMining] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [now, setNow] = useState(Date.now());
+  const [errorInfo, setErrorInfo] = useState<{ code: string; title: string; detail: string; fix: string } | null>(null);
 
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(t);
   }, []);
+
+  // Idempotency key scoped to the current cooldown window. Regenerated only
+  // after a successful claim so retries/refreshes within a window replay safely.
+  function idemKeyFor(userId: string, windowStart: number) {
+    return `mine:${userId}:${Math.floor(windowStart / 1000)}`;
+  }
+
 
   async function reload() {
     const [{ data: purchases }, { data: c }] = await Promise.all([
@@ -85,7 +93,26 @@ function MiningPage() {
   }
 
   function openConfirm() {
-    if (!canMine || mining || selectedTiers.length === 0) return;
+    setErrorInfo(null);
+    if (ownedTiers.length === 0) {
+      setErrorInfo({
+        code: "no_nfts",
+        title: "No mineable NFTs",
+        detail: "You need at least one Starter, Pro, or Elite package to mine.",
+        fix: "Buy a package from the Packages page to start earning daily rewards.",
+      });
+      return;
+    }
+    if (!canMine) {
+      setErrorInfo({
+        code: "cooldown_active",
+        title: "Cooldown active",
+        detail: `Next claim available at ${new Date(nextAt).toLocaleString()}.`,
+        fix: "Come back after the countdown reaches zero — the timer keeps running across refreshes and re-logins.",
+      });
+      return;
+    }
+    if (mining || selectedTiers.length === 0) return;
     setConfirmOpen(true);
   }
 
@@ -93,14 +120,62 @@ function MiningPage() {
     if (!canMine || mining) return;
     setConfirmOpen(false);
     setMining(true);
-    const { data, error } = await supabase.rpc("mine_now", { _user_id: user.id });
+    setErrorInfo(null);
+    // Cooldown-window-scoped key: any retry inside the same 24h window
+    // resolves to the same row on the server (idempotent replay).
+    const windowStart = lastClaim ? new Date(lastClaim).getTime() + 24 * 3600 * 1000 : Date.now();
+    const key = idemKeyFor(user.id, windowStart);
+    const { data, error } = await supabase.rpc("mine_now", { _user_id: user.id, _idempotency_key: key });
     setMining(false);
     if (error) {
-      toast.error(error.message || "Mining failed");
+      const raw = String(error.message || "");
+      if (raw.includes("cooldown_active")) {
+        setErrorInfo({
+          code: "cooldown_active",
+          title: "Cooldown still active",
+          detail: raw.replace(/^.*cooldown_active:\s*/, ""),
+          fix: "Wait until the countdown reaches zero, then click Mine again.",
+        });
+      } else if (raw.includes("no_nfts")) {
+        setErrorInfo({
+          code: "no_nfts",
+          title: "No mineable NFTs",
+          detail: "Your account has no Starter, Pro, or Elite package.",
+          fix: "Buy a package to unlock daily mining.",
+        });
+      } else if (raw.includes("wallet_error")) {
+        setErrorInfo({
+          code: "wallet_error",
+          title: "Wallet credit failed",
+          detail: raw.replace(/^.*wallet_error:\s*/, ""),
+          fix: "Your claim was not recorded. Click Mine again to retry — you will not be double-charged.",
+        });
+      } else if (raw.includes("not_authorized")) {
+        setErrorInfo({
+          code: "not_authorized",
+          title: "Session expired",
+          detail: "You are not signed in.",
+          fix: "Sign in again to continue mining.",
+        });
+      } else {
+        setErrorInfo({
+          code: "unknown",
+          title: "Mining failed",
+          detail: raw || "Something went wrong.",
+          fix: "Please try again. If it persists, refresh the page.",
+        });
+      }
+      toast.error("Mining could not complete — see details on the page.");
+      reload();
       return;
     }
-    const amt = Number((data as any)?.amount ?? 0).toFixed(2);
-    toast.success(`+$${amt} mined and credited to your wallet`);
+    const payload = data as any;
+    const amt = Number(payload?.amount ?? 0).toFixed(2);
+    if (payload?.idempotent) {
+      toast.info(`Already credited $${amt} for this cooldown window.`);
+    } else {
+      toast.success(`+$${amt} mined and credited to your wallet`);
+    }
     reload();
   }
 
@@ -111,6 +186,7 @@ function MiningPage() {
       return next;
     });
   }
+
 
   return (
     <div className="space-y-8">
@@ -147,6 +223,26 @@ function MiningPage() {
           {canMine ? <span className="text-emerald-400">Ready</span> : <span className="text-accent">{fmtCountdown(msLeft)}</span>}
         </div>
       </div>
+
+      {errorInfo && (
+        <div role="alert" className="rounded-2xl border border-red-500/40 bg-red-500/5 p-4 sm:p-5">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <div className="text-sm font-semibold text-red-400">{errorInfo.title}</div>
+              <div className="mt-1 text-xs text-muted-foreground">{errorInfo.detail}</div>
+              <div className="mt-2 text-xs"><span className="font-semibold text-foreground">What to do: </span>{errorInfo.fix}</div>
+            </div>
+            <button
+              onClick={() => setErrorInfo(null)}
+              className="rounded-md border border-border px-2 py-1 text-xs text-muted-foreground hover:bg-muted"
+            >
+              Dismiss
+            </button>
+          </div>
+        </div>
+      )}
+
+
 
 
       <div className="grid gap-4 md:grid-cols-3">
