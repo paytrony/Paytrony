@@ -16,6 +16,7 @@ const resolveSchema = z.object({
   withdrawalId: z.string().uuid(),
   approve: z.boolean(),
   adminNote: z.string().max(500).optional().default(""),
+  txHash: z.string().max(200).optional().default(""),
 });
 
 export const purchasePackage = createServerFn({ method: "POST" })
