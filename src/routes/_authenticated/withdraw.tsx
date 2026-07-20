@@ -255,7 +255,12 @@ function Withdraw() {
       }).select("id").single();
       if (pmErr || !pm) throw pmErr ?? new Error("Failed to save method");
 
-      const idempotencyKey = (crypto as any).randomUUID?.() ?? `wd-${Date.now()}-${Math.random()}`;
+      // Deterministic idempotency key: same (user, amount, method, note) can never
+      // create two rows even on refresh/double-click. Server returns the existing row.
+      const keyPayload = JSON.stringify({ u: user.id, a: amt.toFixed(2), pm: pm.id, k: kind, d: built.details, n: note });
+      let hash = 0;
+      for (let i = 0; i < keyPayload.length; i++) hash = ((hash << 5) - hash + keyPayload.charCodeAt(i)) | 0;
+      const idempotencyKey = `wd-${user.id.slice(0, 8)}-${Math.abs(hash).toString(36)}-${amt.toFixed(2)}`;
       const res = await req({ data: { amount: amt, note, idempotencyKey, payoutMethodId: pm.id } });
       toast.success(`Withdrawal request submitted — pending admin approval (up to 24 hours). You'll receive $${net.toFixed(2)} once approved.`);
       setReceipt({ id: res.id, amount: amt, fee: FEE, net, method: methodLabel, createdAt: new Date().toISOString() });
