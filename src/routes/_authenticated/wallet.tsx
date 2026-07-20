@@ -170,7 +170,12 @@ function WalletPage() {
               if (transferring || miningAvailable <= 0) return;
               setTransferring(true);
               try {
-                const idempotencyKey = buildMiningTransferIdempotencyKey({ userId: user.id, amount: miningAvailable });
+                const idempotencyKey = buildMiningTransferIdempotencyKey({
+                  userId: user.id,
+                  amount: miningAvailable,
+                  miningEarned: wallet.mining_earned,
+                  miningTransferred: wallet.mining_transferred,
+                });
                 const { error } = await supabase.rpc("transfer_mining_to_wallet", { _amount: miningAvailable, _idempotency_key: idempotencyKey });
                 if (error) throw error;
                 toast.success(`Transferred $${miningAvailable.toFixed(2)} to your wallet`);
