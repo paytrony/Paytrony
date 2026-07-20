@@ -192,6 +192,13 @@ export type Database = {
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "profiles_referred_by_fkey"
+            columns: ["referred_by"]
+            isOneToOne: false
+            referencedRelation: "referred_users_safe"
+            referencedColumns: ["id"]
+          },
         ]
       }
       purchases: {
@@ -342,7 +349,27 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      referred_users_safe: {
+        Row: {
+          created_at: string | null
+          id: string | null
+          nft_tier: number | null
+          referral_code: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string | null
+          nft_tier?: number | null
+          referral_code?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string | null
+          nft_tier?: number | null
+          referral_code?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       admin_expire_intent: { Args: { _intent_id: string }; Returns: undefined }
