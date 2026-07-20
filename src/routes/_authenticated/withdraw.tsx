@@ -600,17 +600,21 @@ function Withdraw() {
               <div className="mb-3 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Payout summary</div>
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Amount you receive</span>
-                  <span className="font-semibold text-primary">${Number(amount || 0).toFixed(2)}</span>
+                  <span className="text-muted-foreground">Amount</span>
+                  <span className="font-medium">${amt.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Withdrawal fee</span>
-                  <span className="font-medium text-destructive">+ ${FEE.toFixed(2)}</span>
+                  <span className="font-medium text-destructive">- ${FEE.toFixed(2)}</span>
                 </div>
                 <Separator />
                 <div className="flex justify-between">
-                  <span className="text-foreground">Total debited from wallet</span>
+                  <span className="text-muted-foreground">Total debited from wallet</span>
                   <span className="font-semibold">${totalDebit.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-foreground">You receive</span>
+                  <span className="font-semibold text-primary">${net.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Available after</span>
