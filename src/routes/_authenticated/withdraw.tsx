@@ -183,8 +183,10 @@ function Withdraw() {
       next.amount = "Amount must be greater than $0";
     } else if (amt < min) {
       next.amount = `Minimum withdrawal is $${min.toFixed(2)}`;
-    } else if (amt + FEE > available) {
-      next.amount = `Insufficient balance (need $${(amt + FEE).toFixed(2)} including $${FEE} fee)`;
+    } else if (amt <= FEE) {
+      next.amount = `Amount must be more than the $${FEE} fee`;
+    } else if (amt > available) {
+      next.amount = `Insufficient balance (available $${available.toFixed(2)})`;
     }
 
     if (COMING_SOON.includes(kind)) {
