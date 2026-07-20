@@ -1,7 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Wallet as WalletIcon, ArrowDownToLine, TrendingUp, Users, Receipt } from "lucide-react";
+import { toast } from "sonner";
+import { Wallet as WalletIcon, ArrowDownToLine, TrendingUp, Users, Receipt, Pickaxe } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/wallet")({
   head: () => ({
