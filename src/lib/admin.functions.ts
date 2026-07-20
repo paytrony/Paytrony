@@ -203,3 +203,15 @@ const setRoleSchema = z.object({
   userId: z.string().uuid(),
   grant: z.boolean(),
 });
+
+export const adminSetUserRole = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((d: unknown) => setRoleSchema.parse(d))
+  .handler(async ({ context }) => {
+    await requireAdmin(context);
+    // See NOTE above — role grants can't override the pinned email gate.
+    throw new Error(
+      `Admin access is pinned to ${ADMIN_EMAIL}. Granting the admin role to other users has no effect and is disabled to avoid confusion.`,
+    );
+  });
+
