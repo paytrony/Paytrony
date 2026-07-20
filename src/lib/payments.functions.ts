@@ -359,9 +359,10 @@ export const checkEvmPaymentIntent = createServerFn({ method: "POST" })
     }
     const cfg = EVM_CHAINS[chain];
 
-    let receipt: { status?: string; logs?: Array<{ address: string; topics: string[]; data: string }>; blockNumber?: string } | null = null;
+    type Receipt = { status?: string; logs?: Array<{ address: string; topics: string[]; data: string }>; blockNumber?: string };
+    let receipt: Receipt | null = null;
     try {
-      receipt = await rpcCall(cfg.rpcs, "eth_getTransactionReceipt", [intent.tx_hash]) as typeof receipt;
+      receipt = (await rpcCall(cfg.rpcs, "eth_getTransactionReceipt", [intent.tx_hash])) as Receipt | null;
     } catch (e) {
       return { status: "pending" as const, error: e instanceof Error ? e.message : "rpc failed" };
     }
