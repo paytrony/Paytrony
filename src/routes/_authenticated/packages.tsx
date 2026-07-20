@@ -5,8 +5,10 @@ import { createPaymentIntent, checkPaymentIntent, cancelPaymentIntent } from "@/
 import { toast } from "sonner";
 import QRCode from "qrcode";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { Copy, Loader2, CheckCircle2, XCircle, Clock } from "lucide-react";
+import { Copy, Loader2, CheckCircle2, XCircle, Clock, QrCode, Wallet } from "lucide-react";
+import { MetaMaskPay } from "@/components/checkout/MetaMaskPay";
 
 export const Route = createFileRoute("/_authenticated/packages")({
   component: Packages,
@@ -33,31 +35,39 @@ function Packages() {
   const cancelIntent = useServerFn(cancelPaymentIntent);
   const navigate = useNavigate();
 
-  const [busy, setBusy] = useState<10 | 50 | 100 | null>(null);
+  const [openTier, setOpenTier] = useState<10 | 50 | 100 | null>(null);
+  const [method, setMethod] = useState<"tron" | "metamask">("tron");
+  const [tronBusy, setTronBusy] = useState(false);
   const [intent, setIntent] = useState<Intent | null>(null);
   const [status, setStatus] = useState<"pending" | "paid" | "expired" | "cancelled" | "failed">("pending");
   const [qrDataUrl, setQrDataUrl] = useState<string>("");
   const [now, setNow] = useState(Date.now());
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  async function onBuy(tier: 10 | 50 | 100) {
-    if (busy || intent) return;
-    setBusy(tier);
-    try {
-      const res = await createIntent({ data: { tier } });
-      setIntent(res);
-      setStatus("pending");
-      const payUri = `tron:${res.address}?amount=${res.expectedAmount}&token=USDT`;
-      const url = await QRCode.toDataURL(payUri, { width: 320, margin: 1 });
-      setQrDataUrl(url);
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Could not start payment");
-    } finally {
-      setBusy(null);
-    }
-  }
+  // Auto-create Tron intent when Tron tab is active and none exists yet.
+  useEffect(() => {
+    if (openTier === null || method !== "tron" || intent || tronBusy) return;
+    let cancelled = false;
+    setTronBusy(true);
+    (async () => {
+      try {
+        const res = await createIntent({ data: { tier: openTier } });
+        if (cancelled) return;
+        setIntent(res);
+        setStatus("pending");
+        const payUri = `tron:${res.address}?amount=${res.expectedAmount}&token=USDT`;
+        const url = await QRCode.toDataURL(payUri, { width: 320, margin: 1 });
+        if (!cancelled) setQrDataUrl(url);
+      } catch (e) {
+        if (!cancelled) toast.error(e instanceof Error ? e.message : "Could not start payment");
+      } finally {
+        if (!cancelled) setTronBusy(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [openTier, method, intent, tronBusy, createIntent]);
 
-  // Poll on-chain status
+  // Poll on-chain status (Tron intents only)
   useEffect(() => {
     if (!intent || status !== "pending") return;
     let cancelled = false;
@@ -74,9 +84,7 @@ function Packages() {
         } else if (r.status === "cancelled" || r.status === "failed") {
           setStatus(r.status);
         }
-      } catch {
-        // swallow; next tick retries
-      }
+      } catch { /* retry */ }
     };
     tick();
     pollRef.current = setInterval(tick, 6000);
@@ -86,7 +94,6 @@ function Packages() {
     };
   }, [intent, status, checkIntent, navigate]);
 
-  // Countdown ticker
   useEffect(() => {
     if (!intent) return;
     const t = setInterval(() => setNow(Date.now()), 1000);
@@ -95,11 +102,13 @@ function Packages() {
 
   async function closeModal() {
     if (intent && status === "pending") {
-      try { await cancelIntent({ data: { id: intent.id } }); } catch {}
+      try { await cancelIntent({ data: { id: intent.id } }); } catch { /* ignore */ }
     }
+    setOpenTier(null);
     setIntent(null);
     setQrDataUrl("");
     setStatus("pending");
+    setMethod("tron");
   }
 
   function copy(text: string, label: string) {
@@ -115,7 +124,7 @@ function Packages() {
     <div className="space-y-8">
       <div>
         <h1 className="text-3xl font-bold">Buy a package</h1>
-        <p className="text-muted-foreground">Pay in USDT (TRC20) from any Binance, Bybit, or Web3 wallet. Your referrer earns 100% instantly.</p>
+        <p className="text-muted-foreground">Pay with USDT via Binance/Bybit (Tron) or connect MetaMask (BSC / Polygon / Ethereum). Your referrer earns 100% instantly.</p>
       </div>
 
       <div className="grid gap-6 md:grid-cols-3">
@@ -127,17 +136,17 @@ function Packages() {
             <div className="mt-4 mx-auto flex h-24 w-24 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-accent text-3xl font-bold text-primary-foreground">◆</div>
             <div className="mt-2 text-xs text-muted-foreground">NFT Tier {t.p}</div>
             <button
-              onClick={() => onBuy(t.p)}
-              disabled={busy !== null || intent !== null}
+              onClick={() => { setOpenTier(t.p); setMethod("tron"); }}
+              disabled={openTier !== null}
               className="mt-6 w-full rounded-md bg-primary py-2.5 font-medium text-primary-foreground disabled:opacity-50"
             >
-              {busy === t.p ? "Preparing…" : `Mint $${t.p}`}
+              Mint ${t.p}
             </button>
           </div>
         ))}
       </div>
 
-      <Dialog open={intent !== null} onOpenChange={(o) => { if (!o) closeModal(); }}>
+      <Dialog open={openTier !== null} onOpenChange={(o) => { if (!o) closeModal(); }}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>
@@ -145,56 +154,64 @@ function Packages() {
                status === "expired" ? "Payment window expired" :
                status === "cancelled" ? "Payment cancelled" :
                status === "failed" ? "Payment failed" :
-               `Pay ${intent?.expectedAmount} USDT`}
+               openTier ? `Pay $${openTier}` : ""}
             </DialogTitle>
             <DialogDescription>
-              {status === "pending" && "Scan the QR with Binance, Bybit or any TRC20 wallet. Detection is automatic."}
+              {status === "pending" && "Choose how you want to pay. Detection is automatic."}
               {status === "paid" && "Your NFT has been minted. Redirecting…"}
               {status === "expired" && "No matching transaction found in time. If you already sent, contact support with your tx hash."}
             </DialogDescription>
           </DialogHeader>
 
-          {intent && status === "pending" && (
-            <div className="space-y-4">
-              <div className="mx-auto flex h-[320px] w-[320px] items-center justify-center rounded-lg bg-white p-2">
-                {qrDataUrl ? <img src={qrDataUrl} alt="Payment QR" className="h-full w-full" /> : <Loader2 className="animate-spin" />}
-              </div>
+          {status === "pending" && openTier !== null && (
+            <Tabs value={method} onValueChange={(v) => setMethod(v as "tron" | "metamask")}>
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="tron"><QrCode className="mr-1 h-4 w-4" /> Scan QR (Tron)</TabsTrigger>
+                <TabsTrigger value="metamask"><Wallet className="mr-1 h-4 w-4" /> MetaMask</TabsTrigger>
+              </TabsList>
 
-              <div className="rounded-md border bg-muted/40 p-3 text-sm">
-                <div className="flex items-center justify-between gap-2">
-                  <div>
-                    <div className="text-muted-foreground text-xs">Send exactly</div>
-                    <div className="font-mono text-lg font-bold">{intent.expectedAmount} USDT</div>
+              <TabsContent value="tron" className="mt-4">
+                {!intent || tronBusy ? (
+                  <div className="flex h-[400px] items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="mx-auto flex h-[280px] w-[280px] items-center justify-center rounded-lg bg-white p-2">
+                      {qrDataUrl ? <img src={qrDataUrl} alt="Payment QR" className="h-full w-full" /> : <Loader2 className="animate-spin" />}
+                    </div>
+                    <div className="rounded-md border bg-muted/40 p-3 text-sm">
+                      <div className="flex items-center justify-between gap-2">
+                        <div>
+                          <div className="text-muted-foreground text-xs">Send exactly</div>
+                          <div className="font-mono text-lg font-bold">{intent.expectedAmount} USDT</div>
+                        </div>
+                        <Button size="sm" variant="outline" onClick={() => copy(String(intent.expectedAmount), "Amount")}>
+                          <Copy className="mr-1 h-3 w-3" /> Copy
+                        </Button>
+                      </div>
+                      <div className="mt-3">
+                        <div className="text-muted-foreground text-xs">To address (TRC20)</div>
+                        <div className="mt-1 flex items-center gap-2">
+                          <code className="flex-1 truncate rounded bg-background px-2 py-1 text-xs">{intent.address}</code>
+                          <Button size="sm" variant="outline" onClick={() => copy(intent.address, "Address")}>
+                            <Copy className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </div>
+                      <div className="mt-3 text-xs text-muted-foreground">Network: Tron (TRC20) · Token: USDT</div>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="flex items-center gap-1 text-muted-foreground"><Clock className="h-4 w-4" /> Expires in {mm}:{ss}</span>
+                      <span className="flex items-center gap-1 text-muted-foreground"><Loader2 className="h-3 w-3 animate-spin" /> Watching chain…</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">Send the <b>exact</b> amount from Binance, Bybit or your wallet. Any other amount won't auto-detect.</p>
                   </div>
-                  <Button size="sm" variant="outline" onClick={() => copy(String(intent.expectedAmount), "Amount")}>
-                    <Copy className="mr-1 h-3 w-3" /> Copy
-                  </Button>
-                </div>
-                <div className="mt-3">
-                  <div className="text-muted-foreground text-xs">To address (TRC20)</div>
-                  <div className="mt-1 flex items-center gap-2">
-                    <code className="flex-1 truncate rounded bg-background px-2 py-1 text-xs">{intent.address}</code>
-                    <Button size="sm" variant="outline" onClick={() => copy(intent.address, "Address")}>
-                      <Copy className="h-3 w-3" />
-                    </Button>
-                  </div>
-                </div>
-                <div className="mt-3 text-xs text-muted-foreground">Network: Tron (TRC20) · Token: USDT</div>
-              </div>
+                )}
+              </TabsContent>
 
-              <div className="flex items-center justify-between text-sm">
-                <span className="flex items-center gap-1 text-muted-foreground">
-                  <Clock className="h-4 w-4" /> Expires in {mm}:{ss}
-                </span>
-                <span className="flex items-center gap-1 text-muted-foreground">
-                  <Loader2 className="h-3 w-3 animate-spin" /> Watching chain…
-                </span>
-              </div>
-
-              <p className="text-xs text-muted-foreground">
-                Send the <b>exact</b> amount from Binance, Bybit or your wallet. Any other amount won't auto-detect.
-              </p>
-            </div>
+              <TabsContent value="metamask" className="mt-4">
+                <MetaMaskPay tier={openTier} />
+              </TabsContent>
+            </Tabs>
           )}
 
           {status === "paid" && (
@@ -214,3 +231,4 @@ function Packages() {
     </div>
   );
 }
+
