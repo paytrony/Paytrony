@@ -32,7 +32,7 @@ function WalletPage() {
   const [flash, setFlash] = useState(false);
 
   async function reload(flashOnDone = false) {
-    const [{ data: t }, { data: w }, { count }] = await Promise.all([
+    const [{ data: t }, { data: w }, { data: refs }] = await Promise.all([
       supabase
         .from("wallet_transactions")
         .select("id, amount, type, note, created_at, related_purchase_id, related_withdrawal_id")
@@ -40,11 +40,11 @@ function WalletPage() {
         .order("created_at", { ascending: false })
         .limit(100),
       supabase.from("withdrawals").select("amount").eq("user_id", user.id).eq("status", "pending"),
-      supabase.from("profiles").select("id", { count: "exact", head: true }).eq("referred_by", user.id),
+      supabase.rpc("get_referred_users"),
     ]);
     setTxns((t ?? []) as Txn[]);
     setPending((w ?? []).reduce((s, r: any) => s + Number(r.amount), 0));
-    setRefCount(count ?? 0);
+    setRefCount((refs ?? []).length);
     setLoading(false);
     if (flashOnDone) {
       setFlash(true);
