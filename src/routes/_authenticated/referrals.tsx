@@ -9,7 +9,7 @@ export const Route = createFileRoute("/_authenticated/referrals")({
 
 type Referred = {
   id: string;
-  email: string;
+  referral_code: string;
   nft_tier: number | null;
   created_at: string;
 };
@@ -26,11 +26,11 @@ function ReferralsPage() {
     (async () => {
       const [{ data: p }, { data: r }, { data: t }] = await Promise.all([
         supabase.from("profiles").select("referral_code").eq("id", user.id).maybeSingle(),
-        supabase.from("profiles").select("id,email,nft_tier,created_at").eq("referred_by", user.id).order("created_at", { ascending: false }),
+        supabase.rpc("get_referred_users"),
         supabase.from("wallet_transactions").select("amount,type").eq("user_id", user.id).eq("type", "referral_credit"),
       ]);
       setProfile(p as any);
-      setRefs((r ?? []) as Referred[]);
+      setRefs(((r ?? []) as Referred[]).sort((a, b) => (a.created_at < b.created_at ? 1 : -1)));
       const total = (t ?? []).reduce((s, x: any) => s + Number(x.amount), 0);
       setEarnings(total);
       setCreditCount((t ?? []).length);
@@ -121,7 +121,7 @@ function ReferralsPage() {
                 <div className="flex items-center gap-3">
                   <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted font-mono text-xs">#{i + 1}</div>
                   <div>
-                    <div className="text-sm">{r.email}</div>
+                    <div className="text-sm font-mono">{r.referral_code}</div>
                     <div className="text-xs text-muted-foreground">
                       Joined {new Date(r.created_at).toLocaleDateString()} · Tier {r.nft_tier ?? "—"}
                     </div>
@@ -145,12 +145,12 @@ function ReferralsPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="text-left text-xs uppercase text-muted-foreground">
-                <tr><th className="pb-2">Email</th><th className="pb-2">Tier</th><th className="pb-2">Joined</th><th className="pb-2 text-right">Earnings from them</th></tr>
+                <tr><th className="pb-2">Referral code</th><th className="pb-2">Tier</th><th className="pb-2">Joined</th><th className="pb-2 text-right">Earnings from them</th></tr>
               </thead>
               <tbody className="divide-y divide-border">
                 {refs.map((r) => (
                   <tr key={r.id}>
-                    <td className="py-2">{r.email}</td>
+                    <td className="py-2 font-mono">{r.referral_code}</td>
                     <td className="py-2">{r.nft_tier ? `$${r.nft_tier}` : "—"}</td>
                     <td className="py-2 text-muted-foreground">{new Date(r.created_at).toLocaleDateString()}</td>
                     <td className="py-2 text-right font-mono text-primary">+${(perUserEarnings[r.id] ?? 0).toFixed(2)}</td>

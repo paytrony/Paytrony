@@ -351,6 +351,15 @@ export type Database = {
         Returns: Json
       }
       gen_referral_code: { Args: never; Returns: string }
+      get_referred_users: {
+        Args: never
+        Returns: {
+          created_at: string
+          id: string
+          nft_tier: number
+          referral_code: string
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
