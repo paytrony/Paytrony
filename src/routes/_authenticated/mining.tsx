@@ -114,11 +114,21 @@ function MiningPage() {
           <div className="flex items-center gap-2 font-mono text-xs uppercase text-muted-foreground">
             <Timer className="h-4 w-4 text-accent" /> Next claim in
           </div>
-          <div className="mt-3 text-4xl font-bold font-mono">
+          <div className="mt-3 text-4xl font-bold font-mono tabular-nums">
             {canMine ? <span className="text-emerald-400">Ready</span> : fmtCountdown(msLeft)}
           </div>
-          <div className="mt-1 text-xs text-muted-foreground">
-            {lastClaim ? `Last claim ${new Date(lastClaim).toLocaleString()}` : "No claims yet"}
+          <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-muted">
+            <div
+              className={`h-full transition-all duration-1000 ${canMine ? "bg-emerald-400" : "bg-accent"}`}
+              style={{ width: `${canMine ? 100 : Math.min(100, ((24 * 3600 * 1000 - msLeft) / (24 * 3600 * 1000)) * 100)}%` }}
+            />
+          </div>
+          <div className="mt-2 text-xs text-muted-foreground">
+            {canMine
+              ? lastClaim
+                ? `Last claim ${new Date(lastClaim).toLocaleString()}`
+                : "You can mine now"
+              : `Available at ${new Date(nextAt).toLocaleString()}`}
           </div>
         </div>
         <div className="rounded-2xl border border-border bg-card p-6">
