@@ -37,7 +37,7 @@ function Dashboard() {
       supabase.from("purchases").select("id, nft_tier, created_at").eq("user_id", user.id).order("created_at", { ascending: false }),
     ]);
     if (p) setProfile(p as Profile);
-    const bal = (t ?? []).reduce((s, r: any) => s + (r.type === "referral_credit" ? Number(r.amount) : -Number(r.amount)), 0);
+    const bal = (t ?? []).reduce((s, r: any) => s + ((r.type === "referral_credit" || r.type === "mining_reward") ? Number(r.amount) : -Number(r.amount)), 0);
     const pen = (w ?? []).reduce((s, r: any) => s + Number(r.amount), 0);
     setBalance(bal);
     setPending(pen);
