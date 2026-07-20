@@ -439,8 +439,8 @@ function MiningPage() {
         )}
       </div>
 
-      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-        <AlertDialogContent>
+      <AlertDialog open={confirmOpen} onOpenChange={(open) => { if (!mining) setConfirmOpen(open); }}>
+        <AlertDialogContent onPointerDownOutside={(e) => { if (mining) e.preventDefault(); }}>
           <AlertDialogHeader>
             <AlertDialogTitle>Confirm mining claim</AlertDialogTitle>
             <AlertDialogDescription>
@@ -460,9 +460,18 @@ function MiningPage() {
             After confirming, your wallet will be credited and the 24-hour cooldown will begin.
           </p>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setConfirmOpen(false)}>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmMine} disabled={mining || !canMine}>
-              {mining ? "Crediting…" : `Confirm and credit $${totalRate.toFixed(2)}`}
+            <AlertDialogCancel onClick={() => setConfirmOpen(false)} disabled={mining}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={confirmMine} disabled={mining || !canMine} aria-busy={mining}>
+              {mining ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Crediting…
+                </>
+              ) : (
+                `Confirm and credit $${totalRate.toFixed(2)}`
+              )}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
