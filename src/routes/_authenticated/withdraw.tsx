@@ -145,7 +145,7 @@ function Withdraw() {
       supabase.from("withdrawal_limits").select("*").eq("id", true).maybeSingle(),
       supabase.auth.getUser(),
     ]);
-    const bal = (t ?? []).reduce((s, r: any) => s + (r.type === "referral_credit" ? Number(r.amount) : -Number(r.amount)), 0);
+    const bal = (t ?? []).reduce((s, r: any) => s + ((r.type === "referral_credit" || r.type === "mining_reward") ? Number(r.amount) : -Number(r.amount)), 0);
     const pen = (w ?? []).filter((r: any) => r.status === "pending").reduce((s, r: any) => s + Number(r.amount), 0);
     setAvailable(bal - pen);
     setHistory((w ?? []) as W[]);
