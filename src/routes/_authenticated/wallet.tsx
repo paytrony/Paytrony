@@ -187,12 +187,24 @@ function WalletPage() {
                       </div>
                     </div>
                   </div>
-                  <div
-                    className={`font-mono text-sm font-semibold ${
-                      isCredit ? "text-emerald-400" : "text-foreground"
-                    }`}
-                  >
-                    {isCredit ? "+" : "−"}${Number(t.amount).toFixed(2)}
+                  <div className="flex items-center gap-3">
+                    <div
+                      className={`font-mono text-sm font-semibold ${
+                        isCredit ? "text-emerald-400" : "text-foreground"
+                      }`}
+                    >
+                      {isCredit ? "+" : "−"}${Number(t.amount).toFixed(2)}
+                    </div>
+                    {t.related_purchase_id && (
+                      <Link to="/ledger" search={{ purchase: t.related_purchase_id } as never} className="text-[10px] font-mono uppercase text-primary hover:underline">
+                        View purchase →
+                      </Link>
+                    )}
+                    {t.related_withdrawal_id && (
+                      <Link to="/withdrawals" className="text-[10px] font-mono uppercase text-primary hover:underline">
+                        View payout →
+                      </Link>
+                    )}
                   </div>
                 </li>
               );
