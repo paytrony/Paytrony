@@ -163,56 +163,36 @@ function MiningPage() {
     const key = idemKeyFor(user.id, windowStart);
     const { data, error } = await supabase.rpc("mine_now", { _user_id: user.id, _idempotency_key: key });
     setMining(false);
+    const fallbackNextStr = nextAt ? new Date(nextAt).toLocaleString() : "now";
+
     if (error) {
       const raw = String(error.message || "");
+      let info = { code: "unknown", title: "Mining failed", detail: raw || "Something went wrong.", fix: "Please try again. If it persists, refresh the page." };
       if (raw.includes("cooldown_active")) {
-        setErrorInfo({
-          code: "cooldown_active",
-          title: "Cooldown still active",
-          detail: raw.replace(/^.*cooldown_active:\s*/, ""),
-          fix: "Wait until the countdown reaches zero, then click Mine again.",
-        });
+        info = { code: "cooldown_active", title: "Cooldown still active", detail: raw.replace(/^.*cooldown_active:\s*/, ""), fix: "Wait until the countdown reaches zero, then click Mine again." };
       } else if (raw.includes("no_nfts")) {
-        setErrorInfo({
-          code: "no_nfts",
-          title: "No mineable NFTs",
-          detail: "Your account has no Starter, Pro, or Elite package.",
-          fix: "Buy a package to unlock daily mining.",
-        });
+        info = { code: "no_nfts", title: "No mineable NFTs", detail: "Your account has no Starter, Pro, or Elite package.", fix: "Buy a package to unlock daily mining." };
       } else if (raw.includes("wallet_error")) {
-        setErrorInfo({
-          code: "wallet_error",
-          title: "Wallet credit failed",
-          detail: raw.replace(/^.*wallet_error:\s*/, ""),
-          fix: "Your claim was not recorded. Click Mine again to retry — you will not be double-charged.",
-        });
+        info = { code: "wallet_error", title: "Wallet credit failed", detail: raw.replace(/^.*wallet_error:\s*/, ""), fix: "Your claim was not recorded. Click Mine again to retry — you will not be double-charged." };
       } else if (raw.includes("not_authorized")) {
-        setErrorInfo({
-          code: "not_authorized",
-          title: "Session expired",
-          detail: "You are not signed in.",
-          fix: "Sign in again to continue mining.",
-        });
-      } else {
-        setErrorInfo({
-          code: "unknown",
-          title: "Mining failed",
-          detail: raw || "Something went wrong.",
-          fix: "Please try again. If it persists, refresh the page.",
-        });
+        info = { code: "not_authorized", title: "Session expired", detail: "You are not signed in.", fix: "Sign in again to continue mining." };
       }
-      toast.error("Mining could not complete — see details on the page.");
-      reload();
+      setErrorInfo(info);
+      const { balance: freshBalance, nextAtMs } = await refreshPostMine();
+      const nextStr = nextAtMs ? new Date(nextAtMs).toLocaleString() : fallbackNextStr;
+      toast.error(`Mining failed: ${info.title}. Wallet balance $${freshBalance.toFixed(2)}. Next claim at ${nextStr}.`);
       return;
     }
+
     const payload = data as any;
     const amt = Number(payload?.amount ?? 0).toFixed(2);
+    const { balance: freshBalance, nextAtMs } = await refreshPostMine();
+    const nextStr = nextAtMs ? new Date(nextAtMs).toLocaleString() : fallbackNextStr;
     if (payload?.idempotent) {
-      toast.info(`Already credited $${amt} for this cooldown window.`);
+      toast.info(`Already credited $${amt} for this cooldown window. Wallet balance $${freshBalance.toFixed(2)}. Next claim at ${nextStr}.`);
     } else {
-      toast.success(`+$${amt} mined and credited to your wallet`);
+      toast.success(`+$${amt} mined. Wallet balance $${freshBalance.toFixed(2)}. Next claim at ${nextStr}.`);
     }
-    reload();
   }
 
   function toggle(t: number) {
