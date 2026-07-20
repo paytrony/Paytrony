@@ -192,13 +192,6 @@ export type Database = {
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "profiles_referred_by_fkey"
-            columns: ["referred_by"]
-            isOneToOne: false
-            referencedRelation: "referred_users_safe"
-            referencedColumns: ["id"]
-          },
         ]
       }
       purchases: {
@@ -349,27 +342,7 @@ export type Database = {
       }
     }
     Views: {
-      referred_users_safe: {
-        Row: {
-          created_at: string | null
-          id: string | null
-          nft_tier: number | null
-          referral_code: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          id?: string | null
-          nft_tier?: number | null
-          referral_code?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          id?: string | null
-          nft_tier?: number | null
-          referral_code?: string | null
-        }
-        Relationships: []
-      }
+      [_ in never]: never
     }
     Functions: {
       admin_expire_intent: { Args: { _intent_id: string }; Returns: undefined }
@@ -378,6 +351,15 @@ export type Database = {
         Returns: Json
       }
       gen_referral_code: { Args: never; Returns: string }
+      get_referred_users: {
+        Args: never
+        Returns: {
+          created_at: string
+          id: string
+          nft_tier: number
+          referral_code: string
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
