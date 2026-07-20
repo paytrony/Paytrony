@@ -63,9 +63,12 @@ export type Database = {
           address: string
           chain: string
           created_at: string
+          evm_chain: string | null
           expected_amount: number
           expires_at: string
+          from_address: string | null
           id: string
+          method: string
           paid_at: string | null
           purchase_id: string | null
           status: Database["public"]["Enums"]["payment_intent_status"]
@@ -77,9 +80,12 @@ export type Database = {
           address: string
           chain?: string
           created_at?: string
+          evm_chain?: string | null
           expected_amount: number
           expires_at: string
+          from_address?: string | null
           id?: string
+          method?: string
           paid_at?: string | null
           purchase_id?: string | null
           status?: Database["public"]["Enums"]["payment_intent_status"]
@@ -91,9 +97,12 @@ export type Database = {
           address?: string
           chain?: string
           created_at?: string
+          evm_chain?: string | null
           expected_amount?: number
           expires_at?: string
+          from_address?: string | null
           id?: string
+          method?: string
           paid_at?: string | null
           purchase_id?: string | null
           status?: Database["public"]["Enums"]["payment_intent_status"]
