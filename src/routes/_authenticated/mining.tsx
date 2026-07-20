@@ -279,6 +279,10 @@ function MiningPage() {
         </div>
       </div>
 
+      <MonthlyPayoutCalculator ownedTiers={ownedTiers} refCount={refCount} />
+
+
+
 
       <div className="grid gap-4 md:grid-cols-3">
         <div className="rounded-2xl border border-primary/40 bg-card p-6 glow">
