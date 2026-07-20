@@ -76,6 +76,10 @@ function Withdraw() {
   const [signError, setSignError] = useState<string | null>(null);
   const [receipt, setReceipt] = useState<{ id: string; amount: number; fee: number; net: number; method: string; createdAt: string; existed: boolean; status: string } | null>(null);
   const [trackId, setTrackId] = useState<string | null>(null);
+  // A single nonce per submission attempt. Refreshes / Retry reuse it so the
+  // server replays the same withdrawal row; two genuinely NEW submissions get
+  // fresh nonces, so identical amounts to the same address never collapse.
+  const submitNonceRef = useRef<string | null>(null);
   const confirmBtnRef = useRef<HTMLButtonElement>(null);
 
   const [kind, setKind] = useState<KindKey>("binance");
@@ -269,6 +273,9 @@ function Withdraw() {
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!validateForm()) return;
+    // Fresh nonce per submission attempt; retained across Retry so replays hit
+    // the same server row. Cleared on success or when the user dismisses errors.
+    if (!submitNonceRef.current) submitNonceRef.current = createWithdrawNonce(user.id);
     setLocked(true);
     setConfirmOpen(true);
   }
@@ -287,16 +294,12 @@ function Withdraw() {
       }).select("id").single();
       if (pmErr || !pm) throw pmErr ?? new Error("Failed to save method");
 
-      // Deterministic idempotency key: same (user, amount, method, note) can never
-      // create two withdrawal rows even on refresh/double-click. Server returns the existing row.
-      const idempotencyKey = buildWithdrawIdempotencyKey({
-        userId: user.id, amount: amt, kind, details: built.details, note,
-      });
+      // Per-submission nonce. The server RPC returns { id, idempotent } so we
+      // don't need to guess from timestamps whether this was a fresh request.
+      const idempotencyKey = submitNonceRef.current ?? createWithdrawNonce(user.id);
+      submitNonceRef.current = idempotencyKey;
       const res = await req({ data: { amount: amt, note, idempotencyKey, payoutMethodId: pm.id } });
 
-      // Fetch the actual row: server returns the pre-existing withdrawal when the
-      // idempotency key already matched, so we surface those real details instead of
-      // creating a duplicate or leaving the user staring at a stale success screen.
       const { data: row } = await supabase
         .from("withdrawals")
         .select("id,amount,status,created_at")
@@ -304,10 +307,10 @@ function Withdraw() {
         .maybeSingle();
       const createdAt = row?.created_at ?? new Date().toISOString();
       const status = row?.status ?? "pending";
-      const existed = row ? (Date.now() - new Date(row.created_at).getTime() > 5000) : false;
+      const existed = res.idempotent === true;
 
       if (existed) {
-        toast.info(`We already have this exact withdrawal on file (status: ${status}). Showing the existing request.`);
+        toast.info(`This withdrawal was already submitted (status: ${status}). Showing the existing request.`);
       } else {
         toast.success(`Withdrawal request submitted — pending admin approval (up to 24 hours). You'll receive $${net.toFixed(2)} once approved.`);
       }
@@ -317,6 +320,8 @@ function Withdraw() {
       setErrors({});
       setConfirmOpen(false);
       setLocked(false);
+      // Clear the nonce so the next submission starts fresh.
+      submitNonceRef.current = null;
       if (typeof window !== "undefined") {
         try {
           window.localStorage.removeItem(amountKey);
@@ -335,6 +340,9 @@ function Withdraw() {
 
   function dismissSignError() {
     setSignError(null);
+    // If the user is dismissing the error rather than retrying, drop the
+    // stashed nonce so a subsequent submit is treated as a fresh attempt.
+    submitNonceRef.current = null;
   }
 
   // Poll the submitted withdrawal every 4s (in addition to the realtime channel)
