@@ -14,7 +14,18 @@ const CHAIN_META: Record<Chain, { label: string; native: string; explorer: (h: s
   eth: { label: "Ethereum (highest fees)", native: "ETH", explorer: (h) => `https://etherscan.io/tx/${h}` },
 };
 
-type Intent = Awaited<ReturnType<ReturnType<typeof useServerFn<typeof createEvmPaymentIntent>>>>;
+type Intent = {
+  id: string;
+  to: string;
+  chain: Chain;
+  chainIdHex: string;
+  chainName: string;
+  usdt: string;
+  usdtDecimals: number;
+  tier: number;
+  expectedAmount: number;
+  expiresAt: string;
+};
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 declare global { interface Window { ethereum?: any } }
