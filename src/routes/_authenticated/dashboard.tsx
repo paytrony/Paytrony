@@ -231,7 +231,7 @@ function Dashboard() {
             ${dailyRate.toFixed(2)}<span className="text-sm text-muted-foreground font-normal">/day</span>
           </div>
           <div className="mt-1 text-xs text-muted-foreground">
-            ${totalMined.toFixed(2)} mined all-time
+            <span className="text-primary font-semibold">${miningAvailable.toFixed(2)}</span> mined balance · ${totalMined.toFixed(2)} all-time
             {cooldownMs > 0 && ` · next in ${formatCountdown(cooldownMs)}`}
           </div>
           <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-muted">
