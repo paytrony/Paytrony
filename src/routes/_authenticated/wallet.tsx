@@ -73,11 +73,12 @@ function WalletPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user.id]);
 
+  const CREDIT_TYPES = new Set(["referral_credit", "mining_reward"]);
   const totalEarned = txns
-    .filter((t) => t.type === "referral_credit")
+    .filter((t) => CREDIT_TYPES.has(t.type))
     .reduce((s, t) => s + Number(t.amount), 0);
   const totalSpent = txns
-    .filter((t) => t.type !== "referral_credit")
+    .filter((t) => !CREDIT_TYPES.has(t.type))
     .reduce((s, t) => s + Number(t.amount), 0);
   const balance = totalEarned - totalSpent;
   const available = balance - pending;
