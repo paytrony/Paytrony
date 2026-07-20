@@ -1,0 +1,1 @@
+GRANT EXECUTE ON FUNCTION public.test_mining_transfer_idempotency() TO postgres, service_role;
