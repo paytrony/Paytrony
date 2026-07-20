@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState, useRef } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { requestWithdrawal } from "@/lib/wallet.functions";
+import { buildWithdrawIdempotencyKey } from "@/lib/withdraw-idempotency";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
