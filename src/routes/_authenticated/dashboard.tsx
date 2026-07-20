@@ -42,7 +42,13 @@ function Dashboard() {
       supabase.from("mining_claims").select("created_at").eq("user_id", user.id).order("created_at", { ascending: false }).limit(1).maybeSingle(),
     ]);
     if (p) setProfile(p as Profile);
-    const bal = (t ?? []).reduce((s, r: any) => s + ((r.type === "referral_credit" || r.type === "mining_reward") ? Number(r.amount) : -Number(r.amount)), 0);
+    // Wallet balance excludes raw mining_reward — those live in the mining bucket
+    // until explicitly transferred (mining_transfer) into the withdrawable wallet.
+    const bal = (t ?? []).reduce((s, r: any) => {
+      if (r.type === "referral_credit" || r.type === "mining_transfer") return s + Number(r.amount);
+      if (r.type === "withdrawal") return s - Number(r.amount);
+      return s;
+    }, 0);
     const pen = (w ?? []).reduce((s, r: any) => s + Number(r.amount), 0);
     setBalance(bal);
     setPending(pen);
