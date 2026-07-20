@@ -263,7 +263,21 @@ function MiningPage() {
         </div>
       )}
 
-
+      <div className="rounded-2xl border border-primary/30 bg-primary/5 p-4 sm:p-5">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <div className="text-sm font-semibold">Referral boost {refCount >= 10 ? "— max unlocked" : `— ${refCount}/10 referrals`}</div>
+            <div className="text-xs text-muted-foreground">
+              Mining pays 10% of the max at 0 referrals and scales linearly to the full rate at 10 referrals.
+              {refCount < 10 && ` Invite ${10 - refCount} more to hit max ($${MAX_RATES[10].toFixed(2)} / $${MAX_RATES[50].toFixed(2)} / $${MAX_RATES[100].toFixed(2)} per day).`}
+            </div>
+          </div>
+          <div className="font-mono text-sm text-primary">×{(Math.min(refCount, 10) / 10 * 0.9 + 0.1).toFixed(2)}</div>
+        </div>
+        <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-muted">
+          <div className="h-full bg-primary transition-all" style={{ width: `${Math.min(refCount, 10) * 10}%` }} />
+        </div>
+      </div>
 
 
       <div className="grid gap-4 md:grid-cols-3">
