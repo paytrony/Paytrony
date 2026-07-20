@@ -1,7 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { DollarSign, WalletCards, Triangle, Users, Zap, Crown } from "lucide-react";
+import { DollarSign, WalletCards, Triangle, Users, Zap, Crown, Check } from "lucide-react";
+import { TIER_BENEFITS } from "@/lib/tier-benefits";
 
 export const Route = createFileRoute("/")({
   component: Landing,
