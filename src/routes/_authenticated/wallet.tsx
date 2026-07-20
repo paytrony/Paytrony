@@ -1,7 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Wallet as WalletIcon, ArrowDownToLine, TrendingUp, Users, Receipt } from "lucide-react";
+import { toast } from "sonner";
+import { Wallet as WalletIcon, ArrowDownToLine, TrendingUp, Users, Receipt, Pickaxe } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/wallet")({
   head: () => ({
@@ -30,6 +31,7 @@ function WalletPage() {
   const [refCount, setRefCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [flash, setFlash] = useState(false);
+  const [transferring, setTransferring] = useState(false);
 
   async function reload(flashOnDone = false) {
     const [{ data: t }, { data: w }, { data: refs }] = await Promise.all([
@@ -73,14 +75,22 @@ function WalletPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user.id]);
 
-  const CREDIT_TYPES = new Set(["referral_credit", "mining_reward"]);
+  // Wallet balance = referral_credit + mining_transfer − withdrawal.
+  // Raw mining_reward stays in the mining bucket until the user transfers it.
+  const WALLET_CREDIT_TYPES = new Set(["referral_credit", "mining_transfer"]);
   const totalEarned = txns
-    .filter((t) => CREDIT_TYPES.has(t.type))
+    .filter((t) => t.type === "referral_credit")
     .reduce((s, t) => s + Number(t.amount), 0);
-  const totalSpent = txns
-    .filter((t) => !CREDIT_TYPES.has(t.type))
+  const walletCredits = txns
+    .filter((t) => WALLET_CREDIT_TYPES.has(t.type))
     .reduce((s, t) => s + Number(t.amount), 0);
-  const balance = totalEarned - totalSpent;
+  const withdrawn = txns
+    .filter((t) => t.type === "withdrawal")
+    .reduce((s, t) => s + Number(t.amount), 0);
+  const miningEarned = txns.filter((t) => t.type === "mining_reward").reduce((s, t) => s + Number(t.amount), 0);
+  const miningTransferred = txns.filter((t) => t.type === "mining_transfer").reduce((s, t) => s + Number(t.amount), 0);
+  const miningAvailable = Math.max(0, miningEarned - miningTransferred);
+  const balance = walletCredits - withdrawn;
   const available = balance - pending;
 
   return (
@@ -147,6 +157,47 @@ function WalletPage() {
         </div>
       </div>
 
+      <div className="rounded-2xl border border-accent/40 bg-card p-6">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-accent/15 text-accent">
+              <Pickaxe className="h-5 w-5" />
+            </span>
+            <div>
+              <div className="font-mono text-xs uppercase tracking-wider text-muted-foreground">Mining balance</div>
+              <div className="mt-0.5 text-2xl font-bold text-accent">${miningAvailable.toFixed(2)}</div>
+              <div className="text-xs text-muted-foreground">
+                ${miningEarned.toFixed(2)} earned · ${miningTransferred.toFixed(2)} transferred
+              </div>
+            </div>
+          </div>
+          <button
+            onClick={async () => {
+              if (transferring || miningAvailable <= 0) return;
+              setTransferring(true);
+              try {
+                const { error } = await supabase.rpc("transfer_mining_to_wallet", { _amount: miningAvailable });
+                if (error) throw error;
+                toast.success(`Transferred $${miningAvailable.toFixed(2)} to your wallet`);
+                await reload(true);
+              } catch (e: any) {
+                const m = String(e?.message ?? "Transfer failed");
+                if (m.includes("insufficient_mining_balance")) toast.error("No mining balance to transfer");
+                else toast.error(m);
+              } finally { setTransferring(false); }
+            }}
+            disabled={transferring || miningAvailable <= 0}
+            className="inline-flex items-center gap-2 rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-foreground hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <ArrowDownToLine className="h-4 w-4 rotate-180" />
+            {transferring ? "Transferring…" : "Transfer to wallet"}
+          </button>
+        </div>
+        <p className="mt-3 text-[11px] text-muted-foreground">
+          Mining rewards live in a separate bucket. Transfer them to your wallet balance to make them instantly withdrawable.
+        </p>
+      </div>
+
       <div className="rounded-2xl border border-border bg-card">
         <div className="flex items-center justify-between border-b border-border px-6 py-4">
           <div className="flex items-center gap-2">
@@ -168,7 +219,7 @@ function WalletPage() {
         ) : (
           <ul className="divide-y divide-border">
             {txns.slice(0, 25).map((t) => {
-              const isCredit = CREDIT_TYPES.has(t.type);
+              const isCredit = WALLET_CREDIT_TYPES.has(t.type) || t.type === "mining_reward";
               return (
                 <li key={t.id} className="flex items-center justify-between px-6 py-3 text-sm">
                   <div className="flex items-center gap-3">

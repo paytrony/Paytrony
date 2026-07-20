@@ -60,7 +60,7 @@ function Ledger() {
 
       const merged: LedgerItem[] = [
         ...(txns ?? []).map((t: any) => ({
-          kind: (t.type === "referral_credit" || t.type === "mining_reward") ? ("credit" as const) : ("debit" as const),
+          kind: (t.type === "referral_credit" || t.type === "mining_reward" || t.type === "mining_transfer") ? ("credit" as const) : ("debit" as const),
           id: t.id,
           amount: Number(t.amount),
           note: t.note,

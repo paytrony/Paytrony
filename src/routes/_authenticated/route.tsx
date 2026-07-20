@@ -68,6 +68,10 @@ function AuthedLayout() {
         const amt = Number(row.amount).toFixed(2);
         if (row.type === "referral_credit") {
           toast.success(`+$${amt} referral credit added to your wallet`);
+        } else if (row.type === "mining_transfer") {
+          toast.success(`+$${amt} mining balance moved to your wallet`);
+        } else if (row.type === "mining_reward") {
+          toast.success(`+$${amt} mined — transfer to wallet to withdraw`);
         } else if (row.type === "withdrawal") {
           const isFee = String(row.note ?? "").toLowerCase().includes("fee");
           toast(isFee ? `Withdrawal fee $${amt} debited` : `Withdrawal $${amt} sent to your payout method`);

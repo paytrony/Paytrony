@@ -42,7 +42,13 @@ function Dashboard() {
       supabase.from("mining_claims").select("created_at").eq("user_id", user.id).order("created_at", { ascending: false }).limit(1).maybeSingle(),
     ]);
     if (p) setProfile(p as Profile);
-    const bal = (t ?? []).reduce((s, r: any) => s + ((r.type === "referral_credit" || r.type === "mining_reward") ? Number(r.amount) : -Number(r.amount)), 0);
+    // Wallet balance excludes raw mining_reward — those live in the mining bucket
+    // until explicitly transferred (mining_transfer) into the withdrawable wallet.
+    const bal = (t ?? []).reduce((s, r: any) => {
+      if (r.type === "referral_credit" || r.type === "mining_transfer") return s + Number(r.amount);
+      if (r.type === "withdrawal") return s - Number(r.amount);
+      return s;
+    }, 0);
     const pen = (w ?? []).reduce((s, r: any) => s + Number(r.amount), 0);
     setBalance(bal);
     setPending(pen);
@@ -76,6 +82,25 @@ function Dashboard() {
   const ownedTiers = useMemo(() => Array.from(new Set(nfts.map((n) => n.nft_tier))), [nfts]);
   const dailyRate = ownedTiers.reduce((s, tier) => s + (tierRates[tier] ?? 0), 0);
   const totalMined = txns.filter((t) => t.type === "mining_reward").reduce((s, t) => s + Number(t.amount), 0);
+  const totalTransferred = txns.filter((t) => t.type === "mining_transfer").reduce((s, t) => s + Number(t.amount), 0);
+  const miningAvailable = Math.max(0, totalMined - totalTransferred);
+  const [transferring, setTransferring] = useState(false);
+  async function handleTransfer() {
+    if (transferring || miningAvailable <= 0) return;
+    setTransferring(true);
+    try {
+      const { error } = await supabase.rpc("transfer_mining_to_wallet", { _amount: miningAvailable });
+      if (error) throw error;
+      toast.success(`Transferred $${miningAvailable.toFixed(2)} to your wallet`);
+      await reload();
+    } catch (e: any) {
+      const msg = String(e?.message ?? "Transfer failed");
+      if (msg.includes("insufficient_mining_balance")) toast.error("No mining balance available to transfer");
+      else toast.error(msg);
+    } finally {
+      setTransferring(false);
+    }
+  }
   const nextClaimAt = lastClaimAt ? new Date(lastClaimAt).getTime() + 24 * 3600 * 1000 : 0;
   const cooldownMs = Math.max(0, nextClaimAt - nowTs);
   const canMine = ownedTiers.length > 0 && cooldownMs === 0;
@@ -206,7 +231,7 @@ function Dashboard() {
             ${dailyRate.toFixed(2)}<span className="text-sm text-muted-foreground font-normal">/day</span>
           </div>
           <div className="mt-1 text-xs text-muted-foreground">
-            ${totalMined.toFixed(2)} mined all-time
+            <span className="text-primary font-semibold">${miningAvailable.toFixed(2)}</span> mined balance · ${totalMined.toFixed(2)} all-time
             {cooldownMs > 0 && ` · next in ${formatCountdown(cooldownMs)}`}
           </div>
           <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-muted">
@@ -228,13 +253,23 @@ function Dashboard() {
               Buy NFT to mine
             </Link>
           ) : (
-            <button
-              onClick={handleMine}
-              disabled={!canMine || mining}
-              className="mt-4 inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {mining ? "Mining…" : cooldownMs > 0 ? `Wait ${formatCountdown(cooldownMs)}` : "Mine now"}
-            </button>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <button
+                onClick={handleMine}
+                disabled={!canMine || mining}
+                className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {mining ? "Mining…" : cooldownMs > 0 ? `Wait ${formatCountdown(cooldownMs)}` : "Mine now"}
+              </button>
+              <button
+                onClick={handleTransfer}
+                disabled={miningAvailable <= 0 || transferring}
+                title={miningAvailable <= 0 ? "Nothing to transfer yet" : `Move $${miningAvailable.toFixed(2)} to your wallet`}
+                className="inline-flex items-center gap-2 rounded-md border border-primary/40 bg-primary/10 px-4 py-2 text-sm font-medium text-primary hover:bg-primary/20 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {transferring ? "Transferring…" : `Transfer to wallet${miningAvailable > 0 ? ` ($${miningAvailable.toFixed(2)})` : ""}`}
+              </button>
+            </div>
           )}
         </div>
 
@@ -256,8 +291,8 @@ function Dashboard() {
                   <div className="text-sm">{t.note ?? t.type}</div>
                   <div className="text-xs text-muted-foreground">{new Date(t.created_at).toLocaleString()}</div>
                 </div>
-                <div className={`font-mono font-semibold ${(t.type === "referral_credit" || t.type === "mining_reward") ? "text-primary" : "text-muted-foreground"}`}>
-                  {(t.type === "referral_credit" || t.type === "mining_reward") ? "+" : "−"}${Number(t.amount).toFixed(2)}
+                <div className={`font-mono font-semibold ${(t.type === "referral_credit" || t.type === "mining_reward" || t.type === "mining_transfer") ? "text-primary" : "text-muted-foreground"}`}>
+                  {(t.type === "referral_credit" || t.type === "mining_reward" || t.type === "mining_transfer") ? "+" : "−"}${Number(t.amount).toFixed(2)}
                 </div>
               </div>
             ))}
