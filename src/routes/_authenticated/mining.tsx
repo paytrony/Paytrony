@@ -605,6 +605,49 @@ function MonthlyPayoutCalculator({ ownedTiers, refCount }: { ownedTiers: number[
           </tbody>
         </table>
       </div>
+
+      <PayoutChart tiers={tiersToShow} rates={rates} refs={refs} />
+    </div>
+  );
+}
+
+function PayoutChart({ tiers, rates, refs }: { tiers: number[]; rates: Record<number, number>; refs: number }) {
+  const rows = tiers.map((t) => {
+    const daily = rates[t] ?? 0;
+    const monthly = daily * 30;
+    const maxMonthly = (MAX_RATES[t] ?? 0) * 30;
+    return { t, daily, monthly, maxMonthly };
+  });
+  const maxDaily = Math.max(0.01, ...rows.map((r) => r.daily));
+  const maxMonth = Math.max(0.01, ...rows.map((r) => r.maxMonthly));
+
+  return (
+    <div className="mt-6">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 className="text-xs font-mono uppercase text-muted-foreground">Daily vs monthly at {refs} referral{refs === 1 ? "" : "s"}</h3>
+        <div className="flex items-center gap-3 text-[10px] font-mono uppercase text-muted-foreground">
+          <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-sm bg-accent" />Daily</span>
+          <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-sm bg-primary" />Monthly</span>
+          <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-sm bg-muted-foreground/40" />Max /mo</span>
+        </div>
+      </div>
+      <div className="mt-3 space-y-4">
+        {rows.map((r) => (
+          <div key={r.t} className="space-y-1.5">
+            <div className="flex items-center justify-between text-xs">
+              <span className="font-semibold">${r.t} {r.t === 10 ? "Starter" : r.t === 50 ? "Pro" : "Elite"}</span>
+              <span className="font-mono text-muted-foreground">${r.daily.toFixed(2)}/day · <span className="text-primary">${r.monthly.toFixed(2)}/mo</span></span>
+            </div>
+            <div className="h-3 w-full overflow-hidden rounded-full bg-muted/40" title={`Daily $${r.daily.toFixed(2)}`}>
+              <div className="h-full rounded-full bg-accent transition-all" style={{ width: `${(r.daily / maxDaily) * 100}%` }} />
+            </div>
+            <div className="relative h-3 w-full overflow-hidden rounded-full bg-muted/40" title={`Monthly $${r.monthly.toFixed(2)} of $${r.maxMonthly.toFixed(2)} max`}>
+              <div className="absolute inset-y-0 left-0 rounded-full bg-muted-foreground/30" style={{ width: `${(r.maxMonthly / maxMonth) * 100}%` }} />
+              <div className="absolute inset-y-0 left-0 rounded-full bg-primary transition-all" style={{ width: `${(r.monthly / maxMonth) * 100}%` }} />
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
