@@ -692,7 +692,7 @@ function Withdraw() {
         </div>
       </div>
 
-      <Dialog open={confirmOpen} onOpenChange={(open) => { if (!signing) setConfirmOpen(open); }}>
+      <Dialog open={confirmOpen} onOpenChange={(open) => { if (signing) return; setConfirmOpen(open); if (!open) setLocked(false); }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Review & confirm withdrawal</DialogTitle>
