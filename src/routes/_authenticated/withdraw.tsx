@@ -587,12 +587,18 @@ function Withdraw() {
                     <div className="flex items-center justify-between gap-3">
                       <div>
                         <div className="text-lg font-semibold">${Number(w.amount).toFixed(2)}</div>
-                        <div className="text-[11px] text-muted-foreground">{new Date(w.created_at).toLocaleString()}</div>
+                        <div className="text-[11px] text-muted-foreground">Requested {new Date(w.created_at).toLocaleString()}</div>
                       </div>
                       <StatusBadge s={w.status} />
                     </div>
                     <WithdrawalTimeline w={w} />
-                    {w.admin_note && <div className="mt-2 text-xs text-muted-foreground">Note: {w.admin_note}</div>}
+                    {w.admin_note && <div className="mt-2 text-xs text-muted-foreground">Admin note: {w.admin_note}</div>}
+                    {w.tx_hash && (
+                      <div className="mt-2 rounded-lg border border-primary/30 bg-primary/5 p-2 text-xs">
+                        <div className="mb-0.5 text-[10px] font-medium uppercase tracking-wider text-primary">Receipt / Tx hash</div>
+                        <div className="break-all font-mono text-foreground">{w.tx_hash}</div>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
