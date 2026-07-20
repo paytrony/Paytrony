@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Copy, Loader2, CheckCircle2, XCircle, Clock, QrCode, Wallet, Smartphone, Zap, CreditCard, ChevronLeft, Lock } from "lucide-react";
 import { MetaMaskPay } from "@/components/checkout/MetaMaskPay";
 import { SolanaPay } from "@/components/checkout/SolanaPay";
+import { WalletConnectPay } from "@/components/checkout/WalletConnectPay";
 
 export const Route = createFileRoute("/_authenticated/packages")({
   component: Packages,
