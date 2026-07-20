@@ -71,8 +71,10 @@ function Withdraw() {
   
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [signing, setSigning] = useState(false);
+  const [locked, setLocked] = useState(false);
   const [signError, setSignError] = useState<string | null>(null);
-  const [receipt, setReceipt] = useState<{ id: string; amount: number; fee: number; net: number; method: string; createdAt: string } | null>(null);
+  const [receipt, setReceipt] = useState<{ id: string; amount: number; fee: number; net: number; method: string; createdAt: string; existed: boolean; status: string } | null>(null);
+  const [trackId, setTrackId] = useState<string | null>(null);
   const confirmBtnRef = useRef<HTMLButtonElement>(null);
 
   const [kind, setKind] = useState<KindKey>("binance");
