@@ -276,6 +276,10 @@ function Packages() {
             <MetaMaskPay tier={openTier} />
           )}
 
+          {status === "pending" && method === "solana" && openTier !== null && (
+            <SolanaPay tier={openTier} />
+          )}
+
           {status === "paid" && (
             <div className="flex flex-col items-center gap-2 py-6 text-center">
               <CheckCircle2 className="h-12 w-12 text-emerald-500" />
