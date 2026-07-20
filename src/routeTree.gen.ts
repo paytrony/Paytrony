@@ -27,6 +27,7 @@ import { Route as AuthenticatedReferralsRouteImport } from './routes/_authentica
 import { Route as AuthenticatedPackagesRouteImport } from './routes/_authenticated/packages'
 import { Route as AuthenticatedNotificationsRouteImport } from './routes/_authenticated/notifications'
 import { Route as AuthenticatedNftsRouteImport } from './routes/_authenticated/nfts'
+import { Route as AuthenticatedMiningRouteImport } from './routes/_authenticated/mining'
 import { Route as AuthenticatedMarketplaceRouteImport } from './routes/_authenticated/marketplace'
 import { Route as AuthenticatedLedgerRouteImport } from './routes/_authenticated/ledger'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
@@ -126,6 +127,11 @@ const AuthenticatedNftsRoute = AuthenticatedNftsRouteImport.update({
   path: '/nfts',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedMiningRoute = AuthenticatedMiningRouteImport.update({
+  id: '/mining',
+  path: '/mining',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedMarketplaceRoute =
   AuthenticatedMarketplaceRouteImport.update({
     id: '/marketplace',
@@ -177,6 +183,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/ledger': typeof AuthenticatedLedgerRoute
   '/marketplace': typeof AuthenticatedMarketplaceRoute
+  '/mining': typeof AuthenticatedMiningRoute
   '/nfts': typeof AuthenticatedNftsRoute
   '/notifications': typeof AuthenticatedNotificationsRoute
   '/packages': typeof AuthenticatedPackagesRoute
@@ -203,6 +210,7 @@ export interface FileRoutesByTo {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/ledger': typeof AuthenticatedLedgerRoute
   '/marketplace': typeof AuthenticatedMarketplaceRoute
+  '/mining': typeof AuthenticatedMiningRoute
   '/nfts': typeof AuthenticatedNftsRoute
   '/notifications': typeof AuthenticatedNotificationsRoute
   '/packages': typeof AuthenticatedPackagesRoute
@@ -231,6 +239,7 @@ export interface FileRoutesById {
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/ledger': typeof AuthenticatedLedgerRoute
   '/_authenticated/marketplace': typeof AuthenticatedMarketplaceRoute
+  '/_authenticated/mining': typeof AuthenticatedMiningRoute
   '/_authenticated/nfts': typeof AuthenticatedNftsRoute
   '/_authenticated/notifications': typeof AuthenticatedNotificationsRoute
   '/_authenticated/packages': typeof AuthenticatedPackagesRoute
@@ -259,6 +268,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/ledger'
     | '/marketplace'
+    | '/mining'
     | '/nfts'
     | '/notifications'
     | '/packages'
@@ -285,6 +295,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/ledger'
     | '/marketplace'
+    | '/mining'
     | '/nfts'
     | '/notifications'
     | '/packages'
@@ -312,6 +323,7 @@ export interface FileRouteTypes {
     | '/_authenticated/dashboard'
     | '/_authenticated/ledger'
     | '/_authenticated/marketplace'
+    | '/_authenticated/mining'
     | '/_authenticated/nfts'
     | '/_authenticated/notifications'
     | '/_authenticated/packages'
@@ -470,6 +482,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedNftsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/mining': {
+      id: '/_authenticated/mining'
+      path: '/mining'
+      fullPath: '/mining'
+      preLoaderRoute: typeof AuthenticatedMiningRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/marketplace': {
       id: '/_authenticated/marketplace'
       path: '/marketplace'
@@ -527,6 +546,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedLedgerRoute: typeof AuthenticatedLedgerRoute
   AuthenticatedMarketplaceRoute: typeof AuthenticatedMarketplaceRoute
+  AuthenticatedMiningRoute: typeof AuthenticatedMiningRoute
   AuthenticatedNftsRoute: typeof AuthenticatedNftsRoute
   AuthenticatedNotificationsRoute: typeof AuthenticatedNotificationsRoute
   AuthenticatedPackagesRoute: typeof AuthenticatedPackagesRoute
@@ -542,6 +562,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedLedgerRoute: AuthenticatedLedgerRoute,
   AuthenticatedMarketplaceRoute: AuthenticatedMarketplaceRoute,
+  AuthenticatedMiningRoute: AuthenticatedMiningRoute,
   AuthenticatedNftsRoute: AuthenticatedNftsRoute,
   AuthenticatedNotificationsRoute: AuthenticatedNotificationsRoute,
   AuthenticatedPackagesRoute: AuthenticatedPackagesRoute,
