@@ -57,9 +57,10 @@ function MiningPage() {
 
 
   async function reload() {
-    const [{ data: purchases }, { data: c }] = await Promise.all([
+    const [{ data: purchases }, { data: c }, { data: refs }] = await Promise.all([
       supabase.from("purchases").select("nft_tier").eq("user_id", user.id),
       supabase.from("mining_claims").select("id, amount, tiers, created_at").eq("user_id", user.id).order("created_at", { ascending: false }).limit(20),
+      supabase.rpc("get_referred_users"),
     ]);
     const tiers = Array.from(new Set((purchases ?? []).map((p: any) => Number(p.nft_tier)).filter((t) => [10, 50, 100].includes(t)))).sort((a, b) => a - b);
     setOwnedTiers(tiers);
@@ -67,6 +68,7 @@ function MiningPage() {
     const list = (c ?? []) as Claim[];
     setClaims(list);
     setLastClaim(list[0]?.created_at ?? null);
+    setRefCount((refs ?? []).length);
     setLoading(false);
   }
 
