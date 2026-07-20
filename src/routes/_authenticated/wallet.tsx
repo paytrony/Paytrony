@@ -157,6 +157,46 @@ function WalletPage() {
         </div>
       </div>
 
+      <div className="rounded-2xl border border-accent/40 bg-card p-6">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-accent/15 text-accent">
+              <Pickaxe className="h-5 w-5" />
+            </span>
+            <div>
+              <div className="font-mono text-xs uppercase tracking-wider text-muted-foreground">Mining balance</div>
+              <div className="mt-0.5 text-2xl font-bold text-accent">${miningAvailable.toFixed(2)}</div>
+              <div className="text-xs text-muted-foreground">
+                ${miningEarned.toFixed(2)} earned · ${miningTransferred.toFixed(2)} transferred
+              </div>
+            </div>
+          </div>
+          <button
+            onClick={async () => {
+              if (transferring || miningAvailable <= 0) return;
+              setTransferring(true);
+              try {
+                const { error } = await supabase.rpc("transfer_mining_to_wallet", { _amount: miningAvailable });
+                if (error) throw error;
+                toast.success(`Transferred $${miningAvailable.toFixed(2)} to your wallet`);
+                await reload(true);
+              } catch (e: any) {
+                const m = String(e?.message ?? "Transfer failed");
+                if (m.includes("insufficient_mining_balance")) toast.error("No mining balance to transfer");
+                else toast.error(m);
+              } finally { setTransferring(false); }
+            }}
+            disabled={transferring || miningAvailable <= 0}
+            className="inline-flex items-center gap-2 rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-foreground hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <ArrowDownToLine className="h-4 w-4 rotate-180" />
+            {transferring ? "Transferring…" : "Transfer to wallet"}
+          </button>
+        </div>
+        <p className="mt-3 text-[11px] text-muted-foreground">
+          Mining rewards live in a separate bucket. Transfer them to your wallet balance to make them instantly withdrawable.
+        </p>
+
       <div className="rounded-2xl border border-border bg-card">
         <div className="flex items-center justify-between border-b border-border px-6 py-4">
           <div className="flex items-center gap-2">
