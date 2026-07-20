@@ -1,35 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
-
-const ADMIN_EMAIL = "paytrony@gmail.com";
-
-async function requireAdmin(context: { supabase: any; userId: string; claims: any }) {
-  // 1. Fast reject on JWT claims (cheap, and stops obviously wrong tokens).
-  const claimEmail = String(context.claims?.email ?? "").toLowerCase();
-  const claimVerified =
-    context.claims?.email_verified === true ||
-    !!context.claims?.email_confirmed_at;
-  if (claimEmail !== ADMIN_EMAIL || !claimVerified) throw new Error("Forbidden");
-
-  // 2. Fresh DB check against auth.users on EVERY request — catches email
-  //    changes, unverification, and stale/forged JWTs that still parse.
-  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  const { data: liveOk, error: liveErr } = await supabaseAdmin.rpc(
-    "is_paytrony_admin",
-    { _user_id: context.userId },
-  );
-  if (liveErr) throw new Error(liveErr.message);
-  if (!liveOk) throw new Error("Forbidden");
-
-  // 3. Require the admin DB role too (defense in depth).
-  const { data: hasRole, error: roleErr } = await supabaseAdmin.rpc("has_role", {
-    _user_id: context.userId,
-    _role: "admin",
-  });
-  if (roleErr) throw new Error(roleErr.message);
-  if (!hasRole) throw new Error("Forbidden");
-}
+import { requireAdmin, ADMIN_EMAIL } from "@/lib/admin.server";
 
 export const verifyAdminAccess = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
@@ -218,6 +190,15 @@ export const listAdminUsers = createServerFn({ method: "POST" })
     }));
   });
 
+// NOTE: intentionally not reached in this codebase.
+// Admin authorization is unified around `is_authorized_admin(uid)` which
+// requires BOTH the `admin` role AND the pinned admin email
+// (`paytrony@gmail.com`). Granting the DB role to a different user therefore
+// cannot make them a functional admin — every admin RPC would still reject
+// them. Rather than expose a UI toggle that silently does nothing, this
+// server fn refuses the request with an explicit error so the intent stays
+// honest.
+
 const setRoleSchema = z.object({
   userId: z.string().uuid(),
   grant: z.boolean(),
@@ -226,20 +207,11 @@ const setRoleSchema = z.object({
 export const adminSetUserRole = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .validator((d: unknown) => setRoleSchema.parse(d))
-  .handler(async ({ data, context }) => {
+  .handler(async ({ context }) => {
     await requireAdmin(context);
-    if (data.userId === context.userId) throw new Error("Cannot change your own admin role");
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    if (data.grant) {
-      const { error } = await supabaseAdmin.from("user_roles").upsert(
-        { user_id: data.userId, role: "admin" },
-        { onConflict: "user_id,role" }
-      );
-      if (error) throw new Error(error.message);
-    } else {
-      const { error } = await supabaseAdmin.from("user_roles")
-        .delete().eq("user_id", data.userId).eq("role", "admin");
-      if (error) throw new Error(error.message);
-    }
-    return { ok: true };
+    // See NOTE above — role grants can't override the pinned email gate.
+    throw new Error(
+      `Admin access is pinned to ${ADMIN_EMAIL}. Granting the admin role to other users has no effect and is disabled to avoid confusion.`,
+    );
   });
+

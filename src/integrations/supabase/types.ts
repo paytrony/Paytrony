@@ -393,6 +393,7 @@ export type Database = {
           referral_code: string
         }[]
       }
+      get_wallet_balance: { Args: never; Returns: Json }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -400,6 +401,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_authorized_admin: { Args: { _user_id: string }; Returns: boolean }
       is_paytrony_admin: { Args: { _user_id: string }; Returns: boolean }
       mark_notifications_read: {
         Args: { _category: string }
@@ -428,28 +430,18 @@ export type Database = {
           _payout_method_id?: string
           _user_id: string
         }
-        Returns: string
+        Returns: Json
       }
-      resolve_withdrawal:
-        | {
-            Args: {
-              _admin_id: string
-              _admin_note: string
-              _approve: boolean
-              _withdrawal_id: string
-            }
-            Returns: undefined
-          }
-        | {
-            Args: {
-              _admin_id: string
-              _admin_note: string
-              _approve: boolean
-              _tx_hash?: string
-              _withdrawal_id: string
-            }
-            Returns: undefined
-          }
+      resolve_withdrawal: {
+        Args: {
+          _admin_id: string
+          _admin_note: string
+          _approve: boolean
+          _tx_hash?: string
+          _withdrawal_id: string
+        }
+        Returns: undefined
+      }
       test_e2e_flow: { Args: never; Returns: string }
       test_evm_webhook_flow: { Args: never; Returns: string }
       test_mining_transfer_idempotency: { Args: never; Returns: string }

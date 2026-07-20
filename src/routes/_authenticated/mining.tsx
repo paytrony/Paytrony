@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Pickaxe, Timer, Coins, Sparkles, Loader2 } from "lucide-react";
 import { tierRates as computeTierRates, MAX_RATES, BASE_RATES } from "@/lib/mining-rates";
+import { fetchWalletBalance } from "@/lib/wallet-balance";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -73,15 +74,8 @@ function MiningPage() {
   }
 
   async function fetchBalance() {
-    // Wallet balance = referral_credit + mining_transfer − withdrawal (mining_reward stays in mining bucket).
-    const [{ data: txns }, { data: pending }] = await Promise.all([
-      supabase.from("wallet_transactions").select("amount,type").eq("user_id", user.id),
-      supabase.from("withdrawals").select("amount").eq("user_id", user.id).eq("status", "pending"),
-    ]);
-    const walletCredits = (txns ?? []).filter((t: any) => t.type === "referral_credit" || t.type === "mining_transfer").reduce((s, t: any) => s + Number(t.amount), 0);
-    const withdrawn = (txns ?? []).filter((t: any) => t.type === "withdrawal").reduce((s, t: any) => s + Number(t.amount), 0);
-    const pendingAmt = (pending ?? []).reduce((s, r: any) => s + Number(r.amount), 0);
-    return walletCredits - withdrawn - pendingAmt;
+    const wb = await fetchWalletBalance();
+    return wb.available;
   }
 
   async function refreshPostMine() {

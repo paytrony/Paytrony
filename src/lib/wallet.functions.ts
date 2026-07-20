@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { requireAdmin } from "@/lib/admin.server";
 import { z } from "zod";
 
 const purchaseSchema = z.object({
@@ -38,7 +39,7 @@ export const requestWithdrawal = createServerFn({ method: "POST" })
   .validator((d: unknown) => withdrawSchema.parse(d))
   .handler(async ({ data, context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: id, error } = await supabaseAdmin.rpc("request_withdrawal", {
+    const { data: res, error } = await supabaseAdmin.rpc("request_withdrawal", {
       _user_id: context.userId,
       _amount: data.amount,
       _note: data.note,
@@ -46,19 +47,18 @@ export const requestWithdrawal = createServerFn({ method: "POST" })
       _payout_method_id: data.payoutMethodId,
     });
     if (error) throw new Error(error.message);
-    return { id: id as string };
+    const payload = (res ?? {}) as { id?: string; idempotent?: boolean };
+    if (!payload.id) throw new Error("Withdrawal RPC returned no id");
+    return { id: payload.id, idempotent: !!payload.idempotent };
   });
 
 export const resolveWithdrawal = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .validator((d: unknown) => resolveSchema.parse(d))
   .handler(async ({ data, context }) => {
+    // Same unified gate the SQL RPC enforces — no drift between JS and SQL.
+    await requireAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: roles, error: rerr } = await supabaseAdmin
-      .from("user_roles").select("role").eq("user_id", context.userId).eq("role", "admin");
-    if (rerr) throw new Error(rerr.message);
-    if (!roles || roles.length === 0) throw new Error("Forbidden");
-
     const { error } = await supabaseAdmin.rpc("resolve_withdrawal", {
       _admin_id: context.userId,
       _withdrawal_id: data.withdrawalId,

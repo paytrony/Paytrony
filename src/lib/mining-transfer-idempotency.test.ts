@@ -4,6 +4,8 @@ import { buildMiningTransferIdempotencyKey } from "./mining-transfer-idempotency
 const base = {
   userId: "11111111-2222-3333-4444-555555555555",
   amount: 4,
+  miningEarned: 10,
+  miningTransferred: 6,
 };
 
 describe("buildMiningTransferIdempotencyKey", () => {
@@ -36,5 +38,20 @@ describe("buildMiningTransferIdempotencyKey", () => {
     expect(buildMiningTransferIdempotencyKey(base)).not.toBe(
       buildMiningTransferIdempotencyKey({ ...base, userId: "99999999-8888-7777-6666-555555555555" }),
     );
+  });
+
+  it("rotates the key when a NEW mining reward has landed (different miningEarned)", () => {
+    // This is the critical regression fix: without including the mining ledger
+    // snapshot in the key, a second legitimate transfer of the same amount
+    // would silently reuse the first transfer's row and misreport success.
+    const before = buildMiningTransferIdempotencyKey({ ...base, miningEarned: 10, miningTransferred: 6 });
+    const after = buildMiningTransferIdempotencyKey({ ...base, miningEarned: 15, miningTransferred: 6 });
+    expect(before).not.toBe(after);
+  });
+
+  it("rotates the key when a previous transfer has landed (different miningTransferred)", () => {
+    const before = buildMiningTransferIdempotencyKey({ ...base, miningEarned: 15, miningTransferred: 6 });
+    const after = buildMiningTransferIdempotencyKey({ ...base, miningEarned: 15, miningTransferred: 10 });
+    expect(before).not.toBe(after);
   });
 });
