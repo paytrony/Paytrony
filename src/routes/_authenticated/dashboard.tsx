@@ -80,7 +80,7 @@ function Dashboard() {
 
   const available = balance - pending;
 
-  const tierRates: Record<number, number> = { 10: 1.2, 50: 5.2, 100: 11.2 };
+  const tierRates: Record<number, number> = useMemo(() => computeTierRates(refCount), [refCount]);
   const ownedTiers = useMemo(() => Array.from(new Set(nfts.map((n) => n.nft_tier))), [nfts]);
   const dailyRate = ownedTiers.reduce((s, tier) => s + (tierRates[tier] ?? 0), 0);
   const totalMined = txns.filter((t) => t.type === "mining_reward").reduce((s, t) => s + Number(t.amount), 0);
