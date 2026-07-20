@@ -522,3 +522,89 @@ function MiningPage() {
     </div>
   );
 }
+
+function MonthlyPayoutCalculator({ ownedTiers, refCount }: { ownedTiers: number[]; refCount: number }) {
+  const [refs, setRefs] = useState<number>(refCount);
+  useEffect(() => { setRefs(refCount); }, [refCount]);
+
+  const tiersToShow = ownedTiers.length > 0 ? ownedTiers : [10, 50, 100];
+  const rates = useMemo(() => computeTierRates(refs), [refs]);
+  const dailyTotal = tiersToShow.reduce((s, t) => s + (rates[t] ?? 0), 0);
+  const monthlyTotal = dailyTotal * 30;
+  const maxDaily = tiersToShow.reduce((s, t) => s + (MAX_RATES[t] ?? 0), 0);
+  const maxMonthly = maxDaily * 30;
+  const isPreview = ownedTiers.length === 0;
+
+  return (
+    <div className="rounded-2xl border border-border bg-card p-4 sm:p-6">
+      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Monthly payout calculator</h2>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Live estimate = daily mining × 30 days. Slide referrals to see how payouts scale.
+            {isPreview && " Showing all tiers as a preview until you own a package."}
+          </p>
+        </div>
+        <div className="text-right">
+          <div className="font-mono text-[10px] uppercase text-muted-foreground">Up to</div>
+          <div className="text-3xl font-bold text-primary tabular-nums">${monthlyTotal.toFixed(2)}<span className="text-sm text-muted-foreground font-normal">/mo</span></div>
+          <div className="text-[11px] text-muted-foreground">${dailyTotal.toFixed(2)}/day at {refs} ref{refs === 1 ? "" : "s"}</div>
+        </div>
+      </div>
+
+      <div className="mt-4">
+        <div className="flex items-center justify-between text-xs">
+          <label htmlFor="calc-refs" className="text-muted-foreground">Referrals: <span className="font-semibold text-foreground">{refs}</span>{refCount !== refs && <span className="ml-1 text-[10px] text-muted-foreground">(you have {refCount})</span>}</label>
+          <span className="font-mono text-primary">×{(Math.min(refs, 10) / 10 * 0.9 + 0.1).toFixed(2)}</span>
+        </div>
+        <input
+          id="calc-refs"
+          type="range"
+          min={0}
+          max={20}
+          step={1}
+          value={refs}
+          onChange={(e) => setRefs(Number(e.target.value))}
+          className="mt-2 w-full accent-primary"
+          aria-label="Referral count for payout projection"
+        />
+        <div className="mt-1 flex justify-between text-[10px] font-mono uppercase text-muted-foreground">
+          <span>0</span><span>10 (max)</span><span>20</span>
+        </div>
+      </div>
+
+      <div className="mt-4 overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-border text-left font-mono text-[10px] uppercase text-muted-foreground">
+              <th className="px-3 py-2">Tier</th>
+              <th className="px-3 py-2 text-right">Daily</th>
+              <th className="px-3 py-2 text-right">Monthly</th>
+              <th className="px-3 py-2 text-right">Up to /mo</th>
+            </tr>
+          </thead>
+          <tbody>
+            {tiersToShow.map((t) => {
+              const d = rates[t] ?? 0;
+              const maxD = MAX_RATES[t] ?? 0;
+              return (
+                <tr key={t} className="border-b border-border/50">
+                  <td className="px-3 py-2 font-semibold">${t} {t === 10 ? "Starter" : t === 50 ? "Pro" : "Elite"}</td>
+                  <td className="px-3 py-2 text-right tabular-nums">${d.toFixed(2)}</td>
+                  <td className="px-3 py-2 text-right tabular-nums text-primary font-semibold">${(d * 30).toFixed(2)}</td>
+                  <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">${(maxD * 30).toFixed(2)}</td>
+                </tr>
+              );
+            })}
+            <tr>
+              <td className="px-3 py-3 font-semibold">Total</td>
+              <td className="px-3 py-3 text-right tabular-nums font-semibold">${dailyTotal.toFixed(2)}</td>
+              <td className="px-3 py-3 text-right tabular-nums text-primary font-bold">${monthlyTotal.toFixed(2)}</td>
+              <td className="px-3 py-3 text-right tabular-nums text-muted-foreground">${maxMonthly.toFixed(2)}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
