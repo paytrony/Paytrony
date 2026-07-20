@@ -229,6 +229,32 @@ export function WalletConnectPay({ tier }: { tier: 10 | 50 | 100 }) {
         </div>
       </div>
 
+      {(txHash || status === "signing" || status === "watching" || status === "paid" || status === "failed") && (
+        <div className="rounded-md border bg-muted/40 p-3 text-sm">
+          <div className="mb-2 font-mono text-[10px] uppercase text-muted-foreground">Transaction</div>
+          <ol className="space-y-1.5">
+            {[
+              { key: "signing", label: "Signed in wallet", done: !!txHash || status === "watching" || status === "paid" },
+              { key: "watching", label: "Broadcast · pending on-chain", done: status === "watching" || status === "paid", failed: status === "failed" && !!txHash },
+              { key: "paid", label: "Confirmed & credited", done: status === "paid", failed: status === "failed" },
+            ].map((s) => (
+              <li key={s.key} className="flex items-center gap-2 text-xs">
+                {s.failed ? <XCircle className="h-3.5 w-3.5 text-destructive" /> :
+                 s.done ? <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" /> :
+                 <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
+                <span className={s.done ? "text-foreground" : s.failed ? "text-destructive" : "text-muted-foreground"}>{s.label}</span>
+              </li>
+            ))}
+          </ol>
+          {txHash && (
+            <a href={CHAIN_META[chain].explorer(txHash)} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center gap-1 text-xs text-primary underline">
+              View on explorer <ExternalLink className="h-3 w-3" />
+            </a>
+          )}
+        </div>
+      )}
+
+
       {!account ? (
         <Button onClick={connect} className="w-full" disabled={status === "connecting"}>
           {status === "connecting" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Smartphone className="mr-2 h-4 w-4" />}
