@@ -18,6 +18,7 @@ import { Route as DisclaimerRouteImport } from './routes/disclaimer'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ICodeRouteImport } from './routes/i.$code'
 import { Route as AuthenticatedWithdrawalsRouteImport } from './routes/_authenticated/withdrawals'
 import { Route as AuthenticatedWithdrawRouteImport } from './routes/_authenticated/withdraw'
 import { Route as AuthenticatedWalletRouteImport } from './routes/_authenticated/wallet'
@@ -76,6 +77,11 @@ const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ICodeRoute = ICodeRouteImport.update({
+  id: '/i/$code',
+  path: '/i/$code',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedWithdrawalsRoute =
@@ -179,6 +185,7 @@ export interface FileRoutesByFullPath {
   '/wallet': typeof AuthenticatedWalletRoute
   '/withdraw': typeof AuthenticatedWithdrawRoute
   '/withdrawals': typeof AuthenticatedWithdrawalsRoute
+  '/i/$code': typeof ICodeRoute
   '/api/public/evm-payment-webhook': typeof ApiPublicEvmPaymentWebhookRoute
   '/api/public/payment-webhook': typeof ApiPublicPaymentWebhookRoute
   '/api/public/tron-tick': typeof ApiPublicTronTickRoute
@@ -204,6 +211,7 @@ export interface FileRoutesByTo {
   '/wallet': typeof AuthenticatedWalletRoute
   '/withdraw': typeof AuthenticatedWithdrawRoute
   '/withdrawals': typeof AuthenticatedWithdrawalsRoute
+  '/i/$code': typeof ICodeRoute
   '/api/public/evm-payment-webhook': typeof ApiPublicEvmPaymentWebhookRoute
   '/api/public/payment-webhook': typeof ApiPublicPaymentWebhookRoute
   '/api/public/tron-tick': typeof ApiPublicTronTickRoute
@@ -231,6 +239,7 @@ export interface FileRoutesById {
   '/_authenticated/wallet': typeof AuthenticatedWalletRoute
   '/_authenticated/withdraw': typeof AuthenticatedWithdrawRoute
   '/_authenticated/withdrawals': typeof AuthenticatedWithdrawalsRoute
+  '/i/$code': typeof ICodeRoute
   '/api/public/evm-payment-webhook': typeof ApiPublicEvmPaymentWebhookRoute
   '/api/public/payment-webhook': typeof ApiPublicPaymentWebhookRoute
   '/api/public/tron-tick': typeof ApiPublicTronTickRoute
@@ -258,6 +267,7 @@ export interface FileRouteTypes {
     | '/wallet'
     | '/withdraw'
     | '/withdrawals'
+    | '/i/$code'
     | '/api/public/evm-payment-webhook'
     | '/api/public/payment-webhook'
     | '/api/public/tron-tick'
@@ -283,6 +293,7 @@ export interface FileRouteTypes {
     | '/wallet'
     | '/withdraw'
     | '/withdrawals'
+    | '/i/$code'
     | '/api/public/evm-payment-webhook'
     | '/api/public/payment-webhook'
     | '/api/public/tron-tick'
@@ -309,6 +320,7 @@ export interface FileRouteTypes {
     | '/_authenticated/wallet'
     | '/_authenticated/withdraw'
     | '/_authenticated/withdrawals'
+    | '/i/$code'
     | '/api/public/evm-payment-webhook'
     | '/api/public/payment-webhook'
     | '/api/public/tron-tick'
@@ -324,6 +336,7 @@ export interface RootRouteChildren {
   RefundRoute: typeof RefundRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   TermsRoute: typeof TermsRoute
+  ICodeRoute: typeof ICodeRoute
   ApiPublicEvmPaymentWebhookRoute: typeof ApiPublicEvmPaymentWebhookRoute
   ApiPublicPaymentWebhookRoute: typeof ApiPublicPaymentWebhookRoute
   ApiPublicTronTickRoute: typeof ApiPublicTronTickRoute
@@ -392,6 +405,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/i/$code': {
+      id: '/i/$code'
+      path: '/i/$code'
+      fullPath: '/i/$code'
+      preLoaderRoute: typeof ICodeRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated/withdrawals': {
@@ -545,6 +565,7 @@ const rootRouteChildren: RootRouteChildren = {
   RefundRoute: RefundRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   TermsRoute: TermsRoute,
+  ICodeRoute: ICodeRoute,
   ApiPublicEvmPaymentWebhookRoute: ApiPublicEvmPaymentWebhookRoute,
   ApiPublicPaymentWebhookRoute: ApiPublicPaymentWebhookRoute,
   ApiPublicTronTickRoute: ApiPublicTronTickRoute,
