@@ -82,6 +82,25 @@ function Dashboard() {
   const ownedTiers = useMemo(() => Array.from(new Set(nfts.map((n) => n.nft_tier))), [nfts]);
   const dailyRate = ownedTiers.reduce((s, tier) => s + (tierRates[tier] ?? 0), 0);
   const totalMined = txns.filter((t) => t.type === "mining_reward").reduce((s, t) => s + Number(t.amount), 0);
+  const totalTransferred = txns.filter((t) => t.type === "mining_transfer").reduce((s, t) => s + Number(t.amount), 0);
+  const miningAvailable = Math.max(0, totalMined - totalTransferred);
+  const [transferring, setTransferring] = useState(false);
+  async function handleTransfer() {
+    if (transferring || miningAvailable <= 0) return;
+    setTransferring(true);
+    try {
+      const { error } = await supabase.rpc("transfer_mining_to_wallet", { _amount: miningAvailable });
+      if (error) throw error;
+      toast.success(`Transferred $${miningAvailable.toFixed(2)} to your wallet`);
+      await reload();
+    } catch (e: any) {
+      const msg = String(e?.message ?? "Transfer failed");
+      if (msg.includes("insufficient_mining_balance")) toast.error("No mining balance available to transfer");
+      else toast.error(msg);
+    } finally {
+      setTransferring(false);
+    }
+  }
   const nextClaimAt = lastClaimAt ? new Date(lastClaimAt).getTime() + 24 * 3600 * 1000 : 0;
   const cooldownMs = Math.max(0, nextClaimAt - nowTs);
   const canMine = ownedTiers.length > 0 && cooldownMs === 0;
