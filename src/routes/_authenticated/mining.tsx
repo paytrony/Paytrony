@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Pickaxe, Timer, Coins, Sparkles, Loader2 } from "lucide-react";
+import { tierRates as computeTierRates, MAX_RATES, BASE_RATES } from "@/lib/mining-rates";
 import {
   AlertDialog,
   AlertDialogAction,
