@@ -178,12 +178,12 @@ export function MetaMaskPay({ tier }: { tier: 10 | 50 | 100 }) {
       <div className="rounded-md border bg-muted/40 p-3 text-sm">
         <div className="flex items-center justify-between">
           <span className="text-muted-foreground">Amount</span>
-          <span className="font-mono font-bold">${tier}.00 USDT</span>
+          <span className="font-mono font-bold">${tier}.00 {CHAIN_META[chain].token}</span>
         </div>
         {intent && (
           <div className="mt-1 flex items-center justify-between">
             <span className="text-muted-foreground">Exact amount to send</span>
-            <span className="font-mono font-bold">{intent.expectedAmount} USDT</span>
+            <span className="font-mono font-bold">{intent.expectedAmount} {CHAIN_META[chain].token}</span>
           </div>
         )}
         <div className="mt-1 flex items-center justify-between">
