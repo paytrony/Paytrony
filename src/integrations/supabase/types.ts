@@ -354,6 +354,11 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_expire_intent: { Args: { _intent_id: string }; Returns: undefined }
+      admin_mark_intent_paid: {
+        Args: { _intent_id: string; _tx_hash?: string }
+        Returns: Json
+      }
       gen_referral_code: { Args: never; Returns: string }
       has_role: {
         Args: {
