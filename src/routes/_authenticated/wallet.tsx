@@ -73,11 +73,12 @@ function WalletPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user.id]);
 
+  const CREDIT_TYPES = new Set(["referral_credit", "mining_reward"]);
   const totalEarned = txns
-    .filter((t) => t.type === "referral_credit")
+    .filter((t) => CREDIT_TYPES.has(t.type))
     .reduce((s, t) => s + Number(t.amount), 0);
   const totalSpent = txns
-    .filter((t) => t.type !== "referral_credit")
+    .filter((t) => !CREDIT_TYPES.has(t.type))
     .reduce((s, t) => s + Number(t.amount), 0);
   const balance = totalEarned - totalSpent;
   const available = balance - pending;
@@ -167,7 +168,7 @@ function WalletPage() {
         ) : (
           <ul className="divide-y divide-border">
             {txns.slice(0, 25).map((t) => {
-              const isCredit = t.type === "referral_credit";
+              const isCredit = CREDIT_TYPES.has(t.type);
               return (
                 <li key={t.id} className="flex items-center justify-between px-6 py-3 text-sm">
                   <div className="flex items-center gap-3">

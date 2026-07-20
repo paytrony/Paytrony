@@ -14,6 +14,30 @@ export type Database = {
   }
   public: {
     Tables: {
+      mining_claims: {
+        Row: {
+          amount: number
+          created_at: string
+          id: string
+          tiers: number[]
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          id?: string
+          tiers: number[]
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          id?: string
+          tiers?: number[]
+          user_id?: string
+        }
+        Relationships: []
+      }
       nft_favorites: {
         Row: {
           created_at: string
@@ -372,6 +396,7 @@ export type Database = {
         Args: { _category: string }
         Returns: undefined
       }
+      mine_now: { Args: { _user_id: string }; Returns: Json }
       purchase_package: {
         Args: { _amount: number; _idempotency_key?: string; _user_id: string }
         Returns: Json

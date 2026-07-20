@@ -37,7 +37,7 @@ function Dashboard() {
       supabase.from("purchases").select("id, nft_tier, created_at").eq("user_id", user.id).order("created_at", { ascending: false }),
     ]);
     if (p) setProfile(p as Profile);
-    const bal = (t ?? []).reduce((s, r: any) => s + (r.type === "referral_credit" ? Number(r.amount) : -Number(r.amount)), 0);
+    const bal = (t ?? []).reduce((s, r: any) => s + ((r.type === "referral_credit" || r.type === "mining_reward") ? Number(r.amount) : -Number(r.amount)), 0);
     const pen = (w ?? []).reduce((s, r: any) => s + Number(r.amount), 0);
     setBalance(bal);
     setPending(pen);
@@ -181,8 +181,8 @@ function Dashboard() {
                   <div className="text-sm">{t.note ?? t.type}</div>
                   <div className="text-xs text-muted-foreground">{new Date(t.created_at).toLocaleString()}</div>
                 </div>
-                <div className={`font-mono font-semibold ${t.type === "referral_credit" ? "text-primary" : "text-muted-foreground"}`}>
-                  {t.type === "referral_credit" ? "+" : "−"}${Number(t.amount).toFixed(2)}
+                <div className={`font-mono font-semibold ${(t.type === "referral_credit" || t.type === "mining_reward") ? "text-primary" : "text-muted-foreground"}`}>
+                  {(t.type === "referral_credit" || t.type === "mining_reward") ? "+" : "−"}${Number(t.amount).toFixed(2)}
                 </div>
               </div>
             ))}
