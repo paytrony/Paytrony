@@ -256,8 +256,9 @@ function Withdraw() {
       if (pmErr || !pm) throw pmErr ?? new Error("Failed to save method");
 
       // Deterministic idempotency key: same (user, amount, method, note) can never
-      // create two rows even on refresh/double-click. Server returns the existing row.
-      const keyPayload = JSON.stringify({ u: user.id, a: amt.toFixed(2), pm: pm.id, k: kind, d: built.details, n: note });
+      // create two withdrawal rows even on refresh/double-click. Server returns the existing row.
+      // Excludes pm.id so a resubmitted identical form maps to the same key.
+      const keyPayload = JSON.stringify({ u: user.id, a: amt.toFixed(2), k: kind, d: built.details, n: note });
       let hash = 0;
       for (let i = 0; i < keyPayload.length; i++) hash = ((hash << 5) - hash + keyPayload.charCodeAt(i)) | 0;
       const idempotencyKey = `wd-${user.id.slice(0, 8)}-${Math.abs(hash).toString(36)}-${amt.toFixed(2)}`;
