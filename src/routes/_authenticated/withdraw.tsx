@@ -257,7 +257,7 @@ function Withdraw() {
 
       const idempotencyKey = (crypto as any).randomUUID?.() ?? `wd-${Date.now()}-${Math.random()}`;
       const res = await req({ data: { amount: amt, note, idempotencyKey, payoutMethodId: pm.id } });
-      toast.success(`Instant payout sent — $${net.toFixed(2)} (fee $${FEE} from $${amt.toFixed(2)})`);
+      toast.success(`Withdrawal request submitted — pending admin approval (up to 24 hours). You'll receive $${net.toFixed(2)} once approved.`);
       setReceipt({ id: res.id, amount: amt, fee: FEE, net, method: methodLabel, createdAt: new Date().toISOString() });
       setAmount(""); setNote(""); setExUid(""); setExEmail(""); setExPhone(""); setWalletAddress("");
       setErrors({});
@@ -284,9 +284,9 @@ function Withdraw() {
   return (
     <div className="mx-auto max-w-6xl space-y-8">
       <div className="flex flex-col gap-2">
-        <h1 className="text-3xl font-bold tracking-tight">Instant Withdraw</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Request Withdrawal</h1>
         <p className="text-muted-foreground">
-          Payouts settle instantly to your chosen method. A flat <span className="font-medium text-foreground">${FEE} fee</span> applies to every withdrawal.
+          Withdrawals are reviewed and approved by an admin, typically within <span className="font-medium text-foreground">24 hours</span>. A flat <span className="font-medium text-foreground">${FEE} fee</span> applies to every withdrawal.
         </p>
       </div>
 
@@ -606,7 +606,7 @@ function Withdraw() {
           <DialogHeader>
             <DialogTitle>Review & confirm withdrawal</DialogTitle>
             <DialogDescription>
-              Please double-check every detail before submitting. Withdrawals are processed instantly.
+              Please double-check every detail before submitting. Withdrawals are reviewed by an admin and typically approved within 24 hours.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
