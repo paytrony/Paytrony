@@ -15,5 +15,6 @@ run_case() {
 }
 
 run_case "e2e: signup -> purchase -> referral -> wallet -> withdrawal" "public.test_e2e_flow()"
+run_case "idempotency: mining -> wallet transfer never duplicates on refresh/double-submit" "public.test_mining_transfer_idempotency()"
 
 echo "All tests passed."
