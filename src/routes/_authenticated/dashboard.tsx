@@ -79,6 +79,8 @@ function Dashboard() {
   const nextClaimAt = lastClaimAt ? new Date(lastClaimAt).getTime() + 24 * 3600 * 1000 : 0;
   const cooldownMs = Math.max(0, nextClaimAt - nowTs);
   const canMine = ownedTiers.length > 0 && cooldownMs === 0;
+  const cycle = 24 * 3600 * 1000;
+  const progress = !ownedTiers.length ? 0 : cooldownMs === 0 ? 100 : Math.min(100, ((cycle - cooldownMs) / cycle) * 100);
 
   function formatCountdown(ms: number) {
     const s = Math.ceil(ms / 1000);
@@ -206,6 +208,20 @@ function Dashboard() {
           <div className="mt-1 text-xs text-muted-foreground">
             ${totalMined.toFixed(2)} mined all-time
             {cooldownMs > 0 && ` · next in ${formatCountdown(cooldownMs)}`}
+          </div>
+          <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-muted">
+            <div
+              role="progressbar"
+              aria-valuemin={0}
+              aria-valuenow={Math.round(progress)}
+              aria-valuemax={100}
+              className={`h-full transition-all duration-1000 ${canMine ? "bg-primary" : "bg-accent"}`}
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+          <div className="mt-1 flex justify-between text-[10px] uppercase tracking-wider text-muted-foreground">
+            <span>{canMine ? "Ready to mine" : progress === 0 ? "Start by owning an NFT" : "Charging next reward"}</span>
+            <span>{Math.round(progress)}%</span>
           </div>
           {ownedTiers.length === 0 ? (
             <Link to="/packages" className="mt-4 inline-block rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground">
