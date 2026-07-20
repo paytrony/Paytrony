@@ -320,231 +320,254 @@ function Withdraw() {
               <div className="mt-1 text-4xl font-bold text-primary">${available.toFixed(2)}</div>
             </div>
 
-            <form onSubmit={onSubmit} className="space-y-6">
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="amount">Amount to withdraw</Label>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const maxAmt = Math.max(0, available);
-                      setAmount(maxAmt > 0 ? maxAmt.toFixed(2) : "");
-                      clearError("amount");
-                    }}
-                    disabled={available <= 0}
-                    className="text-xs font-medium text-primary hover:underline disabled:opacity-40 disabled:no-underline"
-                  >
-                    Max (${Math.max(0, available).toFixed(2)})
-                  </button>
+            <div className="relative">
+              <form
+                onSubmit={onSubmit}
+                aria-busy={signing}
+                className={`space-y-6 transition-opacity ${signing ? "pointer-events-none opacity-60" : ""}`}
+              >
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="amount">Amount to withdraw</Label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const maxAmt = Math.max(0, available);
+                        setAmount(maxAmt > 0 ? maxAmt.toFixed(2) : "");
+                        clearError("amount");
+                      }}
+                      disabled={signing || available <= 0}
+                      className="text-xs font-medium text-primary hover:underline disabled:opacity-40 disabled:no-underline"
+                    >
+                      Max (${Math.max(0, available).toFixed(2)})
+                    </button>
+                  </div>
+                  <div className="relative">
+                    <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
+                    <Input
+                      id="amount"
+                      type="number"
+                      step="0.01"
+                      min={limits?.min_amount ?? 0.01}
+                      max={Math.max(0, available)}
+                      required
+                      disabled={signing}
+                      value={amount}
+                      onChange={(e) => { setAmount(e.target.value); clearError("amount"); }}
+                      className={`pl-7 text-base ${errors.amount ? "border-destructive focus-visible:ring-destructive" : ""}`}
+                      placeholder="0.00"
+                    />
+                  </div>
+                  {errors.amount && <p className="text-xs text-destructive">{errors.amount}</p>}
                 </div>
-                <div className="relative">
-                  <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
-                  <Input
-                    id="amount"
-                    type="number"
-                    step="0.01"
-                    min={limits?.min_amount ?? 0.01}
-                    max={Math.max(0, available)}
-                    required
-                    value={amount}
-                    onChange={(e) => { setAmount(e.target.value); clearError("amount"); }}
-                    className={`pl-7 text-base ${errors.amount ? "border-destructive focus-visible:ring-destructive" : ""}`}
-                    placeholder="0.00"
+
+                <div className="rounded-xl border border-border bg-muted/30 p-4">
+                  <div className="mb-3 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Payout summary</div>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Amount</span>
+                      <span className="font-medium">${amt.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Withdrawal fee</span>
+                      <span className="font-medium text-destructive">- ${FEE.toFixed(2)}</span>
+                    </div>
+                    <Separator className="my-2" />
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Total debited</span>
+                      <span className="font-semibold">${totalDebit.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-foreground">You receive</span>
+                      <span className="font-semibold text-primary">${net.toFixed(2)}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <Label htmlFor="payout-method">Payout method</Label>
+                  <Select
+                    value={kind}
+                    onValueChange={(v) => {
+                      if (COMING_SOON.includes(v as KindKey)) return;
+                      setKind(v as typeof kind);
+                      clearError("method");
+                      clearError("uid");
+                      clearError("email");
+                      clearError("phone");
+                      clearError("chain");
+                      clearError("address");
+                    }}
+                    disabled={signing}
+                  >
+                    <SelectTrigger id="payout-method" className="h-11">
+                      <SelectValue placeholder="Select a payout method" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {METHODS.map(({ k, label, icon: Icon }) => {
+                        const soon = COMING_SOON.includes(k);
+                        return (
+                          <SelectItem key={k} value={k} disabled={soon}>
+                            <span className="flex items-center gap-2">
+                              <Icon className="h-4 w-4 text-muted-foreground" />
+                              <span>{label}</span>
+                              {soon && (
+                                <Badge variant="secondary" className="h-4 px-1 text-[9px] font-medium uppercase">soon</Badge>
+                              )}
+                            </span>
+                          </SelectItem>
+                        );
+                      })}
+                    </SelectContent>
+                  </Select>
+                  {errors.method && <p className="text-xs text-destructive">{errors.method}</p>}
+                </div>
+
+
+                {(kind === "binance" || kind === "bybit") && (
+                  <div className="space-y-3 rounded-xl border border-border bg-muted/20 p-4">
+                    <div className="text-sm font-medium">{kind === "binance" ? "Binance" : "Bybit"} account details</div>
+                    <div className="space-y-3">
+                      <div className="space-y-1.5">
+                        <Label htmlFor="idType" className="text-xs text-muted-foreground">Identifier type</Label>
+                        <Select
+                          value={idType}
+                          onValueChange={(v) => {
+                            setIdType(v as "uid" | "email" | "phone");
+                            clearError("uid"); clearError("email"); clearError("phone");
+                          }}
+                          disabled={signing}
+                        >
+                          <SelectTrigger id="idType" className="h-11">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="uid">UID</SelectItem>
+                            <SelectItem value="email">Registered email</SelectItem>
+                            <SelectItem value="phone">Registered phone number</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      {idType === "uid" && (
+                        <div className="space-y-1.5">
+                          <Label htmlFor="exUid" className="text-xs text-muted-foreground">{kind === "binance" ? "Binance" : "Bybit"} UID</Label>
+                          <Input
+                            id="exUid"
+                            value={exUid}
+                            disabled={signing}
+                            onChange={(e) => { setExUid(e.target.value); clearError("uid"); }}
+                            placeholder={`${kind === "binance" ? "Binance" : "Bybit"} UID`}
+                            className={errors.uid ? "border-destructive focus-visible:ring-destructive" : ""}
+                          />
+                          {errors.uid && <p className="text-xs text-destructive">{errors.uid}</p>}
+                        </div>
+                      )}
+                      {idType === "email" && (
+                        <div className="space-y-1.5">
+                          <Label htmlFor="exEmail" className="text-xs text-muted-foreground">Registered email</Label>
+                          <Input
+                            id="exEmail"
+                            type="email"
+                            value={exEmail}
+                            disabled={signing}
+                            onChange={(e) => { setExEmail(e.target.value); clearError("email"); }}
+                            placeholder="Registered email"
+                            className={errors.email ? "border-destructive focus-visible:ring-destructive" : ""}
+                          />
+                          {errors.email && <p className="text-xs text-destructive">{errors.email}</p>}
+                        </div>
+                      )}
+                      {idType === "phone" && (
+                        <div className="space-y-1.5">
+                          <Label htmlFor="exPhone" className="text-xs text-muted-foreground">Registered phone number</Label>
+                          <Input
+                            id="exPhone"
+                            value={exPhone}
+                            disabled={signing}
+                            onChange={(e) => { setExPhone(e.target.value); clearError("phone"); }}
+                            placeholder="Registered phone number"
+                            className={errors.phone ? "border-destructive focus-visible:ring-destructive" : ""}
+                          />
+                          {errors.phone && <p className="text-xs text-destructive">{errors.phone}</p>}
+                        </div>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">Payout is sent to your exchange account using the selected identifier.</p>
+                  </div>
+                )}
+
+
+                {kind === "wallet_address" && (
+                  <div className="space-y-3 rounded-xl border border-border bg-muted/20 p-4">
+                    <div className="text-sm font-medium">Wallet destination</div>
+                    <div className="space-y-3">
+                      <div className="space-y-1.5">
+                        <Label htmlFor="chain" className="text-xs text-muted-foreground">Destination chain</Label>
+                        <select
+                          id="chain"
+                          value={walletChain}
+                          disabled={signing}
+                          onChange={(e) => { setWalletChain(e.target.value); clearError("chain"); }}
+                          className={`w-full rounded-md border bg-input px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${errors.chain ? "border-destructive" : "border-input"}`}
+                        >
+                          {CHAINS.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
+                        </select>
+                        {errors.chain && <p className="text-xs text-destructive">{errors.chain}</p>}
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="walletAddress" className="text-xs text-muted-foreground">Wallet address</Label>
+                        <Input
+                          id="walletAddress"
+                          value={walletAddress}
+                          disabled={signing}
+                          onChange={(e) => { setWalletAddress(e.target.value); clearError("address"); }}
+                          placeholder="Destination wallet address"
+                          className={`font-mono text-xs ${errors.address ? "border-destructive focus-visible:ring-destructive" : ""}`}
+                        />
+                        {errors.address && <p className="text-xs text-destructive">{errors.address}</p>}
+                      </div>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">Double-check the chain matches your address. Wrong-chain transfers cannot be recovered.</p>
+                  </div>
+                )}
+
+                {COMING_SOON.includes(kind) && (
+                  <div className="flex items-center gap-3 rounded-xl border border-accent/30 bg-accent/10 p-4 text-sm text-accent">
+                    <Clock className="h-4 w-4 shrink-0" />
+                    {kind === "upi" ? "UPI" : kind === "paypal" ? "PayPal" : "Bank"} withdrawals are coming soon.
+                  </div>
+                )}
+
+                <div className="space-y-2">
+                  <Label htmlFor="note" className="text-xs text-muted-foreground">Note <span className="text-muted-foreground/70">(optional)</span></Label>
+                  <textarea
+                    id="note"
+                    rows={2}
+                    value={note}
+                    disabled={signing}
+                    onChange={(e) => setNote(e.target.value)}
+                    className="w-full rounded-md border border-input bg-input px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
                   />
                 </div>
-                {errors.amount && <p className="text-xs text-destructive">{errors.amount}</p>}
-              </div>
 
-              <div className="rounded-xl border border-border bg-muted/30 p-4">
-                <div className="mb-3 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Payout summary</div>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Amount</span>
-                    <span className="font-medium">${amt.toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Withdrawal fee</span>
-                    <span className="font-medium text-destructive">- ${FEE.toFixed(2)}</span>
-                  </div>
-                  <Separator className="my-2" />
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Total debited</span>
-                    <span className="font-semibold">${totalDebit.toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-foreground">You receive</span>
-                    <span className="font-semibold text-primary">${net.toFixed(2)}</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <Label htmlFor="payout-method">Payout method</Label>
-                <Select
-                  value={kind}
-                  onValueChange={(v) => {
-                    if (COMING_SOON.includes(v as KindKey)) return;
-                    setKind(v as typeof kind);
-                    clearError("method");
-                    clearError("uid");
-                    clearError("email");
-                    clearError("phone");
-                    clearError("chain");
-                    clearError("address");
-                  }}
+                <Button
+                  type="submit"
+                  disabled={signing || available <= FEE || gated || !methodReady || COMING_SOON.includes(kind)}
+                  className="w-full py-5 text-base font-medium"
                 >
-                  <SelectTrigger id="payout-method" className="h-11">
-                    <SelectValue placeholder="Select a payout method" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {METHODS.map(({ k, label, icon: Icon }) => {
-                      const soon = COMING_SOON.includes(k);
-                      return (
-                        <SelectItem key={k} value={k} disabled={soon}>
-                          <span className="flex items-center gap-2">
-                            <Icon className="h-4 w-4 text-muted-foreground" />
-                            <span>{label}</span>
-                            {soon && (
-                              <Badge variant="secondary" className="h-4 px-1 text-[9px] font-medium uppercase">soon</Badge>
-                            )}
-                          </span>
-                        </SelectItem>
-                      );
-                    })}
-                  </SelectContent>
-                </Select>
-                {errors.method && <p className="text-xs text-destructive">{errors.method}</p>}
-              </div>
+                  {signing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                  {signing ? "Processing…" : "Review & withdraw"}
+                </Button>
+              </form>
 
-
-              {(kind === "binance" || kind === "bybit") && (
-                <div className="space-y-3 rounded-xl border border-border bg-muted/20 p-4">
-                  <div className="text-sm font-medium">{kind === "binance" ? "Binance" : "Bybit"} account details</div>
-                  <div className="space-y-3">
-                    <div className="space-y-1.5">
-                      <Label htmlFor="idType" className="text-xs text-muted-foreground">Identifier type</Label>
-                      <Select
-                        value={idType}
-                        onValueChange={(v) => {
-                          setIdType(v as "uid" | "email" | "phone");
-                          clearError("uid"); clearError("email"); clearError("phone");
-                        }}
-                      >
-                        <SelectTrigger id="idType" className="h-11">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="uid">UID</SelectItem>
-                          <SelectItem value="email">Registered email</SelectItem>
-                          <SelectItem value="phone">Registered phone number</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    {idType === "uid" && (
-                      <div className="space-y-1.5">
-                        <Label htmlFor="exUid" className="text-xs text-muted-foreground">{kind === "binance" ? "Binance" : "Bybit"} UID</Label>
-                        <Input
-                          id="exUid"
-                          value={exUid}
-                          onChange={(e) => { setExUid(e.target.value); clearError("uid"); }}
-                          placeholder={`${kind === "binance" ? "Binance" : "Bybit"} UID`}
-                          className={errors.uid ? "border-destructive focus-visible:ring-destructive" : ""}
-                        />
-                        {errors.uid && <p className="text-xs text-destructive">{errors.uid}</p>}
-                      </div>
-                    )}
-                    {idType === "email" && (
-                      <div className="space-y-1.5">
-                        <Label htmlFor="exEmail" className="text-xs text-muted-foreground">Registered email</Label>
-                        <Input
-                          id="exEmail"
-                          type="email"
-                          value={exEmail}
-                          onChange={(e) => { setExEmail(e.target.value); clearError("email"); }}
-                          placeholder="Registered email"
-                          className={errors.email ? "border-destructive focus-visible:ring-destructive" : ""}
-                        />
-                        {errors.email && <p className="text-xs text-destructive">{errors.email}</p>}
-                      </div>
-                    )}
-                    {idType === "phone" && (
-                      <div className="space-y-1.5">
-                        <Label htmlFor="exPhone" className="text-xs text-muted-foreground">Registered phone number</Label>
-                        <Input
-                          id="exPhone"
-                          value={exPhone}
-                          onChange={(e) => { setExPhone(e.target.value); clearError("phone"); }}
-                          placeholder="Registered phone number"
-                          className={errors.phone ? "border-destructive focus-visible:ring-destructive" : ""}
-                        />
-                        {errors.phone && <p className="text-xs text-destructive">{errors.phone}</p>}
-                      </div>
-                    )}
-                  </div>
-                  <p className="text-[11px] text-muted-foreground">Payout is sent to your exchange account using the selected identifier.</p>
+              {signing && (
+                <div className="absolute inset-0 z-10 flex flex-col items-center justify-center rounded-2xl bg-card/60 backdrop-blur-sm">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                  <p className="mt-3 text-sm font-medium text-foreground">Submitting withdrawal…</p>
+                  <p className="text-xs text-muted-foreground">Please do not close or refresh this page.</p>
                 </div>
               )}
-
-
-              {kind === "wallet_address" && (
-                <div className="space-y-3 rounded-xl border border-border bg-muted/20 p-4">
-                  <div className="text-sm font-medium">Wallet destination</div>
-                  <div className="space-y-3">
-                    <div className="space-y-1.5">
-                      <Label htmlFor="chain" className="text-xs text-muted-foreground">Destination chain</Label>
-                      <select
-                        id="chain"
-                        value={walletChain}
-                        onChange={(e) => { setWalletChain(e.target.value); clearError("chain"); }}
-                        className={`w-full rounded-md border bg-input px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${errors.chain ? "border-destructive" : "border-input"}`}
-                      >
-                        {CHAINS.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
-                      </select>
-                      {errors.chain && <p className="text-xs text-destructive">{errors.chain}</p>}
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label htmlFor="walletAddress" className="text-xs text-muted-foreground">Wallet address</Label>
-                      <Input
-                        id="walletAddress"
-                        value={walletAddress}
-                        onChange={(e) => { setWalletAddress(e.target.value); clearError("address"); }}
-                        placeholder="Destination wallet address"
-                        className={`font-mono text-xs ${errors.address ? "border-destructive focus-visible:ring-destructive" : ""}`}
-                      />
-                      {errors.address && <p className="text-xs text-destructive">{errors.address}</p>}
-                    </div>
-                  </div>
-                  <p className="text-[11px] text-muted-foreground">Double-check the chain matches your address. Wrong-chain transfers cannot be recovered.</p>
-                </div>
-              )}
-
-              {COMING_SOON.includes(kind) && (
-                <div className="flex items-center gap-3 rounded-xl border border-accent/30 bg-accent/10 p-4 text-sm text-accent">
-                  <Clock className="h-4 w-4 shrink-0" />
-                  {kind === "upi" ? "UPI" : kind === "paypal" ? "PayPal" : "Bank"} withdrawals are coming soon.
-                </div>
-              )}
-
-              <div className="space-y-2">
-                <Label htmlFor="note" className="text-xs text-muted-foreground">Note <span className="text-muted-foreground/70">(optional)</span></Label>
-                <textarea
-                  id="note"
-                  rows={2}
-                  value={note}
-                  onChange={(e) => setNote(e.target.value)}
-                  className="w-full rounded-md border border-input bg-input px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                />
-              </div>
-
-              <Button
-                type="submit"
-                disabled={signing || available <= FEE || gated || !methodReady || COMING_SOON.includes(kind)}
-                className="w-full py-5 text-base font-medium"
-              >
-                {signing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                {signing ? "Processing…" : "Review & withdraw"}
-              </Button>
-            </form>
+            </div>
           </div>
         </div>
 
