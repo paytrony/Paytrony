@@ -58,6 +58,59 @@ export type Database = {
         }
         Relationships: []
       }
+      payment_intents: {
+        Row: {
+          address: string
+          chain: string
+          created_at: string
+          expected_amount: number
+          expires_at: string
+          id: string
+          paid_at: string | null
+          purchase_id: string | null
+          status: Database["public"]["Enums"]["payment_intent_status"]
+          tier: number
+          tx_hash: string | null
+          user_id: string
+        }
+        Insert: {
+          address: string
+          chain?: string
+          created_at?: string
+          expected_amount: number
+          expires_at: string
+          id?: string
+          paid_at?: string | null
+          purchase_id?: string | null
+          status?: Database["public"]["Enums"]["payment_intent_status"]
+          tier: number
+          tx_hash?: string | null
+          user_id: string
+        }
+        Update: {
+          address?: string
+          chain?: string
+          created_at?: string
+          expected_amount?: number
+          expires_at?: string
+          id?: string
+          paid_at?: string | null
+          purchase_id?: string | null
+          status?: Database["public"]["Enums"]["payment_intent_status"]
+          tier?: number
+          tx_hash?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_intents_purchase_id_fkey"
+            columns: ["purchase_id"]
+            isOneToOne: false
+            referencedRelation: "purchases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       payout_methods: {
         Row: {
           created_at: string
@@ -337,6 +390,12 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "user"
+      payment_intent_status:
+        | "pending"
+        | "paid"
+        | "expired"
+        | "cancelled"
+        | "failed"
       payout_method_kind:
         | "bank"
         | "upi"
@@ -475,6 +534,13 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "user"],
+      payment_intent_status: [
+        "pending",
+        "paid",
+        "expired",
+        "cancelled",
+        "failed",
+      ],
       payout_method_kind: [
         "bank",
         "upi",
