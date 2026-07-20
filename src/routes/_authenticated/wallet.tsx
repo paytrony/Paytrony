@@ -168,7 +168,7 @@ function WalletPage() {
         ) : (
           <ul className="divide-y divide-border">
             {txns.slice(0, 25).map((t) => {
-              const isCredit = t.type === "referral_credit";
+              const isCredit = CREDIT_TYPES.has(t.type);
               return (
                 <li key={t.id} className="flex items-center justify-between px-6 py-3 text-sm">
                   <div className="flex items-center gap-3">
