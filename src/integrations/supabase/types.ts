@@ -367,6 +367,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_paytrony_admin: { Args: { _user_id: string }; Returns: boolean }
       mark_notifications_read: {
         Args: { _category: string }
         Returns: undefined
