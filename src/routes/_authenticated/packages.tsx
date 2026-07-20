@@ -210,7 +210,7 @@ function Packages() {
 
           {status === "pending" && method === "chooser" && openTier !== null && (
             <div className="space-y-2">
-              {METHOD_TILES.map((tile) => {
+              {tiles.map((tile) => {
                 const Icon = tile.icon;
                 return (
                   <button
