@@ -25,7 +25,7 @@ export const Route = createFileRoute("/_authenticated/mining")({
   component: MiningPage,
 });
 
-const RATES: Record<number, number> = { 10: 1.2, 50: 5.2, 100: 11.2 };
+// Rates below scale with referrals. RATES is computed from user's referral count.
 
 type Claim = { id: string; amount: number; tiers: number[]; created_at: string };
 
