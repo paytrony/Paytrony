@@ -440,7 +440,7 @@ function MiningPage() {
       </div>
 
       <AlertDialog open={confirmOpen} onOpenChange={(open) => { if (!mining) setConfirmOpen(open); }}>
-        <AlertDialogContent onPointerDownOutside={(e) => { if (mining) e.preventDefault(); }}>
+        <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Confirm mining claim</AlertDialogTitle>
             <AlertDialogDescription>
