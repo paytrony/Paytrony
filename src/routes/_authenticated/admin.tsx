@@ -17,11 +17,27 @@ import { explorerTxUrl, chainLabel } from "@/lib/explorers";
 import { ExternalLink } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/admin")({
-  beforeLoad: async ({ context }) => {
-    const { data } = await supabase.from("user_roles").select("role")
-      .eq("user_id", context.user.id).eq("role", "admin");
-    if (!data || data.length === 0) throw redirect({ to: "/dashboard" });
+  loader: async () => {
+    // Re-check on every visit using the freshest session, so newly-granted
+    // admins get in without signing out and back in.
+    const { data: userData } = await supabase.auth.getUser();
+    const uid = userData.user?.id;
+    if (!uid) throw redirect({ to: "/auth" });
+    const { data, error } = await supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", uid)
+      .eq("role", "admin")
+      .maybeSingle();
+    if (error || !data) throw redirect({ to: "/dashboard" });
+    return null;
   },
+  shouldReload: true,
+  errorComponent: ({ error }) => (
+    <div className="rounded-md border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive">
+      {error instanceof Error ? error.message : "Failed to load admin"}
+    </div>
+  ),
   component: Admin,
 });
 
