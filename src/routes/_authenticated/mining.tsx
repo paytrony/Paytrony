@@ -607,6 +607,8 @@ function MonthlyPayoutCalculator({ ownedTiers, refCount }: { ownedTiers: number[
       </div>
 
       <PayoutChart tiers={tiersToShow} rates={rates} refs={refs} />
+
+      <ThirtyDayProjection tiers={tiersToShow} rates={rates} refs={refs} />
     </div>
   );
 }
