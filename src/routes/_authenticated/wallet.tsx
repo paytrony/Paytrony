@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Wallet as WalletIcon, ArrowDownToLine, TrendingUp, Users, Receipt, Pickaxe } from "lucide-react";
 import { buildMiningTransferIdempotencyKey } from "@/lib/mining-transfer-idempotency";
+import { fetchWalletBalance, EMPTY_WALLET_BALANCE, type WalletBalance } from "@/lib/wallet-balance";
 
 export const Route = createFileRoute("/_authenticated/wallet")({
   head: () => ({
@@ -28,25 +29,25 @@ type Txn = {
 function WalletPage() {
   const { user } = Route.useRouteContext();
   const [txns, setTxns] = useState<Txn[]>([]);
-  const [pending, setPending] = useState(0);
+  const [wallet, setWallet] = useState<WalletBalance>(EMPTY_WALLET_BALANCE);
   const [refCount, setRefCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [flash, setFlash] = useState(false);
   const [transferring, setTransferring] = useState(false);
 
   async function reload(flashOnDone = false) {
-    const [{ data: t }, { data: w }, { data: refs }] = await Promise.all([
+    const [{ data: t }, { data: refs }, wb] = await Promise.all([
       supabase
         .from("wallet_transactions")
         .select("id, amount, type, note, created_at, related_purchase_id, related_withdrawal_id")
         .eq("user_id", user.id)
         .order("created_at", { ascending: false })
         .limit(100),
-      supabase.from("withdrawals").select("amount").eq("user_id", user.id).eq("status", "pending"),
       supabase.rpc("get_referred_users"),
+      fetchWalletBalance().catch(() => EMPTY_WALLET_BALANCE),
     ]);
     setTxns((t ?? []) as Txn[]);
-    setPending((w ?? []).reduce((s, r: any) => s + Number(r.amount), 0));
+    setWallet(wb);
     setRefCount((refs ?? []).length);
     setLoading(false);
     if (flashOnDone) {
@@ -76,23 +77,15 @@ function WalletPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user.id]);
 
-  // Wallet balance = referral_credit + mining_transfer − withdrawal.
-  // Raw mining_reward stays in the mining bucket until the user transfers it.
   const WALLET_CREDIT_TYPES = new Set(["referral_credit", "mining_transfer"]);
-  const totalEarned = txns
-    .filter((t) => t.type === "referral_credit")
-    .reduce((s, t) => s + Number(t.amount), 0);
-  const walletCredits = txns
-    .filter((t) => WALLET_CREDIT_TYPES.has(t.type))
-    .reduce((s, t) => s + Number(t.amount), 0);
-  const withdrawn = txns
-    .filter((t) => t.type === "withdrawal")
-    .reduce((s, t) => s + Number(t.amount), 0);
-  const miningEarned = txns.filter((t) => t.type === "mining_reward").reduce((s, t) => s + Number(t.amount), 0);
-  const miningTransferred = txns.filter((t) => t.type === "mining_transfer").reduce((s, t) => s + Number(t.amount), 0);
-  const miningAvailable = Math.max(0, miningEarned - miningTransferred);
-  const balance = walletCredits - withdrawn;
-  const available = balance - pending;
+  const totalEarned = wallet.referral_credits;
+  const withdrawn = wallet.withdrawals;
+  const miningEarned = wallet.mining_earned;
+  const miningTransferred = wallet.mining_transferred;
+  const miningAvailable = wallet.mining_available;
+  const balance = wallet.balance;
+  const available = wallet.available;
+  const pending = wallet.pending;
 
   return (
     <div className="space-y-8">
