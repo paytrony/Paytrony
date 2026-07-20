@@ -1,72 +1,40 @@
-## Goal
+## Add package benefits so users see value before buying
 
-Expand the existing `/admin` page (currently just Withdrawals + Users) with a **Payments & Intents** management surface plus richer dashboard stats. Access stays gated by the existing `admin` role in `user_roles` (paytrony@gmail.com already gets it automatically at signup via `handle_new_user`).
+### Shared benefits data
+Create `src/lib/tier-benefits.ts` exporting a typed `TIER_BENEFITS` map keyed by tier (10/50/100). Both the landing page and the buy flow import from here so copy stays consistent.
 
-## Scope
+Default copy (editable):
 
-### 1. Admin dashboard — Overview tab (new default)
-Top of `/admin`, before existing tabs. KPI cards:
-- Total users, users joined last 7d
-- Total purchases $ (all-time + last 7d) and count by tier ($10/$50/$100)
-- Total payment intents by status (pending / paid / expired / failed)
-- Total withdrawals paid $ (all-time + last 7d), pending count
-- Wallet float (sum of credits − debits across all users)
-- Referral credits distributed $
+**$10 Starter**
+- Instant NFT mint on Tier 10
+- 100% referral payout ($10) to your inviter, credited instantly
+- Unlock your own referral link to start earning
+- Withdraw anytime, flat $1 fee
+- Pay with USDT (Tron), USDC (Solana), or any EVM wallet
 
-Data pulled via a single new server function `getAdminOverview` (`requireSupabaseAuth` + role check → `supabaseAdmin` aggregate queries).
+**$50 Pro** *(most popular)*
+- Everything in Starter, upgraded Tier 50 NFT
+- 5× higher referral earnings — $50 per invited Pro
+- Priority listing on the upcoming marketplace
+- Real-time wallet + email alerts on every credit
+- Idempotent, webhook-confirmed payments
 
-### 2. Payments & Intents tab (new)
-Table of `payment_intents` (newest first, paginated 50/page) with columns:
-- Created, user email, tier, method (trc20/evm/spl/stripe) + chain, expected amount, status, tx hash (link to explorer per chain), linked purchase id.
+**$100 Elite**
+- Top-tier Elite NFT with premium art
+- Maximum $100 per referral, instant payout
+- Early access to marketplace resale (coming soon)
+- Highest visibility across leaderboards
+- Priority support on withdrawals & disputes
 
-Filters: status (pending/paid/expired/failed), method, search by user email / tx hash / intent id.
+### Where they appear
 
-Row actions (admin-only):
-- **View details** — side panel: full intent JSON, from_address, timestamps, related purchase + ledger entries.
-- **Mark paid manually** — for stuck intents: calls `purchase_package` with idempotency key `intent:<id>`, then updates intent `status='paid'`, `paid_at=now()`, optional manual `tx_hash` note. Requires confirm modal.
-- **Expire** — set `status='expired'` if still pending (safety cleanup).
-- **Copy address / tx hash**.
+1. **Landing page (`src/routes/index.tsx`)** — under each tier card price/description, render a compact bullet list (check icon + text) using existing tier accent colors. Keep card height balanced; Pro card gets a small "Most popular" ribbon.
 
-All actions go through a new server function `adminPaymentIntentAction` (auth + admin role verified, then `supabaseAdmin`).
+2. **Packages page (`src/routes/_authenticated/packages.tsx`)** — under each `TIERS` card, add the same bullet list above the "Mint $X" button so users review benefits before opening the payment modal.
 
-### 3. Expanded Users tab
-Add to existing table:
-- Search by email / referral code.
-- Column: wallet balance (credits − debits).
-- Column: purchases count.
-- Row action: **Grant/revoke admin** (insert/delete in `user_roles`) — hidden for self.
-- Row action: **View purchases & intents** (opens the Payments tab prefiltered by user).
+3. **Payment modal (chooser step)** — at the top of the "Choose how to pay $X" step, show a compact 3-line recap of the top benefits for the selected tier (title + 3 bullets max) so the value is visible right before payment method selection. Hidden once the user picks a method (to keep QR/wallet UI focused).
 
-Server function: `adminSetUserRole` (admin-only).
-
-### 4. Existing Withdrawals tab
-Kept as-is; only add the same email-search filter.
-
-## Technical layout
-
-### New / changed files
-- `src/routes/_authenticated/admin.tsx` — refactor into tabs: `Overview | Payments | Withdrawals | Users`.
-- `src/components/admin/` — split each tab into its own component (`OverviewTab.tsx`, `PaymentsTab.tsx`, `UsersTab.tsx`, `WithdrawalsTab.tsx`, `IntentDetailsSheet.tsx`).
-- `src/lib/admin.functions.ts` — new server functions:
-  - `getAdminOverview()` — KPI aggregates
-  - `listPaymentIntents({ status?, method?, search?, userId?, cursor })`
-  - `adminPaymentIntentAction({ intentId, action: 'mark_paid' | 'expire', note? })`
-  - `listAdminUsers({ search?, cursor })` — joins wallet balance + purchase count
-  - `adminSetUserRole({ userId, role, grant })`
-  Each: `.middleware([requireSupabaseAuth])` + verify caller has `admin` via `context.supabase.rpc('has_role')` before dynamically importing `supabaseAdmin`.
-
-### Database
-No schema changes required — reads existing `payment_intents`, `purchases`, `wallet_transactions`, `profiles`, `user_roles`, `withdrawals`.
-
-One new SQL migration for a helper RPC:
-- `admin_mark_intent_paid(_intent_id uuid, _tx_hash text)` — `SECURITY DEFINER`, verifies caller is admin via `has_role(auth.uid(),'admin')`, calls `purchase_package` with idempotency `intent:<id>`, updates the intent row. Keeps the credit path identical to the webhook path.
-
-### Explorer link map
-Reuse existing chain→explorer mapping from `WalletConnectPay.tsx`; extract into `src/lib/explorers.ts` so both the checkout component and the admin table import it.
-
-## Out of scope (ask again if wanted)
-- KYC approval queue (already covered by `resolve_kyc` RPC but no UI).
-- Refunds / partial reversals.
-- Analytics charts over time (only current totals).
-- Editing withdrawal limits or tier prices.
-- Auditing table for admin actions.
+### Technical notes
+- Pure presentation change — no schema, no server functions, no business logic touched.
+- Use `lucide-react` `Check` icon already available; style via existing semantic tokens (`text-primary`, `text-accent`, `text-muted-foreground`) — no hardcoded colors.
+- Reuse existing card borders/glow classes for tier accenting; no new design tokens needed.
