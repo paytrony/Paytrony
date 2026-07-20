@@ -42,13 +42,18 @@ type Tile = {
   disabledHint?: string;
 };
 
-const METHOD_TILES: Tile[] = [
-  { id: "tron", label: "Binance / Bybit QR", subtitle: "USDT on Tron (TRC20)", fee: "≈ $1 fee · ~30s", icon: QrCode },
-  { id: "metamask", label: "MetaMask", subtitle: "USDT/USDC on BSC, Polygon, Arbitrum, Optimism, Base, ETH", fee: "gas ≈ $0.01–2", icon: Wallet },
-  { id: "walletconnect", label: "WalletConnect", subtitle: "Trust, Rainbow, any mobile wallet", fee: "Setup required", icon: Smartphone, disabled: true, disabledHint: "Add VITE_WALLETCONNECT_PROJECT_ID to enable" },
-  { id: "solana", label: "Solana Pay", subtitle: "USDC on Solana (Phantom, Solflare)", fee: "Setup required", icon: Zap, disabled: true, disabledHint: "Add SOLANA_USDC_ADDRESS to enable" },
-  { id: "card", label: "Credit / Debit card", subtitle: "Visa, Mastercard, Amex via Stripe", fee: "Setup required", icon: CreditCard, disabled: true, disabledHint: "Enable Stripe payments to activate" },
-];
+function buildTiles(cfg: { walletConnectProjectId: string | null; solanaEnabled: boolean; stripeEnabled: boolean } | undefined): Tile[] {
+  const wcOn = !!cfg?.walletConnectProjectId;
+  const solOn = !!cfg?.solanaEnabled;
+  const stripeOn = !!cfg?.stripeEnabled;
+  return [
+    { id: "tron", label: "Binance / Bybit QR", subtitle: "USDT on Tron (TRC20)", fee: "gas ≈ $1 · ~30s", icon: QrCode },
+    { id: "metamask", label: "MetaMask", subtitle: "USDT/USDC on BSC, Polygon, Arbitrum, Optimism, Base, ETH", fee: "gas ≈ $0.01–2", icon: Wallet },
+    { id: "solana", label: "Solana Pay", subtitle: "USDC on Solana (Phantom, Solflare, Backpack)", fee: solOn ? "gas < $0.01" : "Setup required", icon: Zap, disabled: !solOn, disabledHint: "Site owner: set SOLANA_USDC_ADDRESS" },
+    { id: "walletconnect", label: "WalletConnect", subtitle: "Trust, Rainbow, any mobile wallet", fee: wcOn ? "gas ≈ chain fee" : "Coming soon", icon: Smartphone, disabled: true, disabledHint: wcOn ? "WalletConnect UI coming shortly" : "Site owner: set WALLETCONNECT_PROJECT_ID" },
+    { id: "card", label: "Credit / Debit card", subtitle: "Visa, Mastercard, Amex via Stripe", fee: stripeOn ? "2.9% + 30¢" : "Coming soon", icon: CreditCard, disabled: true, disabledHint: stripeOn ? "Card checkout coming shortly" : "Enable Stripe payments to activate" },
+  ];
+}
 
 function Packages() {
   const createIntent = useServerFn(createPaymentIntent);
