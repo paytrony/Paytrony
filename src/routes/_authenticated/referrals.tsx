@@ -65,7 +65,7 @@ function ReferralsPage() {
     .sort((a, b) => b.earned - a.earned)
     .slice(0, 5);
 
-  const referralUrl = profile ? `${typeof window !== "undefined" ? window.location.origin : ""}/auth?mode=signup&ref=${profile.referral_code}` : "";
+  const referralUrl = buildInviteUrl(profile?.referral_code);
 
   return (
     <div className="space-y-8">

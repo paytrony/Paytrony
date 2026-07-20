@@ -57,7 +57,7 @@ function Dashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user.id]);
 
-  const referralUrl = profile ? `${typeof window !== "undefined" ? window.location.origin : ""}/auth?mode=signup&ref=${profile.referral_code}` : "";
+  const referralUrl = buildInviteUrl(profile?.referral_code);
   const available = balance - pending;
 
   return (
