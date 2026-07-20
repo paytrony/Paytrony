@@ -29,7 +29,7 @@ export const Route = createFileRoute("/_authenticated/withdraw")({
 
 const FEE = 1;
 
-type W = { id: string; amount: number; status: string; payout_note: string | null; admin_note: string | null; created_at: string; resolved_at: string | null };
+type W = { id: string; amount: number; status: string; payout_note: string | null; admin_note: string | null; created_at: string; resolved_at: string | null; tx_hash: string | null };
 type Limits = { min_amount: number; daily_cap: number; cooldown_minutes: number };
 type KindKey = "binance" | "bybit" | "wallet_address" | "upi" | "paypal" | "bank";
 
