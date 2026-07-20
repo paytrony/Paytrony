@@ -284,9 +284,9 @@ function Withdraw() {
   return (
     <div className="mx-auto max-w-6xl space-y-8">
       <div className="flex flex-col gap-2">
-        <h1 className="text-3xl font-bold tracking-tight">Instant Withdraw</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Request Withdrawal</h1>
         <p className="text-muted-foreground">
-          Payouts settle instantly to your chosen method. A flat <span className="font-medium text-foreground">${FEE} fee</span> applies to every withdrawal.
+          Withdrawals are reviewed and approved by an admin, typically within <span className="font-medium text-foreground">24 hours</span>. A flat <span className="font-medium text-foreground">${FEE} fee</span> applies to every withdrawal.
         </p>
       </div>
 
