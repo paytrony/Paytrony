@@ -73,14 +73,22 @@ function WalletPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user.id]);
 
-  const CREDIT_TYPES = new Set(["referral_credit", "mining_reward"]);
+  // Wallet balance = referral_credit + mining_transfer − withdrawal.
+  // Raw mining_reward stays in the mining bucket until the user transfers it.
+  const WALLET_CREDIT_TYPES = new Set(["referral_credit", "mining_transfer"]);
   const totalEarned = txns
-    .filter((t) => CREDIT_TYPES.has(t.type))
+    .filter((t) => t.type === "referral_credit")
     .reduce((s, t) => s + Number(t.amount), 0);
-  const totalSpent = txns
-    .filter((t) => !CREDIT_TYPES.has(t.type))
+  const walletCredits = txns
+    .filter((t) => WALLET_CREDIT_TYPES.has(t.type))
     .reduce((s, t) => s + Number(t.amount), 0);
-  const balance = totalEarned - totalSpent;
+  const withdrawn = txns
+    .filter((t) => t.type === "withdrawal")
+    .reduce((s, t) => s + Number(t.amount), 0);
+  const miningEarned = txns.filter((t) => t.type === "mining_reward").reduce((s, t) => s + Number(t.amount), 0);
+  const miningTransferred = txns.filter((t) => t.type === "mining_transfer").reduce((s, t) => s + Number(t.amount), 0);
+  const miningAvailable = Math.max(0, miningEarned - miningTransferred);
+  const balance = walletCredits - withdrawn;
   const available = balance - pending;
 
   return (
