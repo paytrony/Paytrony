@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Wallet as WalletIcon, ArrowDownToLine, TrendingUp, Users, Receipt, Pickaxe } from "lucide-react";
+import { buildMiningTransferIdempotencyKey } from "@/lib/mining-transfer-idempotency";
 
 export const Route = createFileRoute("/_authenticated/wallet")({
   head: () => ({
@@ -176,7 +177,8 @@ function WalletPage() {
               if (transferring || miningAvailable <= 0) return;
               setTransferring(true);
               try {
-                const { error } = await supabase.rpc("transfer_mining_to_wallet", { _amount: miningAvailable });
+                const idempotencyKey = buildMiningTransferIdempotencyKey({ userId: user.id, amount: miningAvailable });
+                const { error } = await supabase.rpc("transfer_mining_to_wallet", { _amount: miningAvailable, _idempotency_key: idempotencyKey });
                 if (error) throw error;
                 toast.success(`Transferred $${miningAvailable.toFixed(2)} to your wallet`);
                 await reload(true);

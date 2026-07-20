@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { buildMiningTransferIdempotencyKey } from "@/lib/mining-transfer-idempotency";
 
 
 
@@ -89,7 +90,9 @@ function Dashboard() {
     if (transferring || miningAvailable <= 0) return;
     setTransferring(true);
     try {
-      const { error } = await supabase.rpc("transfer_mining_to_wallet", { _amount: miningAvailable });
+      const userId = (await supabase.auth.getUser()).data.user?.id ?? "";
+      const idempotencyKey = buildMiningTransferIdempotencyKey({ userId, amount: miningAvailable });
+      const { error } = await supabase.rpc("transfer_mining_to_wallet", { _amount: miningAvailable, _idempotency_key: idempotencyKey });
       if (error) throw error;
       toast.success(`Transferred $${miningAvailable.toFixed(2)} to your wallet`);
       await reload();

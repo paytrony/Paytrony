@@ -271,6 +271,7 @@ export type Database = {
           amount: number
           created_at: string
           id: string
+          idempotency_key: string | null
           note: string | null
           related_purchase_id: string | null
           related_withdrawal_id: string | null
@@ -281,6 +282,7 @@ export type Database = {
           amount: number
           created_at?: string
           id?: string
+          idempotency_key?: string | null
           note?: string | null
           related_purchase_id?: string | null
           related_withdrawal_id?: string | null
@@ -291,6 +293,7 @@ export type Database = {
           amount?: number
           created_at?: string
           id?: string
+          idempotency_key?: string | null
           note?: string | null
           related_purchase_id?: string | null
           related_withdrawal_id?: string | null
@@ -448,7 +451,11 @@ export type Database = {
           }
       test_e2e_flow: { Args: never; Returns: string }
       test_evm_webhook_flow: { Args: never; Returns: string }
-      transfer_mining_to_wallet: { Args: { _amount: number }; Returns: Json }
+      test_mining_transfer_idempotency: { Args: never; Returns: string }
+      transfer_mining_to_wallet: {
+        Args: { _amount: number; _idempotency_key?: string }
+        Returns: Json
+      }
     }
     Enums: {
       app_role: "admin" | "user"
