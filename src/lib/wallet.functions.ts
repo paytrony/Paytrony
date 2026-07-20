@@ -64,6 +64,7 @@ export const resolveWithdrawal = createServerFn({ method: "POST" })
       _withdrawal_id: data.withdrawalId,
       _approve: data.approve,
       _admin_note: data.adminNote,
+      _tx_hash: data.txHash,
     });
     if (error) throw new Error(error.message);
     return { ok: true };
