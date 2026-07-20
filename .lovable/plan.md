@@ -1,69 +1,50 @@
+## Goal
 
-# Real USDT payments (Binance/Bybit-scannable QR)
+Let users pay for a $10 / $50 / $100 package by connecting MetaMask and sending USDT on BSC, Ethereum, or Polygon — in addition to the existing USDT-TRC20 QR flow. Receiving address: `0xEaad65C5c22AC57DAA4dEEB4458370Dd723b933c`.
 
-Both Binance Pay and Bybit Pay require registered merchant accounts and business KYB — not realistic for a quick launch. Instead, we'll use a **plain USDT wallet address** that any Binance, Bybit, Trust Wallet, MetaMask, etc. user can scan and pay. To auto-detect payments, we assign a **unique micro-amount** per order (e.g. $10.0037) and poll the chain for a matching incoming transfer.
+## User flow
 
-## Chain choice: USDT-TRC20 (Tron)
+1. On `/packages`, "Buy" opens the checkout modal with two tabs: **Scan QR (Tron)** and **MetaMask (EVM)**.
+2. MetaMask tab: user picks chain (BSC / Ethereum / Polygon), clicks **Connect Wallet**, then **Pay $X USDT**.
+3. App creates a payment intent (unique cents to disambiguate), asks MetaMask to switch/add the chain if needed, then triggers a USDT `transfer(to, amount)` call.
+4. Once MetaMask returns a tx hash, the app saves it on the intent and polls the chain's RPC/explorer for confirmation.
+5. On confirmation → mark intent paid → run `purchase_package` RPC → success screen and wallet credit, same as the Tron path.
 
-- Fees ~$1, confirms in ~1 min.
-- Free public indexer: **TronGrid** (no signup needed; free API key raises rate limit).
-- Both Binance and Bybit withdraw USDT-TRC20 by default.
-- (We can add BEP20/Polygon later; each needs its own indexer.)
+## Data changes (one migration)
 
-## What you'll need to provide
+Extend `payment_intents` to support EVM:
+- Add columns: `method text not null default 'trc20'` (values: `trc20`, `evm`), `evm_chain text null` (`bsc` | `eth` | `polygon`), `from_address text null`.
+- Loosen the unique-pending-amount index to be scoped by `(method, chain/evm_chain, address, expected_amount)` so Tron and each EVM chain don't collide.
+- Keep existing RLS and grants.
 
-1. **A USDT-TRC20 receiving wallet address** — create one in Binance ("Deposit → USDT → TRC20"), Bybit, or Trust Wallet. You'll paste this as a secret (`USDT_TRC20_ADDRESS`).
-2. **(Optional) A free TronGrid API key** from trongrid.io — pasted as `TRONGRID_API_KEY` (skippable; falls back to public endpoint with lower rate limit).
+## Server functions (`src/lib/payments.functions.ts`)
 
-I'll walk you through both when we get there.
+Add EVM siblings to the Tron functions:
+- `createEvmPaymentIntent({ tier, chain })` — allocates unique amount, stores `method='evm'`, `evm_chain`, returns `{ id, chainId, usdtContract, to, expectedAmount, expiresAt }`.
+- `submitEvmTxHash({ id, txHash, fromAddress })` — records the tx hash on the intent (status stays `pending`) so a background sweep can also settle it.
+- `checkEvmPaymentIntent({ id })` — queries the chain's public RPC (`eth_getTransactionReceipt` + parse USDT `Transfer` log) via a public endpoint per chain; on match to `(to, expectedAmount)` with ≥ N confirmations, mark paid and run `purchase_package` with `intent:<id>` idempotency key.
 
-## Flow
+Chain config (hardcoded constants):
+- BSC: chainId `0x38`, USDT `0x55d398326f99059fF775485246999027B3197955` (18 decimals), RPC `https://bsc-dataseed.binance.org`.
+- Ethereum: chainId `0x1`, USDT `0xdAC17F958D2ee523a2206206994597C13D831ec7` (6 decimals), RPC `https://ethereum-rpc.publicnode.com`.
+- Polygon: chainId `0x89`, USDT `0xc2132D05D31c914a87C6611C10748AEb04B58e8F` (6 decimals), RPC `https://polygon-rpc.com`.
 
-```
-User clicks Mint  →  server creates `payment_intents` row
-                     (user_id, tier, expected_amount = 10 + random cents,
-                      address, expires_at = now + 20min, status='pending')
-                  →  modal opens with QR of tron:<addr>?amount=<expected>
-                     + copy buttons + countdown timer
-Client polls every 5s  →  server fn queries TronGrid for TRC20 transfers
-                          to our address in the last 25min matching
-                          expected_amount exactly (and not yet consumed
-                          by another intent)
-Match found  →  intent → 'paid', tx_hash stored, purchase_package RPC
-                fires with intent id as idempotency key  →  NFT minted,
-                referral credit paid, modal shows success
-Timer expires with no match  →  intent → 'expired', user can retry
-```
+Receiving address `0xEaad65…933c` hardcoded (no new secret needed; matches the user's request). Public RPCs used first; if we later want reliability we can add an Alchemy/Infura key.
 
-## Build steps
+## Frontend
 
-1. **DB migration** — new tables + grants + RLS:
-   - `payment_intents(id, user_id, tier, expected_amount, address, chain, tx_hash, status, created_at, expires_at)` — status: pending/paid/expired/failed. Unique index on `(status, expected_amount)` where pending, so two intents never share an amount at the same time.
-   - Amount generator picks base + random `$0.0001–$0.0099` and retries on collision.
-   - RLS: users read/insert their own intents; only server writes status.
-2. **Server functions** (`src/lib/payments.functions.ts`):
-   - `createPaymentIntent({ tier })` — allocates unique amount, returns intent + QR payload.
-   - `checkPaymentIntent({ id })` — polls TronGrid (`/v1/accounts/{addr}/transactions/trc20`), matches amount + timestamp window, marks paid, calls `purchase_package` RPC with `idempotency_key = "intent:<id>"`. Idempotent — safe to poll.
-   - `cancelPaymentIntent({ id })` — user-initiated cancel.
-3. **Public webhook route** (`src/routes/api/public/tron-tick.ts`) — optional cron endpoint that sweeps recent transfers server-side (belt-and-suspenders in case the user closes the tab). Called by pg_cron every minute; verified via `CRON_SECRET`.
-4. **Checkout UI** (rework `packages.tsx`):
-   - Replace instant mint with a "Pay $X.XXXX USDT (TRC20)" modal.
-   - Renders QR (via `qrcode` package) of `tron:<addr>?amount=<expected>` + copy buttons for address and exact amount.
-   - Countdown timer, live status polling, "I've paid" nudge, "Cancel" button.
-   - Success → toast + redirect to `/nfts`. Expiry → show retry.
-5. **Secrets** — `secrets--add_secret` for `USDT_TRC20_ADDRESS`, `TRONGRID_API_KEY` (optional), `CRON_SECRET`.
-6. **Docs** — quick README explaining how to set up the receiving wallet + how refunds work (manual — user contacts support if amount mismatch).
+- `src/routes/_authenticated/packages.tsx`: convert existing checkout dialog into a tabbed dialog (`Tron QR` | `MetaMask`).
+- New component `src/components/checkout/MetaMaskPay.tsx`:
+  - Detect `window.ethereum`; if missing, show install-MetaMask CTA (link to metamask.io).
+  - Chain selector (BSC default — cheap fees).
+  - "Connect Wallet" → `eth_requestAccounts`.
+  - "Pay $X USDT" → call `createEvmPaymentIntent`, then `wallet_switchEthereumChain` (with `wallet_addEthereumChain` fallback), then `eth_sendTransaction` to the USDT contract with ABI-encoded `transfer(to, amount)` (amount = expected × 10^decimals).
+  - On hash: call `submitEvmTxHash`, then poll `checkEvmPaymentIntent` every 5s until `paid` or `expired`; show status with block explorer link.
+- No new npm deps — use raw `window.ethereum` + hand-rolled ABI encoding (function selector `0xa9059cbb` + padded address + padded amount). Keeps bundle small.
 
-## Trade-offs to be aware of
+## Notes / non-goals
 
-- **Amount matching is fragile if two users pay the exact same overall amount within the window** — the unique-cents scheme + DB unique index prevents this.
-- **Under/overpayment** = no auto-match; you handle manually. UI warns users to send the exact amount.
-- **Network fees** are paid by the buyer's wallet, not you. Binance/Bybit users pay ~$1 USDT withdrawal fee.
-- **Chargebacks don't exist** on-chain — this is your friend (no fraud reversal) and your enemy (mistakes are permanent).
-- **Not a licensed money service** — you are receiving crypto as digital-goods payment. Check local rules; the earlier disclaimer/terms pages already cover the basics but review before going live.
-
-## What stays the same
-
-- Referral crediting, wallet, withdrawals, NFT display — all unchanged. The purchase RPC keeps its idempotency contract; we just call it from the paid webhook instead of a button click.
-
-Say "go" and I'll switch to build mode, start with the migration + secrets prompt, then wire the UI.
+- No wallet libraries (wagmi/ethers) added — direct EIP-1193 calls only.
+- Gas is paid by the user in the chain's native token; we surface a hint ("You'll need a small amount of BNB/ETH/MATIC for gas").
+- No cron sweep for EVM in this pass — polling from the open tab is enough; can add a `/api/public/evm-tick` route later mirroring the Tron sweeper.
+- Tron flow untouched.
