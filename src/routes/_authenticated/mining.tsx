@@ -102,6 +102,36 @@ function MiningPage() {
         <p className="text-sm text-muted-foreground">Claim daily rewards from your NFT packages. One click every 24 hours.</p>
       </div>
 
+      <div
+        className={`rounded-2xl border p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 ${
+          canMine
+            ? "border-emerald-400/40 bg-emerald-400/5"
+            : "border-accent/40 bg-accent/5"
+        }`}
+      >
+        <div className="flex items-center gap-3">
+          <div className={`flex h-10 w-10 items-center justify-center rounded-full ${canMine ? "bg-emerald-400/15 text-emerald-400" : "bg-accent/15 text-accent"}`}>
+            <Timer className="h-5 w-5" />
+          </div>
+          <div>
+            <div className="text-sm font-semibold">
+              {canMine ? "You can mine now" : "Mining cooldown active"}
+            </div>
+            <div className="text-xs text-muted-foreground">
+              {canMine
+                ? ownedTiers.length === 0
+                  ? "Buy a package to start earning daily rewards."
+                  : `Claim your $${totalRate.toFixed(2)} reward before it resets.`
+                : `Available at ${new Date(nextAt).toLocaleString()} — restored automatically after refresh or re-login.`}
+            </div>
+          </div>
+        </div>
+        <div className="font-mono text-2xl font-bold tabular-nums sm:text-3xl">
+          {canMine ? <span className="text-emerald-400">Ready</span> : <span className="text-accent">{fmtCountdown(msLeft)}</span>}
+        </div>
+      </div>
+
+
       <div className="grid gap-4 md:grid-cols-3">
         <div className="rounded-2xl border border-primary/40 bg-card p-6 glow">
           <div className="flex items-center gap-2 font-mono text-xs uppercase text-muted-foreground">
