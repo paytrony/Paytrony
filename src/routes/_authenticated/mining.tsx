@@ -607,6 +607,8 @@ function MonthlyPayoutCalculator({ ownedTiers, refCount }: { ownedTiers: number[
       </div>
 
       <PayoutChart tiers={tiersToShow} rates={rates} refs={refs} />
+
+      <ThirtyDayProjection tiers={tiersToShow} rates={rates} refs={refs} />
     </div>
   );
 }
@@ -644,6 +646,93 @@ function PayoutChart({ tiers, rates, refs }: { tiers: number[]; rates: Record<nu
             <div className="relative h-3 w-full overflow-hidden rounded-full bg-muted/40" title={`Monthly $${r.monthly.toFixed(2)} of $${r.maxMonthly.toFixed(2)} max`}>
               <div className="absolute inset-y-0 left-0 rounded-full bg-muted-foreground/30" style={{ width: `${(r.maxMonthly / maxMonth) * 100}%` }} />
               <div className="absolute inset-y-0 left-0 rounded-full bg-primary transition-all" style={{ width: `${(r.monthly / maxMonth) * 100}%` }} />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ThirtyDayProjection({ tiers, rates, refs }: { tiers: number[]; rates: Record<number, number>; refs: number }) {
+  const W = 640;
+  const H = 220;
+  const P = { l: 44, r: 12, t: 16, b: 28 };
+  const days = 30;
+  const tierMeta: Record<number, { color: string; label: string }> = {
+    10: { color: "hsl(var(--accent))", label: "Starter" },
+    50: { color: "hsl(var(--primary))", label: "Pro" },
+    100: { color: "rgb(52 211 153)", label: "Elite" },
+  };
+  const series = tiers.map((t) => {
+    const daily = rates[t] ?? 0;
+    const points = Array.from({ length: days + 1 }, (_, d) => ({ d, v: daily * d }));
+    const meta = tierMeta[t] ?? { color: "hsl(var(--primary))", label: `$${t}` };
+    return { t, daily, monthly: daily * days, points, color: meta.color, label: meta.label };
+  });
+  const maxV = Math.max(0.01, ...series.map((s) => s.monthly));
+  const niceMax = Math.ceil(maxV / 5) * 5 || 5;
+  const x = (d: number) => P.l + (d / days) * (W - P.l - P.r);
+  const y = (v: number) => P.t + (1 - v / niceMax) * (H - P.t - P.b);
+  const yTicks = [0, 0.25, 0.5, 0.75, 1].map((f) => f * niceMax);
+
+  return (
+    <div className="mt-6">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 className="text-xs font-mono uppercase text-muted-foreground">30-day cumulative projection at {refs} referral{refs === 1 ? "" : "s"}</h3>
+        <div className="flex items-center gap-3 text-[10px] font-mono uppercase text-muted-foreground">
+          {series.map((s) => (
+            <span key={s.t} className="flex items-center gap-1">
+              <span className="h-2 w-2 rounded-sm" style={{ background: s.color }} />
+              {s.label}
+            </span>
+          ))}
+        </div>
+      </div>
+      <div className="mt-3 overflow-x-auto">
+        <svg viewBox={`0 0 ${W} ${H}`} className="w-full min-w-[420px]" role="img" aria-label="30-day cumulative mining payout projection">
+          {yTicks.map((v, i) => (
+            <g key={i}>
+              <line x1={P.l} x2={W - P.r} y1={y(v)} y2={y(v)} stroke="hsl(var(--border))" strokeDasharray="3 3" />
+              <text x={P.l - 6} y={y(v) + 3} textAnchor="end" className="fill-muted-foreground" fontSize="10" fontFamily="ui-monospace, monospace">
+                ${v.toFixed(v >= 10 ? 0 : 2)}
+              </text>
+            </g>
+          ))}
+          {[0, 7, 14, 21, 30].map((d) => (
+            <g key={d}>
+              <line x1={x(d)} x2={x(d)} y1={H - P.b} y2={H - P.b + 4} stroke="hsl(var(--border))" />
+              <text x={x(d)} y={H - P.b + 16} textAnchor="middle" className="fill-muted-foreground" fontSize="10" fontFamily="ui-monospace, monospace">
+                d{d}
+              </text>
+            </g>
+          ))}
+          <line x1={P.l} x2={W - P.r} y1={H - P.b} y2={H - P.b} stroke="hsl(var(--border))" />
+          {series.map((s) => {
+            const path = s.points.map((p, i) => `${i === 0 ? "M" : "L"} ${x(p.d)} ${y(p.v)}`).join(" ");
+            const area = `${path} L ${x(days)} ${y(0)} L ${x(0)} ${y(0)} Z`;
+            return (
+              <g key={s.t}>
+                <path d={area} fill={s.color} opacity={0.08} />
+                <path d={path} fill="none" stroke={s.color} strokeWidth={2} />
+                <circle cx={x(days)} cy={y(s.monthly)} r={3.5} fill={s.color} />
+                <text x={x(days) - 4} y={y(s.monthly) - 6} textAnchor="end" fontSize="10" fontFamily="ui-monospace, monospace" fill={s.color}>
+                  ${s.monthly.toFixed(2)}
+                </text>
+              </g>
+            );
+          })}
+        </svg>
+      </div>
+      <div className="mt-3 grid gap-2 sm:grid-cols-3">
+        {series.map((s) => (
+          <div key={s.t} className="rounded-lg border border-border bg-background/40 p-2 text-xs">
+            <div className="flex items-center gap-2 font-semibold">
+              <span className="h-2 w-2 rounded-sm" style={{ background: s.color }} />
+              ${s.t} {s.label}
+            </div>
+            <div className="mt-1 font-mono text-muted-foreground">
+              ${s.daily.toFixed(2)}/day → <span className="text-primary">${s.monthly.toFixed(2)}</span> after 30 days
             </div>
           </div>
         ))}
