@@ -298,8 +298,15 @@ function Withdraw() {
 
       await load();
     } catch (e) {
-      setSignError(e instanceof Error ? e.message : "Failed");
+      const msg = e instanceof Error ? e.message : "Withdrawal request failed. Please try again.";
+      setSignError(msg);
+      setLocked(false); // re-enable the form so the user can adjust and retry
+      toast.error(msg);
     } finally { setSigning(false); }
+  }
+
+  function dismissSignError() {
+    setSignError(null);
   }
 
   // Poll the submitted withdrawal every 4s (in addition to the realtime channel)
@@ -377,6 +384,35 @@ function Withdraw() {
             </div>
 
             <div className="relative">
+              {signError && (
+                <div
+                  role="alert"
+                  aria-live="assertive"
+                  className="mb-4 flex items-start gap-3 rounded-md border border-destructive/40 bg-destructive/10 p-3"
+                >
+                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
+                  <div className="flex-1 text-sm">
+                    <div className="font-medium text-destructive">Withdrawal failed</div>
+                    <div className="mt-0.5 text-xs text-destructive/90">{signError}</div>
+                    <div className="mt-2 flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => { setSignError(null); setConfirmOpen(true); }}
+                        className="text-xs font-medium text-destructive underline hover:text-destructive/80"
+                      >
+                        Retry
+                      </button>
+                      <button
+                        type="button"
+                        onClick={dismissSignError}
+                        className="text-xs text-muted-foreground hover:text-foreground"
+                      >
+                        Dismiss
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
               <form
                 onSubmit={onSubmit}
                 aria-busy={busy}
