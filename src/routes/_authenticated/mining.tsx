@@ -3,6 +3,16 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Pickaxe, Timer, Coins, Sparkles } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export const Route = createFileRoute("/_authenticated/mining")({
   head: () => ({
@@ -26,6 +36,7 @@ function MiningPage() {
   const [claims, setClaims] = useState<Claim[]>([]);
   const [loading, setLoading] = useState(true);
   const [mining, setMining] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const [now, setNow] = useState(Date.now());
 
   useEffect(() => {
@@ -73,8 +84,14 @@ function MiningPage() {
     return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
   }
 
-  async function mine() {
+  function openConfirm() {
+    if (!canMine || mining || selectedTiers.length === 0) return;
+    setConfirmOpen(true);
+  }
+
+  async function confirmMine() {
     if (!canMine || mining) return;
+    setConfirmOpen(false);
     setMining(true);
     const { data, error } = await supabase.rpc("mine_now", { _user_id: user.id });
     setMining(false);
@@ -213,7 +230,7 @@ function MiningPage() {
 
         <div className="mt-6 flex flex-col items-center gap-3">
           <button
-            onClick={mine}
+            onClick={openConfirm}
             disabled={!canMine || mining || selectedTiers.length === 0}
             className="inline-flex items-center gap-2 rounded-md bg-primary px-8 py-3 text-base font-semibold text-primary-foreground shadow-lg transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
           >
@@ -314,6 +331,35 @@ function MiningPage() {
           </div>
         )}
       </div>
+
+      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm mining claim</AlertDialogTitle>
+            <AlertDialogDescription>
+              You are about to mine a daily reward based on every NFT tier you own.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="rounded-xl border border-border bg-muted/30 p-4 text-center">
+            <div className="text-xs uppercase tracking-wide text-muted-foreground">Reward to credit</div>
+            <div className="mt-1 text-3xl font-bold text-emerald-400">+${totalRate.toFixed(2)}</div>
+            <div className="mt-1 text-xs text-muted-foreground">
+              {ownedTiers.length > 0
+                ? ownedTiers.map((t) => `$${t} @ $${RATES[t].toFixed(2)}/day`).join(" · ")
+                : "No owned tiers"}
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            After confirming, your wallet will be credited and the 24-hour cooldown will begin.
+          </p>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setConfirmOpen(false)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmMine} disabled={mining || !canMine}>
+              {mining ? "Crediting…" : `Confirm and credit $${totalRate.toFixed(2)}`}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
     </div>
   );
