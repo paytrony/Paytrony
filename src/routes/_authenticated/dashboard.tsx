@@ -238,6 +238,9 @@ function Dashboard() {
             <span className="text-primary font-semibold">${miningAvailable.toFixed(2)}</span> mined balance · ${totalMined.toFixed(2)} all-time
             {cooldownMs > 0 && ` · next in ${formatCountdown(cooldownMs)}`}
           </div>
+          <div className="mt-1 text-[11px] text-muted-foreground">
+            Referral boost: {refCount >= 10 ? "max rate unlocked" : `${refCount}/10 refs → invite ${10 - refCount} more for full rate`}
+          </div>
           <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-muted">
             <div
               role="progressbar"
