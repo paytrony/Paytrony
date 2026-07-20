@@ -359,10 +359,11 @@ function WithdrawalsTab() {
   useEffect(() => { load(); }, []);
 
   async function act(id: string, approve: boolean) {
-    const adminNote = prompt(approve ? "Optional note (e.g. paid via PayPal txn #123)" : "Reason for rejection?") ?? "";
+    const adminNote = prompt(approve ? "Optional note (e.g. paid via PayPal txn #123)" : "Reason for rejection? (the user's reserved balance will be restored automatically)") ?? "";
+    const txHash = approve ? (prompt("Transaction hash / receipt reference (optional, shown to user):") ?? "") : "";
     try {
-      await resolve({ data: { withdrawalId: id, approve, adminNote } });
-      toast.success(approve ? "Approved" : "Rejected");
+      await resolve({ data: { withdrawalId: id, approve, adminNote, txHash } });
+      toast.success(approve ? "Approved & payout recorded" : "Rejected — balance restored to user");
       await load();
     } catch (e) { toast.error(e instanceof Error ? e.message : "Failed"); }
   }

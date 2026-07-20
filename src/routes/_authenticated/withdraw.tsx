@@ -29,7 +29,7 @@ export const Route = createFileRoute("/_authenticated/withdraw")({
 
 const FEE = 1;
 
-type W = { id: string; amount: number; status: string; payout_note: string | null; admin_note: string | null; created_at: string; resolved_at: string | null };
+type W = { id: string; amount: number; status: string; payout_note: string | null; admin_note: string | null; created_at: string; resolved_at: string | null; tx_hash: string | null };
 type Limits = { min_amount: number; daily_cap: number; cooldown_minutes: number };
 type KindKey = "binance" | "bybit" | "wallet_address" | "upi" | "paypal" | "bank";
 
@@ -587,12 +587,18 @@ function Withdraw() {
                     <div className="flex items-center justify-between gap-3">
                       <div>
                         <div className="text-lg font-semibold">${Number(w.amount).toFixed(2)}</div>
-                        <div className="text-[11px] text-muted-foreground">{new Date(w.created_at).toLocaleString()}</div>
+                        <div className="text-[11px] text-muted-foreground">Requested {new Date(w.created_at).toLocaleString()}</div>
                       </div>
                       <StatusBadge s={w.status} />
                     </div>
                     <WithdrawalTimeline w={w} />
-                    {w.admin_note && <div className="mt-2 text-xs text-muted-foreground">Note: {w.admin_note}</div>}
+                    {w.admin_note && <div className="mt-2 text-xs text-muted-foreground">Admin note: {w.admin_note}</div>}
+                    {w.tx_hash && (
+                      <div className="mt-2 rounded-lg border border-primary/30 bg-primary/5 p-2 text-xs">
+                        <div className="mb-0.5 text-[10px] font-medium uppercase tracking-wider text-primary">Receipt / Tx hash</div>
+                        <div className="break-all font-mono text-foreground">{w.tx_hash}</div>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -724,7 +730,7 @@ function StatusBadge({ s }: { s: string }) {
   );
 }
 
-function WithdrawalTimeline({ w }: { w: { status: string; created_at: string; resolved_at: string | null } }) {
+function WithdrawalTimeline({ w }: { w: { status: string; created_at: string; resolved_at: string | null; admin_note?: string | null; tx_hash?: string | null } }) {
   const requestedAt = w.created_at;
   const resolvedAt = w.resolved_at;
   const rejected = w.status === "rejected";
@@ -732,10 +738,10 @@ function WithdrawalTimeline({ w }: { w: { status: string; created_at: string; re
   const pending = w.status === "pending";
 
   const steps = [
-    { key: "requested", label: "Requested", at: requestedAt, done: true, active: pending && !approved && !rejected },
-    { key: "approved", label: rejected ? "Rejected" : "Auto-approved", at: resolvedAt, done: approved || rejected, active: pending, bad: rejected },
-    { key: "sent", label: "Payout sent", at: resolvedAt, done: approved, active: false },
-    { key: "completed", label: "Completed", at: resolvedAt, done: approved, active: false },
+    { key: "requested", label: "Requested", at: requestedAt, done: true, active: false, bad: false },
+    { key: "review", label: pending ? "Under admin review" : rejected ? "Reviewed by admin" : "Approved by admin", at: (approved || rejected) ? resolvedAt : null, done: approved || rejected, active: pending, bad: false },
+    { key: "outcome", label: rejected ? "Rejected — funds restored to wallet" : "Payout sent", at: resolvedAt, done: approved || rejected, active: false, bad: rejected },
+    { key: "completed", label: rejected ? "Closed" : "Completed", at: resolvedAt, done: approved || rejected, active: false, bad: false },
   ];
 
   return (

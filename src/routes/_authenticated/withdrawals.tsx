@@ -24,6 +24,7 @@ type W = {
   admin_note: string | null;
   created_at: string;
   resolved_at: string | null;
+  tx_hash: string | null;
 };
 
 type Filter = "all" | "processing" | "completed" | "failed";
@@ -44,7 +45,7 @@ function WithdrawalsStatus() {
     (async () => {
       const { data } = await supabase
         .from("withdrawals")
-        .select("id, amount, status, payout_note, admin_note, created_at, resolved_at")
+        .select("id, amount, status, payout_note, admin_note, created_at, resolved_at, tx_hash")
         .eq("user_id", user.id)
         .order("created_at", { ascending: false });
       if (mounted) setRows((data as W[]) ?? []);
@@ -140,9 +141,15 @@ function WithdrawalsStatus() {
                 </div>
               )}
               {w.admin_note && (
-                <div className="mt-2 text-xs text-muted-foreground">Note: {w.admin_note}</div>
+                <div className="mt-2 text-xs text-muted-foreground">Admin note: {w.admin_note}</div>
               )}
-              <div className="mt-3 font-mono text-[10px] text-muted-foreground">TX {w.id}</div>
+              {w.tx_hash && (
+                <div className="mt-2 rounded-lg border border-primary/30 bg-primary/5 p-2 text-xs">
+                  <div className="mb-0.5 text-[10px] font-medium uppercase tracking-wider text-primary">Receipt / Tx hash</div>
+                  <div className="break-all font-mono text-foreground">{w.tx_hash}</div>
+                </div>
+              )}
+              <div className="mt-3 font-mono text-[10px] text-muted-foreground">REQ {w.id}</div>
             </li>
           ))}
         </ul>
