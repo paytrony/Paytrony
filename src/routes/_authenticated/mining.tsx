@@ -36,6 +36,7 @@ function MiningPage() {
   const [claims, setClaims] = useState<Claim[]>([]);
   const [loading, setLoading] = useState(true);
   const [mining, setMining] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const [now, setNow] = useState(Date.now());
 
   useEffect(() => {
