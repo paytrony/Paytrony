@@ -379,8 +379,8 @@ function Withdraw() {
             <div className="relative">
               <form
                 onSubmit={onSubmit}
-                aria-busy={signing}
-                className={`space-y-6 transition-opacity ${signing ? "pointer-events-none opacity-60" : ""}`}
+                aria-busy={busy}
+                className={`space-y-6 transition-opacity ${busy ? "pointer-events-none opacity-60" : ""}`}
               >
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
@@ -407,7 +407,7 @@ function Withdraw() {
                       min={limits?.min_amount ?? 0.01}
                       max={Math.max(0, available)}
                       required
-                      disabled={signing}
+                      disabled={busy}
                       value={amount}
                       onChange={(e) => { setAmount(e.target.value); clearError("amount"); }}
                       className={`pl-7 text-base ${errors.amount ? "border-destructive focus-visible:ring-destructive" : ""}`}
@@ -454,7 +454,7 @@ function Withdraw() {
                       clearError("chain");
                       clearError("address");
                     }}
-                    disabled={signing}
+                    disabled={busy}
                   >
                     <SelectTrigger id="payout-method" className="h-11">
                       <SelectValue placeholder="Select a payout method" />
@@ -492,7 +492,7 @@ function Withdraw() {
                             setIdType(v as "uid" | "email" | "phone");
                             clearError("uid"); clearError("email"); clearError("phone");
                           }}
-                          disabled={signing}
+                          disabled={busy}
                         >
                           <SelectTrigger id="idType" className="h-11">
                             <SelectValue />
@@ -510,7 +510,7 @@ function Withdraw() {
                           <Input
                             id="exUid"
                             value={exUid}
-                            disabled={signing}
+                            disabled={busy}
                             onChange={(e) => { setExUid(e.target.value); clearError("uid"); }}
                             placeholder={`${kind === "binance" ? "Binance" : "Bybit"} UID`}
                             className={errors.uid ? "border-destructive focus-visible:ring-destructive" : ""}
@@ -525,7 +525,7 @@ function Withdraw() {
                             id="exEmail"
                             type="email"
                             value={exEmail}
-                            disabled={signing}
+                            disabled={busy}
                             onChange={(e) => { setExEmail(e.target.value); clearError("email"); }}
                             placeholder="Registered email"
                             className={errors.email ? "border-destructive focus-visible:ring-destructive" : ""}
@@ -539,7 +539,7 @@ function Withdraw() {
                           <Input
                             id="exPhone"
                             value={exPhone}
-                            disabled={signing}
+                            disabled={busy}
                             onChange={(e) => { setExPhone(e.target.value); clearError("phone"); }}
                             placeholder="Registered phone number"
                             className={errors.phone ? "border-destructive focus-visible:ring-destructive" : ""}
@@ -562,7 +562,7 @@ function Withdraw() {
                         <select
                           id="chain"
                           value={walletChain}
-                          disabled={signing}
+                          disabled={busy}
                           onChange={(e) => { setWalletChain(e.target.value); clearError("chain"); }}
                           className={`w-full rounded-md border bg-input px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${errors.chain ? "border-destructive" : "border-input"}`}
                         >
@@ -575,7 +575,7 @@ function Withdraw() {
                         <Input
                           id="walletAddress"
                           value={walletAddress}
-                          disabled={signing}
+                          disabled={busy}
                           onChange={(e) => { setWalletAddress(e.target.value); clearError("address"); }}
                           placeholder="Destination wallet address"
                           className={`font-mono text-xs ${errors.address ? "border-destructive focus-visible:ring-destructive" : ""}`}
@@ -600,7 +600,7 @@ function Withdraw() {
                     id="note"
                     rows={2}
                     value={note}
-                    disabled={signing}
+                    disabled={busy}
                     onChange={(e) => setNote(e.target.value)}
                     className="w-full rounded-md border border-input bg-input px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
                   />
