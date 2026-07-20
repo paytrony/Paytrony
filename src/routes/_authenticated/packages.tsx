@@ -1,8 +1,12 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { purchasePackage } from "@/lib/wallet.functions";
+import { createPaymentIntent, checkPaymentIntent, cancelPaymentIntent } from "@/lib/payments.functions";
 import { toast } from "sonner";
+import QRCode from "qrcode";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Copy, Loader2, CheckCircle2, XCircle, Clock } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/packages")({
   component: Packages,
@@ -14,66 +18,105 @@ const TIERS = [
   { p: 100 as const, tag: "Elite", desc: "Maximum earning power", cls: "border-accent glow-accent" },
 ];
 
-type MintProgress = { done: number; total: number; failed: number } | null;
+type Intent = {
+  id: string;
+  address: string;
+  chain: string;
+  tier: number;
+  expectedAmount: number;
+  expiresAt: string;
+};
 
 function Packages() {
-  const buy = useServerFn(purchasePackage);
+  const createIntent = useServerFn(createPaymentIntent);
+  const checkIntent = useServerFn(checkPaymentIntent);
+  const cancelIntent = useServerFn(cancelPaymentIntent);
   const navigate = useNavigate();
-  const [busy, setBusy] = useState(false);
-  const [qty, setQty] = useState<Record<10 | 50 | 100, number>>({ 10: 1, 50: 1, 100: 1 });
-  const [progress, setProgress] = useState<MintProgress>(null);
 
-  async function onBuy(amount: 10 | 50 | 100) {
-    if (busy) return;
-    const count = Math.max(1, Math.min(10, qty[amount]));
-    setBusy(true);
-    setProgress({ done: 0, total: count, failed: 0 });
-    let done = 0, failed = 0;
-    for (let i = 0; i < count; i++) {
-      const key = crypto.randomUUID();
-      try {
-        await buy({ data: { amount, idempotencyKey: key } });
-        done++;
-      } catch (e) {
-        failed++;
-        toast.error(e instanceof Error ? e.message : `Mint ${i + 1} failed`);
-      }
-      setProgress({ done, total: count, failed });
+  const [busy, setBusy] = useState<10 | 50 | 100 | null>(null);
+  const [intent, setIntent] = useState<Intent | null>(null);
+  const [status, setStatus] = useState<"pending" | "paid" | "expired" | "cancelled" | "failed">("pending");
+  const [qrDataUrl, setQrDataUrl] = useState<string>("");
+  const [now, setNow] = useState(Date.now());
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  async function onBuy(tier: 10 | 50 | 100) {
+    if (busy || intent) return;
+    setBusy(tier);
+    try {
+      const res = await createIntent({ data: { tier } });
+      setIntent(res);
+      setStatus("pending");
+      const payUri = `tron:${res.address}?amount=${res.expectedAmount}&token=USDT`;
+      const url = await QRCode.toDataURL(payUri, { width: 320, margin: 1 });
+      setQrDataUrl(url);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not start payment");
+    } finally {
+      setBusy(null);
     }
-    setBusy(false);
-    if (failed === 0) {
-      toast.success(`Minted ${done} × $${amount} NFT${done > 1 ? "s" : ""}!`);
-      setTimeout(() => navigate({ to: "/nfts" }), 400);
-    } else {
-      toast.warning(`${done} minted, ${failed} failed`);
-    }
-    setTimeout(() => setProgress(null), 2500);
   }
+
+  // Poll on-chain status
+  useEffect(() => {
+    if (!intent || status !== "pending") return;
+    let cancelled = false;
+    const tick = async () => {
+      try {
+        const r = await checkIntent({ data: { id: intent.id } });
+        if (cancelled) return;
+        if (r.status === "paid") {
+          setStatus("paid");
+          toast.success("Payment received! NFT minted.");
+          setTimeout(() => navigate({ to: "/nfts" }), 1600);
+        } else if (r.status === "expired") {
+          setStatus("expired");
+        } else if (r.status === "cancelled" || r.status === "failed") {
+          setStatus(r.status);
+        }
+      } catch {
+        // swallow; next tick retries
+      }
+    };
+    tick();
+    pollRef.current = setInterval(tick, 6000);
+    return () => {
+      cancelled = true;
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
+  }, [intent, status, checkIntent, navigate]);
+
+  // Countdown ticker
+  useEffect(() => {
+    if (!intent) return;
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, [intent]);
+
+  async function closeModal() {
+    if (intent && status === "pending") {
+      try { await cancelIntent({ data: { id: intent.id } }); } catch {}
+    }
+    setIntent(null);
+    setQrDataUrl("");
+    setStatus("pending");
+  }
+
+  function copy(text: string, label: string) {
+    navigator.clipboard.writeText(text);
+    toast.success(`${label} copied`);
+  }
+
+  const remainingMs = intent ? Math.max(0, new Date(intent.expiresAt).getTime() - now) : 0;
+  const mm = String(Math.floor(remainingMs / 60000)).padStart(2, "0");
+  const ss = String(Math.floor((remainingMs % 60000) / 1000)).padStart(2, "0");
 
   return (
     <div className="space-y-8">
       <div>
         <h1 className="text-3xl font-bold">Buy a package</h1>
-        <p className="text-muted-foreground">Your referrer earns 100% instantly. Purchase up to 10 at once.</p>
+        <p className="text-muted-foreground">Pay in USDT (TRC20) from any Binance, Bybit, or Web3 wallet. Your referrer earns 100% instantly.</p>
       </div>
-
-      {progress && (
-        <div className="rounded-lg border border-primary/40 bg-card p-4">
-          <div className="mb-2 flex items-center justify-between text-sm">
-            <span className="font-medium">
-              Minting {progress.done} / {progress.total}
-              {progress.failed > 0 && <span className="ml-2 text-destructive">· {progress.failed} failed</span>}
-            </span>
-            <span className="font-mono text-xs text-muted-foreground">{Math.round((progress.done / progress.total) * 100)}%</span>
-          </div>
-          <div className="h-2 overflow-hidden rounded-full bg-muted">
-            <div
-              className="h-full bg-gradient-to-r from-primary to-accent transition-all"
-              style={{ width: `${(progress.done / progress.total) * 100}%` }}
-            />
-          </div>
-        </div>
-      )}
 
       <div className="grid gap-6 md:grid-cols-3">
         {TIERS.map((t) => (
@@ -81,40 +124,93 @@ function Packages() {
             <div className="font-mono text-xs uppercase text-muted-foreground">{t.tag}</div>
             <div className="mt-2 text-5xl font-bold">${t.p}</div>
             <div className="mt-2 text-sm text-muted-foreground">{t.desc}</div>
-            <div className="mt-4 flex h-24 w-24 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-accent text-3xl font-bold text-primary-foreground mx-auto">◆</div>
+            <div className="mt-4 mx-auto flex h-24 w-24 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-accent text-3xl font-bold text-primary-foreground">◆</div>
             <div className="mt-2 text-xs text-muted-foreground">NFT Tier {t.p}</div>
-
-            <div className="mt-6 flex items-center justify-center gap-2">
-              <button
-                onClick={() => setQty((q) => ({ ...q, [t.p]: Math.max(1, q[t.p] - 1) }))}
-                disabled={busy}
-                className="h-8 w-8 rounded-md border border-border disabled:opacity-40"
-              >−</button>
-              <input
-                type="number" min={1} max={10}
-                value={qty[t.p]}
-                onChange={(e) => setQty((q) => ({ ...q, [t.p]: Math.max(1, Math.min(10, Number(e.target.value) || 1)) }))}
-                disabled={busy}
-                className="h-8 w-16 rounded-md border border-border bg-background text-center text-sm"
-              />
-              <button
-                onClick={() => setQty((q) => ({ ...q, [t.p]: Math.min(10, q[t.p] + 1) }))}
-                disabled={busy}
-                className="h-8 w-8 rounded-md border border-border disabled:opacity-40"
-              >+</button>
-            </div>
-            <div className="mt-2 text-xs text-muted-foreground">Total: ${t.p * qty[t.p]}</div>
-
             <button
               onClick={() => onBuy(t.p)}
-              disabled={busy}
-              className="mt-4 w-full rounded-md bg-primary py-2.5 font-medium text-primary-foreground disabled:opacity-50"
+              disabled={busy !== null || intent !== null}
+              className="mt-6 w-full rounded-md bg-primary py-2.5 font-medium text-primary-foreground disabled:opacity-50"
             >
-              {busy ? "Processing…" : `Mint ${qty[t.p] > 1 ? `${qty[t.p]} × ` : ""}$${t.p}`}
+              {busy === t.p ? "Preparing…" : `Mint $${t.p}`}
             </button>
           </div>
         ))}
       </div>
+
+      <Dialog open={intent !== null} onOpenChange={(o) => { if (!o) closeModal(); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {status === "paid" ? "Payment received" :
+               status === "expired" ? "Payment window expired" :
+               status === "cancelled" ? "Payment cancelled" :
+               status === "failed" ? "Payment failed" :
+               `Pay ${intent?.expectedAmount} USDT`}
+            </DialogTitle>
+            <DialogDescription>
+              {status === "pending" && "Scan the QR with Binance, Bybit or any TRC20 wallet. Detection is automatic."}
+              {status === "paid" && "Your NFT has been minted. Redirecting…"}
+              {status === "expired" && "No matching transaction found in time. If you already sent, contact support with your tx hash."}
+            </DialogDescription>
+          </DialogHeader>
+
+          {intent && status === "pending" && (
+            <div className="space-y-4">
+              <div className="mx-auto flex h-[320px] w-[320px] items-center justify-center rounded-lg bg-white p-2">
+                {qrDataUrl ? <img src={qrDataUrl} alt="Payment QR" className="h-full w-full" /> : <Loader2 className="animate-spin" />}
+              </div>
+
+              <div className="rounded-md border bg-muted/40 p-3 text-sm">
+                <div className="flex items-center justify-between gap-2">
+                  <div>
+                    <div className="text-muted-foreground text-xs">Send exactly</div>
+                    <div className="font-mono text-lg font-bold">{intent.expectedAmount} USDT</div>
+                  </div>
+                  <Button size="sm" variant="outline" onClick={() => copy(String(intent.expectedAmount), "Amount")}>
+                    <Copy className="mr-1 h-3 w-3" /> Copy
+                  </Button>
+                </div>
+                <div className="mt-3">
+                  <div className="text-muted-foreground text-xs">To address (TRC20)</div>
+                  <div className="mt-1 flex items-center gap-2">
+                    <code className="flex-1 truncate rounded bg-background px-2 py-1 text-xs">{intent.address}</code>
+                    <Button size="sm" variant="outline" onClick={() => copy(intent.address, "Address")}>
+                      <Copy className="h-3 w-3" />
+                    </Button>
+                  </div>
+                </div>
+                <div className="mt-3 text-xs text-muted-foreground">Network: Tron (TRC20) · Token: USDT</div>
+              </div>
+
+              <div className="flex items-center justify-between text-sm">
+                <span className="flex items-center gap-1 text-muted-foreground">
+                  <Clock className="h-4 w-4" /> Expires in {mm}:{ss}
+                </span>
+                <span className="flex items-center gap-1 text-muted-foreground">
+                  <Loader2 className="h-3 w-3 animate-spin" /> Watching chain…
+                </span>
+              </div>
+
+              <p className="text-xs text-muted-foreground">
+                Send the <b>exact</b> amount from Binance, Bybit or your wallet. Any other amount won't auto-detect.
+              </p>
+            </div>
+          )}
+
+          {status === "paid" && (
+            <div className="flex flex-col items-center gap-2 py-6 text-center">
+              <CheckCircle2 className="h-12 w-12 text-emerald-500" />
+              <p className="font-medium">NFT minted successfully.</p>
+            </div>
+          )}
+          {(status === "expired" || status === "cancelled" || status === "failed") && (
+            <div className="flex flex-col items-center gap-3 py-6 text-center">
+              <XCircle className="h-12 w-12 text-destructive" />
+              <Button onClick={closeModal}>Close</Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
