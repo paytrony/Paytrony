@@ -285,8 +285,10 @@ function MiningPage() {
           <div className="flex items-center gap-2 font-mono text-xs uppercase text-muted-foreground">
             <Coins className="h-4 w-4 text-primary" /> Daily rate (selected)
           </div>
-          <div className="mt-3 text-4xl font-bold text-primary">${selectedRate.toFixed(2)}</div>
-          <div className="mt-1 text-xs text-muted-foreground">Max potential ${totalRate.toFixed(2)}/day</div>
+          <div className="mt-3 text-4xl font-bold text-primary">${selectedRate.toFixed(2)}<span className="text-sm text-muted-foreground font-normal">/day</span></div>
+          <div className="mt-1 text-xs text-muted-foreground">
+            ≈ <span className="font-semibold text-primary">${(selectedRate * 30).toFixed(2)}</span>/month · up to <span className="font-semibold">${(totalRate * 30).toFixed(2)}</span>/month at max
+          </div>
         </div>
         <div className="rounded-2xl border border-border bg-card p-6">
           <div className="flex items-center gap-2 font-mono text-xs uppercase text-muted-foreground">
