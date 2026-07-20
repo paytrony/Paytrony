@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { buildInviteUrl } from "@/lib/referral-link";
 
 export const Route = createFileRoute("/_authenticated/referrals")({
   component: ReferralsPage,
@@ -65,7 +66,7 @@ function ReferralsPage() {
     .sort((a, b) => b.earned - a.earned)
     .slice(0, 5);
 
-  const referralUrl = profile ? `${typeof window !== "undefined" ? window.location.origin : ""}/auth?mode=signup&ref=${profile.referral_code}` : "";
+  const referralUrl = buildInviteUrl(profile?.referral_code);
 
   return (
     <div className="space-y-8">
