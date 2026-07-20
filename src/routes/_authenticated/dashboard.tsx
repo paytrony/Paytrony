@@ -57,8 +57,8 @@ function Dashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user.id]);
 
-  const referralUrl = buildInviteUrl(profile?.referral_code);
   const available = balance - pending;
+
 
   return (
     <div className="space-y-8">
