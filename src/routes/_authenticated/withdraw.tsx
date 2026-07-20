@@ -241,6 +241,7 @@ function Withdraw() {
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!validateForm()) return;
+    setLocked(true);
     setConfirmOpen(true);
   }
 
@@ -260,17 +261,34 @@ function Withdraw() {
 
       // Deterministic idempotency key: same (user, amount, method, note) can never
       // create two withdrawal rows even on refresh/double-click. Server returns the existing row.
-      // Excludes pm.id so a resubmitted identical form maps to the same key.
-      const keyPayload = JSON.stringify({ u: user.id, a: amt.toFixed(2), k: kind, d: built.details, n: note });
-      let hash = 0;
-      for (let i = 0; i < keyPayload.length; i++) hash = ((hash << 5) - hash + keyPayload.charCodeAt(i)) | 0;
-      const idempotencyKey = `wd-${user.id.slice(0, 8)}-${Math.abs(hash).toString(36)}-${amt.toFixed(2)}`;
+      const idempotencyKey = buildWithdrawIdempotencyKey({
+        userId: user.id, amount: amt, kind, details: built.details, note,
+      });
       const res = await req({ data: { amount: amt, note, idempotencyKey, payoutMethodId: pm.id } });
-      toast.success(`Withdrawal request submitted — pending admin approval (up to 24 hours). You'll receive $${net.toFixed(2)} once approved.`);
-      setReceipt({ id: res.id, amount: amt, fee: FEE, net, method: methodLabel, createdAt: new Date().toISOString() });
+
+      // Fetch the actual row: server returns the pre-existing withdrawal when the
+      // idempotency key already matched, so we surface those real details instead of
+      // creating a duplicate or leaving the user staring at a stale success screen.
+      const { data: row } = await supabase
+        .from("withdrawals")
+        .select("id,amount,status,created_at")
+        .eq("id", res.id)
+        .maybeSingle();
+      const createdAt = row?.created_at ?? new Date().toISOString();
+      const status = row?.status ?? "pending";
+      const existed = row ? (Date.now() - new Date(row.created_at).getTime() > 5000) : false;
+
+      if (existed) {
+        toast.info(`We already have this exact withdrawal on file (status: ${status}). Showing the existing request.`);
+      } else {
+        toast.success(`Withdrawal request submitted — pending admin approval (up to 24 hours). You'll receive $${net.toFixed(2)} once approved.`);
+      }
+      setReceipt({ id: res.id, amount: Number(row?.amount ?? amt), fee: FEE, net, method: methodLabel, createdAt, existed, status });
+      setTrackId(res.id);
       setAmount(""); setNote(""); setExUid(""); setExEmail(""); setExPhone(""); setWalletAddress("");
       setErrors({});
       setConfirmOpen(false);
+      setLocked(false);
       if (typeof window !== "undefined") {
         try {
           window.localStorage.removeItem(amountKey);
@@ -283,6 +301,38 @@ function Withdraw() {
       setSignError(e instanceof Error ? e.message : "Failed");
     } finally { setSigning(false); }
   }
+
+  // Poll the submitted withdrawal every 4s (in addition to the realtime channel)
+  // so status transitions from Pending → Approved/Rejected surface without a refresh
+  // even if the realtime socket drops.
+  useEffect(() => {
+    if (!trackId) return;
+    let cancelled = false;
+    const tick = async () => {
+      const { data } = await supabase
+        .from("withdrawals")
+        .select("id,status,resolved_at,tx_hash,admin_note,amount,created_at,payout_note")
+        .eq("id", trackId)
+        .maybeSingle();
+      if (cancelled || !data) return;
+      setHistory((prev) => {
+        const rest = prev.filter((r) => r.id !== data.id);
+        return [data as W, ...rest].sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
+      });
+      setReceipt((prev) => (prev && prev.id === data.id ? { ...prev, status: data.status } : prev));
+      if (data.status !== "pending") {
+        toast[data.status === "approved" ? "success" : "error"](
+          data.status === "approved"
+            ? `Withdrawal approved${data.tx_hash ? ` · tx ${String(data.tx_hash).slice(0, 10)}…` : ""}`
+            : `Withdrawal rejected${data.admin_note ? ` · ${data.admin_note}` : ""}`,
+        );
+        setTrackId(null);
+      }
+    };
+    tick();
+    const iv = window.setInterval(tick, 4000);
+    return () => { cancelled = true; window.clearInterval(iv); };
+  }, [trackId]);
 
   const gated = !emailVerified;
   const methodReady = (kind === "binance" || kind === "bybit") ? !!(idType === "uid" ? exUid.trim() : idType === "email" ? exEmail.trim() : exPhone.trim()) : kind === "wallet_address" ? !!walletAddress.trim() : false;
