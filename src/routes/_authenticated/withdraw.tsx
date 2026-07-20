@@ -633,17 +633,26 @@ function Withdraw() {
               <div className="mb-4 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <CheckCircle2 className="h-5 w-5 text-primary" />
-                  <h2 className="text-lg font-semibold text-primary">Withdrawal confirmed</h2>
+                  <h2 className="text-lg font-semibold text-primary">
+                    {receipt.existed ? "Existing withdrawal found" : "Withdrawal confirmed"}
+                  </h2>
                 </div>
-                <Badge variant="outline" className="font-mono text-[10px] uppercase">{receipt.id.slice(0, 8)}</Badge>
+                <StatusBadge s={receipt.status} />
               </div>
+              {receipt.existed && (
+                <div className="mb-3 rounded-md border border-accent/30 bg-accent/10 p-2 text-[11px] text-accent">
+                  We detected an identical request already on file, so nothing new was created — you're seeing the original request.
+                </div>
+              )}
               <div className="space-y-2 text-sm">
+                <div className="flex justify-between"><span className="text-muted-foreground">ID</span><span className="font-mono text-[11px]">{receipt.id.slice(0, 8)}</span></div>
                 <div className="flex justify-between"><span className="text-muted-foreground">Requested</span><span className="font-medium">${receipt.amount.toFixed(2)}</span></div>
                 <div className="flex justify-between"><span className="text-muted-foreground">Fee</span><span className="font-medium text-destructive">- ${receipt.fee.toFixed(2)}</span></div>
                 <Separator />
                 <div className="flex justify-between"><span className="text-muted-foreground">Net payout</span><span className="font-semibold text-primary">${receipt.net.toFixed(2)}</span></div>
                 <div className="flex justify-between"><span className="text-muted-foreground">Destination</span><span className="truncate max-w-[160px]" title={receipt.method}>{receipt.method}</span></div>
                 <div className="flex justify-between"><span className="text-muted-foreground">Time</span><span>{new Date(receipt.createdAt).toLocaleString()}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Live status</span><span className="font-medium capitalize">{receipt.status}</span></div>
               </div>
               <div className="mt-4 flex gap-2">
                 <Button asChild variant="default" className="flex-1">
