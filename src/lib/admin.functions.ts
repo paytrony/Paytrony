@@ -2,7 +2,16 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 
-async function requireAdmin(context: { supabase: any; userId: string }) {
+const ADMIN_EMAIL = "paytrony@gmail.com";
+
+async function requireAdmin(context: { supabase: any; userId: string; claims: any }) {
+  const email = String(context.claims?.email ?? "").toLowerCase();
+  const verified =
+    context.claims?.email_verified === true ||
+    !!context.claims?.email_confirmed_at;
+  if (email !== ADMIN_EMAIL || !verified) throw new Error("Forbidden");
+
+  // Belt-and-braces: also require the DB role. Blocks stale/forged claims.
   const { data, error } = await context.supabase.rpc("has_role", {
     _user_id: context.userId,
     _role: "admin",
@@ -10,6 +19,14 @@ async function requireAdmin(context: { supabase: any; userId: string }) {
   if (error) throw new Error(error.message);
   if (!data) throw new Error("Forbidden");
 }
+
+export const verifyAdminAccess = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await requireAdmin(context);
+    return { ok: true as const };
+  });
+
 
 export const getAdminOverview = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
