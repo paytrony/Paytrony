@@ -145,7 +145,7 @@ function Withdraw() {
       supabase.from("withdrawal_limits").select("*").eq("id", true).maybeSingle(),
       supabase.auth.getUser(),
     ]);
-    const bal = (t ?? []).reduce((s, r: any) => s + (r.type === "referral_credit" ? Number(r.amount) : -Number(r.amount)), 0);
+    const bal = (t ?? []).reduce((s, r: any) => s + ((r.type === "referral_credit" || r.type === "mining_reward") ? Number(r.amount) : -Number(r.amount)), 0);
     const pen = (w ?? []).filter((r: any) => r.status === "pending").reduce((s, r: any) => s + Number(r.amount), 0);
     setAvailable(bal - pen);
     setHistory((w ?? []) as W[]);
@@ -316,7 +316,21 @@ function Withdraw() {
 
             <form onSubmit={onSubmit} className="space-y-6">
               <div className="space-y-2">
-                <Label htmlFor="amount">Amount to withdraw</Label>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="amount">Amount to withdraw</Label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const maxAmt = Math.max(0, available);
+                      setAmount(maxAmt > 0 ? maxAmt.toFixed(2) : "");
+                      clearError("amount");
+                    }}
+                    disabled={available <= 0}
+                    className="text-xs font-medium text-primary hover:underline disabled:opacity-40 disabled:no-underline"
+                  >
+                    Max (${Math.max(0, available).toFixed(2)})
+                  </button>
+                </div>
                 <div className="relative">
                   <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
                   <Input
