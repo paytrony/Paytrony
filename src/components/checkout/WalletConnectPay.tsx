@@ -84,6 +84,23 @@ export function WalletConnectPay({ tier }: { tier: 10 | 50 | 100 }) {
     return provider;
   }
 
+  function friendlyError(e: unknown, phase: "connect" | "switch" | "sign" | "submit" | "other"): string {
+    const code = (e as { code?: number }).code;
+    const raw = (e as { message?: string }).message ?? "";
+    if (code === 4001 || /reject/i.test(raw)) {
+      return phase === "sign" ? "You rejected the transaction in your wallet." : "You cancelled the wallet request.";
+    }
+    if (code === -32002) return "Your wallet already has a pending request — open it to approve or dismiss it.";
+    if (code === 4100 || /unauthorized/i.test(raw)) return "This wallet doesn't allow this action. Try another wallet.";
+    if (code === 4200 || /unsupported/i.test(raw)) return "This wallet doesn't support that chain. Switch chain manually or try another wallet.";
+    if (code === 4902) return "That chain isn't added to your wallet. Add it manually and try again.";
+    if (/insufficient funds/i.test(raw)) return "Not enough native token for gas. Top up and try again.";
+    if (/expired|proposal|timeout/i.test(raw)) return "The QR session expired. Reconnect and try again.";
+    if (/no matching key|session/i.test(raw)) return "Wallet session lost. Please reconnect.";
+    if (phase === "switch") return "Couldn't switch network in your wallet. Switch to the requested chain manually and retry.";
+    return raw || "Something went wrong. Please try again.";
+  }
+
   async function connect() {
     setError(null);
     setStatus("connecting");
@@ -93,11 +110,12 @@ export function WalletConnectPay({ tier }: { tier: 10 | 50 | 100 }) {
         await provider.connect();
       }
       const accs = (await provider.request({ method: "eth_accounts" })) as string[];
-      setAccount(accs[0] ?? null);
+      if (!accs[0]) throw new Error("No account returned from wallet");
+      setAccount(accs[0]);
       setStatus("idle");
     } catch (e) {
       setStatus("idle");
-      setError(e instanceof Error ? e.message : "Connection rejected");
+      setError(friendlyError(e, "connect"));
     }
   }
 
@@ -105,17 +123,20 @@ export function WalletConnectPay({ tier }: { tier: 10 | 50 | 100 }) {
     if (!account) return;
     setError(null);
     setStatus("creating");
+    let ix: Awaited<ReturnType<typeof createIntent>> | null = null;
     try {
       const provider = await getProvider();
-      const ix = await createIntent({ data: { tier, chain } });
+      ix = await createIntent({ data: { tier, chain } });
 
       setStatus("switching");
       try {
         await provider.request({ method: "wallet_switchEthereumChain", params: [{ chainId: ix.chainIdHex }] });
       } catch (e) {
         const code = (e as { code?: number }).code;
-        if (code !== 4902) throw e;
-        // some wallets over WC don't support add; continue anyway
+        if (code === 4902) {
+          throw new Error(`Add ${CHAIN_META[chain].label} to your wallet, then try again.`);
+        }
+        throw e;
       }
 
       setStatus("signing");
@@ -127,12 +148,17 @@ export function WalletConnectPay({ tier }: { tier: 10 | 50 | 100 }) {
       })) as string;
 
       setTxHash(hash);
-      await submitHash({ data: { id: ix.id, txHash: hash, fromAddress: account } });
+      try {
+        await submitHash({ data: { id: ix.id, txHash: hash, fromAddress: account } });
+      } catch (e) {
+        // Tx is on chain; server just missed the hash. Continue polling.
+        console.warn("submitHash failed, will still poll:", e);
+      }
 
       setStatus("watching");
       const tick = async () => {
         try {
-          const r = await checkIntent({ data: { id: ix.id } });
+          const r = await checkIntent({ data: { id: ix!.id } });
           if (r.status === "paid") {
             if (pollRef.current) clearInterval(pollRef.current);
             setStatus("paid");
@@ -141,7 +167,7 @@ export function WalletConnectPay({ tier }: { tier: 10 | 50 | 100 }) {
           } else if (r.status === "failed") {
             if (pollRef.current) clearInterval(pollRef.current);
             setStatus("failed");
-            setError((r as { error?: string }).error ?? "Transaction failed on-chain");
+            setError((r as { error?: string }).error ?? "Transaction failed on-chain. Check the explorer for details.");
           } else if (r.status === "expired") {
             if (pollRef.current) clearInterval(pollRef.current);
             setStatus("expired");
@@ -151,10 +177,12 @@ export function WalletConnectPay({ tier }: { tier: 10 | 50 | 100 }) {
       tick();
       pollRef.current = setInterval(tick, 5000);
     } catch (e) {
+      const phase = !ix ? "other" : status === "switching" ? "switch" : status === "signing" ? "sign" : "submit";
       setStatus("failed");
-      setError(e instanceof Error ? e.message : "Payment failed");
+      setError(friendlyError(e, phase));
     }
   }
+
 
   async function disconnect() {
     try { await providerRef.current?.disconnect?.(); } catch { /* ignore */ }
