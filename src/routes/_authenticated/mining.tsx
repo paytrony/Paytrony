@@ -332,6 +332,35 @@ function MiningPage() {
         )}
       </div>
 
+      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm mining claim</AlertDialogTitle>
+            <AlertDialogDescription>
+              You are about to mine a daily reward based on every NFT tier you own.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="rounded-xl border border-border bg-muted/30 p-4 text-center">
+            <div className="text-xs uppercase tracking-wide text-muted-foreground">Reward to credit</div>
+            <div className="mt-1 text-3xl font-bold text-emerald-400">+${totalRate.toFixed(2)}</div>
+            <div className="mt-1 text-xs text-muted-foreground">
+              {ownedTiers.length > 0
+                ? ownedTiers.map((t) => `$${t} @ $${RATES[t].toFixed(2)}/day`).join(" · ")
+                : "No owned tiers"}
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            After confirming, your wallet will be credited and the 24-hour cooldown will begin.
+          </p>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setConfirmOpen(false)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmMine} disabled={mining || !canMine}>
+              {mining ? "Crediting…" : `Confirm and credit $${totalRate.toFixed(2)}`}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
     </div>
   );
 }
