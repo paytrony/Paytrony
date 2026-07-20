@@ -102,6 +102,36 @@ function MiningPage() {
         <p className="text-sm text-muted-foreground">Claim daily rewards from your NFT packages. One click every 24 hours.</p>
       </div>
 
+      <div
+        className={`rounded-2xl border p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 ${
+          canMine
+            ? "border-emerald-400/40 bg-emerald-400/5"
+            : "border-accent/40 bg-accent/5"
+        }`}
+      >
+        <div className="flex items-center gap-3">
+          <div className={`flex h-10 w-10 items-center justify-center rounded-full ${canMine ? "bg-emerald-400/15 text-emerald-400" : "bg-accent/15 text-accent"}`}>
+            <Timer className="h-5 w-5" />
+          </div>
+          <div>
+            <div className="text-sm font-semibold">
+              {canMine ? "You can mine now" : "Mining cooldown active"}
+            </div>
+            <div className="text-xs text-muted-foreground">
+              {canMine
+                ? ownedTiers.length === 0
+                  ? "Buy a package to start earning daily rewards."
+                  : `Claim your $${totalRate.toFixed(2)} reward before it resets.`
+                : `Available at ${new Date(nextAt).toLocaleString()} — restored automatically after refresh or re-login.`}
+            </div>
+          </div>
+        </div>
+        <div className="font-mono text-2xl font-bold tabular-nums sm:text-3xl">
+          {canMine ? <span className="text-emerald-400">Ready</span> : <span className="text-accent">{fmtCountdown(msLeft)}</span>}
+        </div>
+      </div>
+
+
       <div className="grid gap-4 md:grid-cols-3">
         <div className="rounded-2xl border border-primary/40 bg-card p-6 glow">
           <div className="flex items-center gap-2 font-mono text-xs uppercase text-muted-foreground">
@@ -196,26 +226,95 @@ function MiningPage() {
         </div>
       </div>
 
-      <div className="rounded-2xl border border-border bg-card">
-        <div className="border-b border-border px-6 py-4">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Recent claims</h2>
-        </div>
-        {claims.length === 0 ? (
-          <div className="p-8 text-center text-sm text-muted-foreground">No claims yet.</div>
+      <div className="rounded-2xl border border-border bg-card p-6">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Daily reward breakdown</h2>
+        <p className="mt-1 text-xs text-muted-foreground">How each owned tier contributes to your total daily payout.</p>
+        {ownedTiers.length === 0 ? (
+          <div className="mt-4 rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+            No owned tiers yet. Contributions will appear once you buy a package.
+          </div>
         ) : (
-          <ul className="divide-y divide-border">
-            {claims.map((c) => (
-              <li key={c.id} className="flex items-center justify-between px-6 py-3 text-sm">
-                <div>
-                  <div className="font-medium">Daily mining</div>
-                  <div className="text-xs text-muted-foreground">Tiers: {c.tiers.map((t) => `$${t}`).join(", ")} · {new Date(c.created_at).toLocaleString()}</div>
-                </div>
-                <div className="font-mono text-sm font-semibold text-emerald-400">+${Number(c.amount).toFixed(2)}</div>
-              </li>
-            ))}
-          </ul>
+          <div className="mt-4 overflow-hidden rounded-xl border border-border">
+            <table className="w-full text-sm">
+              <thead className="bg-muted/30 text-xs uppercase text-muted-foreground">
+                <tr>
+                  <th className="px-4 py-2 text-left font-medium">Tier</th>
+                  <th className="px-4 py-2 text-right font-medium">Rate</th>
+                  <th className="px-4 py-2 text-right font-medium">Owned</th>
+                  <th className="px-4 py-2 text-right font-medium">Contribution</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {[10, 50, 100].map((tier) => {
+                  const owned = ownedTiers.includes(tier);
+                  const contrib = owned ? (RATES[tier] ?? 0) : 0;
+                  return (
+                    <tr key={tier} className={owned ? "" : "opacity-50"}>
+                      <td className="px-4 py-2 font-mono">${tier} {tier === 10 ? "Starter" : tier === 50 ? "Pro" : "Elite"}</td>
+                      <td className="px-4 py-2 text-right font-mono">${(RATES[tier] ?? 0).toFixed(2)}/day</td>
+                      <td className="px-4 py-2 text-right">{owned ? "Yes" : "—"}</td>
+                      <td className={`px-4 py-2 text-right font-mono font-semibold ${owned ? "text-emerald-400" : "text-muted-foreground"}`}>
+                        {owned ? `+$${contrib.toFixed(2)}` : "$0.00"}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+              <tfoot className="bg-muted/20">
+                <tr>
+                  <td className="px-4 py-3 font-semibold" colSpan={3}>Total daily reward</td>
+                  <td className="px-4 py-3 text-right font-mono text-base font-bold text-primary">${totalRate.toFixed(2)}/day</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
         )}
       </div>
+
+      <div className="rounded-2xl border border-border bg-card">
+        <div className="border-b border-border px-6 py-4">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Mining history</h2>
+          <p className="mt-1 text-xs text-muted-foreground">Every mine and credit event with date, amount, and status.</p>
+        </div>
+        {claims.length === 0 ? (
+          <div className="p-8 text-center text-sm text-muted-foreground">No mining history yet.</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-muted/30 text-xs uppercase text-muted-foreground">
+                <tr>
+                  <th className="px-4 py-2 text-left font-medium">Date</th>
+                  <th className="px-4 py-2 text-left font-medium">Tiers used</th>
+                  <th className="px-4 py-2 text-right font-medium">Amount</th>
+                  <th className="px-4 py-2 text-right font-medium">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {claims.map((c) => (
+                  <tr key={c.id}>
+                    <td className="px-4 py-3">
+                      <div className="font-medium">{new Date(c.created_at).toLocaleDateString()}</div>
+                      <div className="text-xs text-muted-foreground">{new Date(c.created_at).toLocaleTimeString()}</div>
+                    </td>
+                    <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
+                      {c.tiers.map((t) => `$${t}`).join(", ")}
+                    </td>
+                    <td className="px-4 py-3 text-right font-mono font-semibold text-emerald-400">
+                      +${Number(c.amount).toFixed(2)}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-400/15 px-2 py-0.5 text-[10px] font-mono uppercase text-emerald-400">
+                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" /> Credited
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
     </div>
   );
 }
