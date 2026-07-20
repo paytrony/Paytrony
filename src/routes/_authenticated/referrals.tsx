@@ -26,11 +26,11 @@ function ReferralsPage() {
     (async () => {
       const [{ data: p }, { data: r }, { data: t }] = await Promise.all([
         supabase.from("profiles").select("referral_code").eq("id", user.id).maybeSingle(),
-        supabase.from("profiles").select("id,email,nft_tier,created_at").eq("referred_by", user.id).order("created_at", { ascending: false }),
+        supabase.rpc("get_referred_users"),
         supabase.from("wallet_transactions").select("amount,type").eq("user_id", user.id).eq("type", "referral_credit"),
       ]);
       setProfile(p as any);
-      setRefs((r ?? []) as Referred[]);
+      setRefs(((r ?? []) as Referred[]).sort((a, b) => (a.created_at < b.created_at ? 1 : -1)));
       const total = (t ?? []).reduce((s, x: any) => s + Number(x.amount), 0);
       setEarnings(total);
       setCreditCount((t ?? []).length);
