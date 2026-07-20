@@ -399,6 +399,7 @@ export type Database = {
       }
       submit_kyc: { Args: { _user_id: string }; Returns: undefined }
       test_e2e_flow: { Args: never; Returns: string }
+      test_evm_webhook_flow: { Args: never; Returns: string }
     }
     Enums: {
       app_role: "admin" | "user"

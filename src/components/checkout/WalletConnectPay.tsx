@@ -14,13 +14,13 @@ import { Loader2, Smartphone, CheckCircle2, XCircle, ExternalLink, AlertTriangle
 import { toast } from "sonner";
 
 type Chain = "bsc" | "polygon" | "arbitrum" | "optimism" | "base" | "eth";
-const CHAIN_META: Record<Chain, { label: string; chainId: number; token: string; explorer: (h: string) => string; rpc: string }> = {
-  bsc: { label: "BNB Smart Chain (cheap)", chainId: 56, token: "USDT", explorer: (h) => `https://bscscan.com/tx/${h}`, rpc: "https://bsc-dataseed.binance.org" },
-  polygon: { label: "Polygon (very cheap)", chainId: 137, token: "USDT", explorer: (h) => `https://polygonscan.com/tx/${h}`, rpc: "https://polygon-rpc.com" },
-  arbitrum: { label: "Arbitrum One (L2)", chainId: 42161, token: "USDT", explorer: (h) => `https://arbiscan.io/tx/${h}`, rpc: "https://arb1.arbitrum.io/rpc" },
-  optimism: { label: "Optimism (L2)", chainId: 10, token: "USDT", explorer: (h) => `https://optimistic.etherscan.io/tx/${h}`, rpc: "https://mainnet.optimism.io" },
-  base: { label: "Base (USDC)", chainId: 8453, token: "USDC", explorer: (h) => `https://basescan.org/tx/${h}`, rpc: "https://mainnet.base.org" },
-  eth: { label: "Ethereum (high fees)", chainId: 1, token: "USDT", explorer: (h) => `https://etherscan.io/tx/${h}`, rpc: "https://ethereum-rpc.publicnode.com" },
+const CHAIN_META: Record<Chain, { label: string; explorerName: string; chainId: number; token: string; explorer: (h: string) => string; rpc: string }> = {
+  bsc: { label: "BNB Smart Chain (cheap)", explorerName: "BscScan", chainId: 56, token: "USDT", explorer: (h) => `https://bscscan.com/tx/${h}`, rpc: "https://bsc-dataseed.binance.org" },
+  polygon: { label: "Polygon (very cheap)", explorerName: "PolygonScan", chainId: 137, token: "USDT", explorer: (h) => `https://polygonscan.com/tx/${h}`, rpc: "https://polygon-rpc.com" },
+  arbitrum: { label: "Arbitrum One (L2)", explorerName: "Arbiscan", chainId: 42161, token: "USDT", explorer: (h) => `https://arbiscan.io/tx/${h}`, rpc: "https://arb1.arbitrum.io/rpc" },
+  optimism: { label: "Optimism (L2)", explorerName: "Optimistic Etherscan", chainId: 10, token: "USDT", explorer: (h) => `https://optimistic.etherscan.io/tx/${h}`, rpc: "https://mainnet.optimism.io" },
+  base: { label: "Base (USDC)", explorerName: "BaseScan", chainId: 8453, token: "USDC", explorer: (h) => `https://basescan.org/tx/${h}`, rpc: "https://mainnet.base.org" },
+  eth: { label: "Ethereum (high fees)", explorerName: "Etherscan", chainId: 1, token: "USDT", explorer: (h) => `https://etherscan.io/tx/${h}`, rpc: "https://ethereum-rpc.publicnode.com" },
 };
 
 function padHex(v: string, len = 64): string {
@@ -32,6 +32,44 @@ function encodeTransfer(to: string, amountRaw: bigint): string {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type WCProvider = any;
+
+type PersistShape = {
+  v: 1;
+  tier: 10 | 50 | 100;
+  chain: Chain;
+  intentId: string | null;
+  txHash: string | null;
+  account: string | null;
+  amountRaw: string | null; // hex-safe string
+  to: string | null;         // USDT contract
+  savedAt: number;
+};
+
+const persistKey = (tier: number) => `wc-pay:v1:${tier}`;
+
+function loadPersisted(tier: 10 | 50 | 100): PersistShape | null {
+  try {
+    const raw = localStorage.getItem(persistKey(tier));
+    if (!raw) return null;
+    const p = JSON.parse(raw) as PersistShape;
+    // 45 min ceiling to avoid resurrecting truly dead intents
+    if (Date.now() - p.savedAt > 45 * 60_000) {
+      localStorage.removeItem(persistKey(tier));
+      return null;
+    }
+    return p;
+  } catch { return null; }
+}
+function savePersisted(tier: 10 | 50 | 100, patch: Partial<PersistShape>) {
+  try {
+    const prev = loadPersisted(tier) ?? { v: 1, tier, chain: "bsc" as Chain, intentId: null, txHash: null, account: null, amountRaw: null, to: null, savedAt: Date.now() };
+    const next: PersistShape = { ...prev, ...patch, v: 1, tier, savedAt: Date.now() };
+    localStorage.setItem(persistKey(tier), JSON.stringify(next));
+  } catch { /* ignore */ }
+}
+function clearPersisted(tier: 10 | 50 | 100) {
+  try { localStorage.removeItem(persistKey(tier)); } catch { /* ignore */ }
+}
 
 export function WalletConnectPay({ tier }: { tier: 10 | 50 | 100 }) {
   const navigate = useNavigate();
@@ -46,6 +84,9 @@ export function WalletConnectPay({ tier }: { tier: 10 | 50 | 100 }) {
   const [chain, setChain] = useState<Chain>("bsc");
   const [account, setAccount] = useState<string | null>(null);
   const [txHash, setTxHash] = useState<string | null>(null);
+  const [intentId, setIntentId] = useState<string | null>(null);
+  const [pendingSign, setPendingSign] = useState<{ to: string; amountRaw: string } | null>(null);
+  const [resumed, setResumed] = useState(false);
   const [status, setStatus] = useState<"idle" | "connecting" | "creating" | "switching" | "signing" | "watching" | "paid" | "failed" | "expired">("idle");
   const [error, setError] = useState<string | null>(null);
   const providerRef = useRef<WCProvider | null>(null);
@@ -57,6 +98,51 @@ export function WalletConnectPay({ tier }: { tier: 10 | 50 | 100 }) {
       try { providerRef.current.disconnect?.(); } catch { /* ignore */ }
     }
   }, []);
+
+  // Restore persisted state on mount
+  useEffect(() => {
+    const p = loadPersisted(tier);
+    if (!p || !p.intentId) return;
+    setChain(p.chain);
+    setIntentId(p.intentId);
+    if (p.account) setAccount(p.account);
+    if (p.txHash) {
+      setTxHash(p.txHash);
+      setStatus("watching");
+      startPolling(p.intentId);
+    } else if (p.to && p.amountRaw) {
+      // Signing was interrupted before a hash was returned
+      setPendingSign({ to: p.to, amountRaw: p.amountRaw });
+    }
+    setResumed(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tier]);
+
+  function startPolling(id: string) {
+    if (pollRef.current) clearInterval(pollRef.current);
+    const tick = async () => {
+      try {
+        const r = await checkIntent({ data: { id } });
+        if (r.status === "paid") {
+          if (pollRef.current) clearInterval(pollRef.current);
+          setStatus("paid");
+          clearPersisted(tier);
+          toast.success("Payment confirmed! NFT minted.");
+          setTimeout(() => navigate({ to: "/nfts" }), 1600);
+        } else if (r.status === "failed") {
+          if (pollRef.current) clearInterval(pollRef.current);
+          setStatus("failed");
+          setError((r as { error?: string }).error ?? "Transaction failed on-chain.");
+        } else if (r.status === "expired") {
+          if (pollRef.current) clearInterval(pollRef.current);
+          setStatus("expired");
+          clearPersisted(tier);
+        }
+      } catch { /* retry */ }
+    };
+    tick();
+    pollRef.current = setInterval(tick, 5000);
+  }
 
   async function getProvider(): Promise<WCProvider> {
     if (providerRef.current) return providerRef.current;
@@ -78,7 +164,10 @@ export function WalletConnectPay({ tier }: { tier: 10 | 50 | 100 }) {
         icons: [],
       },
     });
-    provider.on("accountsChanged", (accs: string[]) => setAccount(accs[0] ?? null));
+    provider.on("accountsChanged", (accs: string[]) => {
+      setAccount(accs[0] ?? null);
+      savePersisted(tier, { account: accs[0] ?? null });
+    });
     provider.on("disconnect", () => { setAccount(null); providerRef.current = null; });
     providerRef.current = provider;
     return provider;
@@ -112,11 +201,45 @@ export function WalletConnectPay({ tier }: { tier: 10 | 50 | 100 }) {
       const accs = (await provider.request({ method: "eth_accounts" })) as string[];
       if (!accs[0]) throw new Error("No account returned from wallet");
       setAccount(accs[0]);
+      savePersisted(tier, { account: accs[0], chain });
       setStatus("idle");
     } catch (e) {
       setStatus("idle");
       setError(friendlyError(e, "connect"));
     }
+  }
+
+  async function signAndBroadcast(provider: WCProvider, ix: { id: string; chainIdHex: string; to: string; usdt: string; expectedAmount: number; usdtDecimals: number }, fromAccount: string) {
+    setStatus("switching");
+    try {
+      await provider.request({ method: "wallet_switchEthereumChain", params: [{ chainId: ix.chainIdHex }] });
+    } catch (e) {
+      const code = (e as { code?: number }).code;
+      if (code === 4902) {
+        throw new Error(`Add ${CHAIN_META[chain].label} to your wallet, then try again.`);
+      }
+      throw e;
+    }
+
+    setStatus("signing");
+    const amountRaw = BigInt(Math.round(ix.expectedAmount * 10 ** ix.usdtDecimals));
+    const dataHex = encodeTransfer(ix.to, amountRaw);
+    savePersisted(tier, { intentId: ix.id, chain, account: fromAccount, to: ix.usdt, amountRaw: amountRaw.toString() });
+
+    const hash = (await provider.request({
+      method: "eth_sendTransaction",
+      params: [{ from: fromAccount, to: ix.usdt, data: dataHex, value: "0x0" }],
+    })) as string;
+
+    setTxHash(hash);
+    savePersisted(tier, { txHash: hash });
+    try {
+      await submitHash({ data: { id: ix.id, txHash: hash, fromAddress: fromAccount } });
+    } catch (e) {
+      console.warn("submitHash failed, will still poll:", e);
+    }
+    setStatus("watching");
+    startPolling(ix.id);
   }
 
   async function pay() {
@@ -127,55 +250,9 @@ export function WalletConnectPay({ tier }: { tier: 10 | 50 | 100 }) {
     try {
       const provider = await getProvider();
       ix = await createIntent({ data: { tier, chain } });
-
-      setStatus("switching");
-      try {
-        await provider.request({ method: "wallet_switchEthereumChain", params: [{ chainId: ix.chainIdHex }] });
-      } catch (e) {
-        const code = (e as { code?: number }).code;
-        if (code === 4902) {
-          throw new Error(`Add ${CHAIN_META[chain].label} to your wallet, then try again.`);
-        }
-        throw e;
-      }
-
-      setStatus("signing");
-      const amountRaw = BigInt(Math.round(ix.expectedAmount * 10 ** ix.usdtDecimals));
-      const dataHex = encodeTransfer(ix.to, amountRaw);
-      const hash = (await provider.request({
-        method: "eth_sendTransaction",
-        params: [{ from: account, to: ix.usdt, data: dataHex, value: "0x0" }],
-      })) as string;
-
-      setTxHash(hash);
-      try {
-        await submitHash({ data: { id: ix.id, txHash: hash, fromAddress: account } });
-      } catch (e) {
-        // Tx is on chain; server just missed the hash. Continue polling.
-        console.warn("submitHash failed, will still poll:", e);
-      }
-
-      setStatus("watching");
-      const tick = async () => {
-        try {
-          const r = await checkIntent({ data: { id: ix!.id } });
-          if (r.status === "paid") {
-            if (pollRef.current) clearInterval(pollRef.current);
-            setStatus("paid");
-            toast.success("Payment confirmed! NFT minted.");
-            setTimeout(() => navigate({ to: "/nfts" }), 1600);
-          } else if (r.status === "failed") {
-            if (pollRef.current) clearInterval(pollRef.current);
-            setStatus("failed");
-            setError((r as { error?: string }).error ?? "Transaction failed on-chain. Check the explorer for details.");
-          } else if (r.status === "expired") {
-            if (pollRef.current) clearInterval(pollRef.current);
-            setStatus("expired");
-          }
-        } catch { /* retry */ }
-      };
-      tick();
-      pollRef.current = setInterval(tick, 5000);
+      setIntentId(ix.id);
+      savePersisted(tier, { intentId: ix.id, chain, account });
+      await signAndBroadcast(provider, ix, account);
     } catch (e) {
       const phase = !ix ? "other" : status === "switching" ? "switch" : status === "signing" ? "sign" : "submit";
       setStatus("failed");
@@ -183,6 +260,35 @@ export function WalletConnectPay({ tier }: { tier: 10 | 50 | 100 }) {
     }
   }
 
+  async function retrySign() {
+    // Re-broadcast for the existing intent (used after page refresh mid-sign)
+    if (!intentId || !account) return;
+    setError(null);
+    try {
+      const provider = await getProvider();
+      // Re-fetch intent details minimally via a fresh createIntent is wrong (would create new).
+      // Instead poll first — if server already saw the tx, polling will finish it.
+      // Otherwise, we don't have full ix data client-side except the persisted pendingSign hint.
+      if (pendingSign) {
+        setStatus("signing");
+        const hash = (await provider.request({
+          method: "eth_sendTransaction",
+          params: [{ from: account, to: pendingSign.to, data: encodeTransfer(pendingSign.to, BigInt(pendingSign.amountRaw)), value: "0x0" }],
+        })) as string;
+        setTxHash(hash);
+        savePersisted(tier, { txHash: hash });
+        try { await submitHash({ data: { id: intentId, txHash: hash, fromAddress: account } }); } catch { /* ignore */ }
+        setStatus("watching");
+        startPolling(intentId);
+      } else {
+        setStatus("watching");
+        startPolling(intentId);
+      }
+    } catch (e) {
+      setStatus("failed");
+      setError(friendlyError(e, "sign"));
+    }
+  }
 
   async function disconnect() {
     try { await providerRef.current?.disconnect?.(); } catch { /* ignore */ }
@@ -191,6 +297,9 @@ export function WalletConnectPay({ tier }: { tier: 10 | 50 | 100 }) {
     setStatus("idle");
     setError(null);
     setTxHash(null);
+    setIntentId(null);
+    setPendingSign(null);
+    clearPersisted(tier);
   }
 
   if (!projectId) {
@@ -203,11 +312,24 @@ export function WalletConnectPay({ tier }: { tier: 10 | 50 | 100 }) {
     );
   }
 
+  const explorer = CHAIN_META[chain];
+  const explorerLink = txHash ? (
+    <a href={explorer.explorer(txHash)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs text-primary underline">
+      View on {explorer.explorerName} <ExternalLink className="h-3 w-3" />
+    </a>
+  ) : null;
+
   return (
     <div className="space-y-4">
+      {resumed && status !== "paid" && (
+        <div className="rounded-md border border-amber-500/40 bg-amber-500/10 p-2 text-xs text-amber-700 dark:text-amber-300">
+          Resumed a previous payment session for this tier.
+        </div>
+      )}
+
       <div>
         <label className="text-xs uppercase text-muted-foreground">Network</label>
-        <Select value={chain} onValueChange={(v) => setChain(v as Chain)} disabled={status !== "idle" && status !== "connecting"}>
+        <Select value={chain} onValueChange={(v) => { setChain(v as Chain); savePersisted(tier, { chain: v as Chain }); }} disabled={status !== "idle" && status !== "connecting"}>
           <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
           <SelectContent>
             {(Object.keys(CHAIN_META) as Chain[]).map((c) => (
@@ -221,7 +343,7 @@ export function WalletConnectPay({ tier }: { tier: 10 | 50 | 100 }) {
       <div className="rounded-md border bg-muted/40 p-3 text-sm">
         <div className="flex items-center justify-between">
           <span className="text-muted-foreground">Amount</span>
-          <span className="font-mono font-bold">${tier}.00 {CHAIN_META[chain].token}</span>
+          <span className="font-mono font-bold">${tier}.00 {explorer.token}</span>
         </div>
         <div className="mt-1 flex items-center justify-between">
           <span className="text-muted-foreground">Wallet</span>
@@ -230,8 +352,8 @@ export function WalletConnectPay({ tier }: { tier: 10 | 50 | 100 }) {
       </div>
 
       {(txHash || status === "signing" || status === "watching" || status === "paid" || status === "failed") && (
-        <div className="rounded-md border bg-muted/40 p-3 text-sm">
-          <div className="mb-2 font-mono text-[10px] uppercase text-muted-foreground">Transaction</div>
+        <div className="rounded-md border bg-muted/40 p-3 text-sm" data-testid="wc-tx-panel">
+          <div className="mb-2 font-mono text-[10px] uppercase text-muted-foreground">Transaction · {explorer.explorerName}</div>
           <ol className="space-y-1.5">
             {[
               { key: "signing", label: "Signed in wallet", done: !!txHash || status === "watching" || status === "paid" },
@@ -246,14 +368,16 @@ export function WalletConnectPay({ tier }: { tier: 10 | 50 | 100 }) {
               </li>
             ))}
           </ol>
-          {txHash && (
-            <a href={CHAIN_META[chain].explorer(txHash)} target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center gap-1 text-xs text-primary underline">
-              View on explorer <ExternalLink className="h-3 w-3" />
-            </a>
-          )}
+          {explorerLink && <div className="mt-2">{explorerLink}</div>}
         </div>
       )}
 
+      {pendingSign && status !== "signing" && status !== "watching" && status !== "paid" && (
+        <div className="rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-xs">
+          <p className="mb-2">A previous signing request was interrupted. You can retry with the same intent.</p>
+          <Button size="sm" onClick={retrySign} disabled={!account}>Retry signing</Button>
+        </div>
+      )}
 
       {!account ? (
         <Button onClick={connect} className="w-full" disabled={status === "connecting"}>
@@ -264,39 +388,26 @@ export function WalletConnectPay({ tier }: { tier: 10 | 50 | 100 }) {
         <div className="flex flex-col items-center gap-2 py-4 text-center">
           <CheckCircle2 className="h-10 w-10 text-emerald-500" />
           <p className="font-medium">Payment confirmed. Redirecting…</p>
-          {txHash && (
-            <a href={CHAIN_META[chain].explorer(txHash)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs text-primary underline">
-              View on explorer <ExternalLink className="h-3 w-3" />
-            </a>
-          )}
+          {explorerLink}
         </div>
       ) : status === "failed" || status === "expired" ? (
         <div className="flex flex-col items-center gap-2 py-2 text-center">
           <XCircle className="h-10 w-10 text-destructive" />
           <p className="text-sm">{status === "expired" ? "Payment window expired" : error ?? "Payment failed"}</p>
-          {txHash && (
-            <a href={CHAIN_META[chain].explorer(txHash)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs text-primary underline">
-              View on explorer <ExternalLink className="h-3 w-3" />
-            </a>
-          )}
-          <Button variant="outline" onClick={() => { setStatus("idle"); setTxHash(null); setError(null); }}>
+          {explorerLink}
+          <Button variant="outline" onClick={() => { setStatus("idle"); setTxHash(null); setError(null); setIntentId(null); setPendingSign(null); clearPersisted(tier); }}>
             Try again
           </Button>
         </div>
       ) : (
         <>
-          <Button onClick={pay} className="w-full" disabled={status !== "idle"}>
-            {status === "idle" && `Pay $${tier} ${CHAIN_META[chain].token}`}
+          <Button onClick={pay} className="w-full" disabled={status !== "idle" || !!pendingSign}>
+            {status === "idle" && `Pay $${tier} ${explorer.token}`}
             {status === "creating" && (<><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Preparing…</>)}
             {status === "switching" && (<><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Switching network…</>)}
             {status === "signing" && (<><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Confirm in your wallet…</>)}
             {status === "watching" && (<><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Waiting for confirmation…</>)}
           </Button>
-          {txHash && status === "watching" && (
-            <a href={CHAIN_META[chain].explorer(txHash)} target="_blank" rel="noreferrer" className="mx-auto flex items-center justify-center gap-1 text-xs text-primary underline">
-              View transaction <ExternalLink className="h-3 w-3" />
-            </a>
-          )}
           <button onClick={disconnect} className="mx-auto block text-xs text-muted-foreground underline">Disconnect</button>
           {error && <p className="text-xs text-destructive">{error}</p>}
         </>
