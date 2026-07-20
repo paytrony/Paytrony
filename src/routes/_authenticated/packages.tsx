@@ -63,6 +63,9 @@ function Packages() {
 
   const [openTier, setOpenTier] = useState<10 | 50 | 100 | null>(null);
   const [method, setMethod] = useState<Method>("chooser");
+  const cfgFn = useServerFn(getPublicPaymentConfig);
+  const { data: publicCfg } = useQuery({ queryKey: ["payment-config"], queryFn: () => cfgFn(), staleTime: 60_000 });
+  const tiles = buildTiles(publicCfg);
   const [tronBusy, setTronBusy] = useState(false);
   const [intent, setIntent] = useState<Intent | null>(null);
   const [status, setStatus] = useState<"pending" | "paid" | "expired" | "cancelled" | "failed">("pending");
