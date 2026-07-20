@@ -2,7 +2,8 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState, useRef } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { requestWithdrawal } from "@/lib/wallet.functions";
-import { buildWithdrawIdempotencyKey } from "@/lib/withdraw-idempotency";
+import { createWithdrawNonce } from "@/lib/withdraw-idempotency";
+import { fetchWalletBalance } from "@/lib/wallet-balance";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -142,21 +143,13 @@ function Withdraw() {
 
 
   async function load() {
-    const [{ data: t }, { data: w }, { data: lim }, { data: u }] = await Promise.all([
-      supabase.from("wallet_transactions").select("amount,type").eq("user_id", user.id),
+    const [{ data: w }, { data: lim }, { data: u }, wb] = await Promise.all([
       supabase.from("withdrawals").select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
       supabase.from("withdrawal_limits").select("*").eq("id", true).maybeSingle(),
       supabase.auth.getUser(),
+      fetchWalletBalance().catch(() => null),
     ]);
-    // Wallet balance = referral credits + mining transferred into wallet − withdrawals.
-    // Raw mining rewards stay in the mining bucket until the user explicitly transfers them.
-    const bal = (t ?? []).reduce((s, r: any) => {
-      if (r.type === "referral_credit" || r.type === "mining_transfer") return s + Number(r.amount);
-      if (r.type === "withdrawal") return s - Number(r.amount);
-      return s;
-    }, 0);
-    const pen = (w ?? []).filter((r: any) => r.status === "pending").reduce((s, r: any) => s + Number(r.amount), 0);
-    setAvailable(bal - pen);
+    setAvailable(wb?.available ?? 0);
     setHistory((w ?? []) as W[]);
     setLimits(lim as Limits | null);
     setEmailVerified(!!u.user?.email_confirmed_at);
