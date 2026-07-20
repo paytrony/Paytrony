@@ -16,7 +16,7 @@ function Privacy() {
     <LegalShell title="Privacy Policy" updated="July 19, 2026">
       <p>This policy explains what we collect and how we use it.</p>
       <h2>Data we collect</h2>
-      <p>Email address, hashed password, referral relationships, purchases, wallet transactions, withdrawal requests, KYC status, and technical logs (IP, user agent).</p>
+      <p>Email address, hashed password, referral relationships, purchases, wallet transactions, withdrawal requests, and technical logs (IP, user agent).</p>
       <h2>How we use it</h2>
       <p>To operate accounts, process purchases and withdrawals, attribute referrals, prevent fraud, and comply with law.</p>
       <h2>Storage</h2>

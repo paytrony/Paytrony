@@ -156,7 +156,7 @@ export const listAdminUsers = createServerFn({ method: "POST" })
 
     let q = supabaseAdmin
       .from("profiles")
-      .select("id,email,referral_code,nft_tier,referred_by,created_at,kyc_status")
+      .select("id,email,referral_code,nft_tier,referred_by,created_at")
       .order("created_at", { ascending: false })
       .range(data.offset, data.offset + data.limit - 1);
 

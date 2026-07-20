@@ -10,7 +10,7 @@ export const Route = createFileRoute("/_authenticated/settings")({
   component: Settings,
 });
 
-type Profile = { display_name: string | null; kyc_status: string; email: string };
+type Profile = { display_name: string | null; email: string };
 
 function Settings() {
   const { user } = Route.useRouteContext();
@@ -26,7 +26,7 @@ function Settings() {
   const [confirmText, setConfirmText] = useState("");
 
   async function load() {
-    const { data } = await supabase.from("profiles").select("display_name,kyc_status,email").eq("id", user.id).maybeSingle();
+    const { data } = await supabase.from("profiles").select("display_name,email").eq("id", user.id).maybeSingle();
     setProfile(data as Profile);
     setDisplayName((data as any)?.display_name ?? "");
     const { data: u } = await supabase.auth.getUser();
@@ -78,16 +78,6 @@ function Settings() {
     finally { setBusy(false); }
   }
 
-  async function submitKyc() {
-    setBusy(true);
-    try {
-      const { error } = await supabase.rpc("submit_kyc", { _user_id: user.id });
-      if (error) throw error;
-      toast.success("KYC submitted for review");
-      await load();
-    } catch (e) { toast.error(e instanceof Error ? e.message : "Failed"); }
-    finally { setBusy(false); }
-  }
 
   async function doDelete() {
     if (confirmText !== "DELETE") return;
@@ -144,27 +134,6 @@ function Settings() {
         </Row>
       </Section>
 
-      <Section title="Identity verification (KYC)">
-        <div className="rounded-md border border-border bg-muted/30 p-4 text-sm">
-          <div className="flex items-center gap-2">
-            <span className="text-muted-foreground">Status:</span>
-            <span className={`rounded-full px-2 py-0.5 text-[10px] font-mono uppercase ${
-              profile?.kyc_status === "approved" ? "bg-primary/20 text-primary" :
-              profile?.kyc_status === "pending" ? "bg-accent/20 text-accent" :
-              profile?.kyc_status === "rejected" ? "bg-destructive/20 text-destructive" :
-              "bg-muted text-muted-foreground"
-            }`}>{profile?.kyc_status ?? "none"}</span>
-          </div>
-          <p className="mt-2 text-xs text-muted-foreground">
-            KYC is required to withdraw more than the base threshold. In this demo, submitting KYC flags your account for admin review (no documents collected).
-          </p>
-          {(profile?.kyc_status === "none" || profile?.kyc_status === "rejected") && (
-            <button onClick={submitKyc} disabled={busy} className="mt-3 rounded-md bg-primary px-4 py-2 text-sm text-primary-foreground disabled:opacity-50">
-              Submit for review
-            </button>
-          )}
-        </div>
-      </Section>
 
       <Section title="Danger zone">
         <div className="rounded-md border border-destructive/40 bg-destructive/5 p-4">

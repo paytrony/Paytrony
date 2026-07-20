@@ -404,7 +404,7 @@ function WithdrawalsTab() {
 
 type UserRow = {
   id: string; email: string; referral_code: string; nft_tier: number | null;
-  referred_by: string | null; created_at: string; kyc_status: string | null;
+  referred_by: string | null; created_at: string;
   balance: number; purchases_count: number; is_admin: boolean;
 };
 
@@ -455,14 +455,14 @@ function UsersTab({ onViewPayments }: { onViewPayments: (u: { id: string; email?
               <th className="p-3 text-left">Tier</th>
               <th className="p-3 text-left">Balance</th>
               <th className="p-3 text-left">Purchases</th>
-              <th className="p-3 text-left">KYC</th>
+              
               <th className="p-3 text-left">Joined</th>
               <th className="p-3"></th>
             </tr>
           </thead>
           <tbody>
-            {loading && <tr><td colSpan={8} className="p-6 text-center text-muted-foreground">Loading…</td></tr>}
-            {!loading && rows.length === 0 && <tr><td colSpan={8} className="p-6 text-center text-muted-foreground">No users</td></tr>}
+            {loading && <tr><td colSpan={7} className="p-6 text-center text-muted-foreground">Loading…</td></tr>}
+            {!loading && rows.length === 0 && <tr><td colSpan={7} className="p-6 text-center text-muted-foreground">No users</td></tr>}
             {rows.map((u) => (
               <tr key={u.id} className="border-b border-border last:border-0">
                 <td className="p-3">
@@ -475,7 +475,7 @@ function UsersTab({ onViewPayments }: { onViewPayments: (u: { id: string; email?
                 <td className="p-3">{u.nft_tier ? `$${u.nft_tier}` : "—"}</td>
                 <td className="p-3 font-mono">${u.balance.toFixed(2)}</td>
                 <td className="p-3">{u.purchases_count}</td>
-                <td className="p-3 text-xs"><StatusPill status={u.kyc_status ?? "none"} /></td>
+                
                 <td className="p-3 text-xs text-muted-foreground">{new Date(u.created_at).toLocaleDateString()}</td>
                 <td className="p-3">
                   <div className="flex justify-end gap-1">
