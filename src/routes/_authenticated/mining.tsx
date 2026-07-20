@@ -68,15 +68,15 @@ function MiningPage() {
   }
 
   async function fetchBalance() {
-    const CREDIT_TYPES = new Set(["referral_credit", "mining_reward"]);
+    // Wallet balance = referral_credit + mining_transfer − withdrawal (mining_reward stays in mining bucket).
     const [{ data: txns }, { data: pending }] = await Promise.all([
       supabase.from("wallet_transactions").select("amount,type").eq("user_id", user.id),
       supabase.from("withdrawals").select("amount").eq("user_id", user.id).eq("status", "pending"),
     ]);
-    const totalEarned = (txns ?? []).filter((t: any) => CREDIT_TYPES.has(t.type)).reduce((s, t: any) => s + Number(t.amount), 0);
-    const totalSpent = (txns ?? []).filter((t: any) => !CREDIT_TYPES.has(t.type)).reduce((s, t: any) => s + Number(t.amount), 0);
+    const walletCredits = (txns ?? []).filter((t: any) => t.type === "referral_credit" || t.type === "mining_transfer").reduce((s, t: any) => s + Number(t.amount), 0);
+    const withdrawn = (txns ?? []).filter((t: any) => t.type === "withdrawal").reduce((s, t: any) => s + Number(t.amount), 0);
     const pendingAmt = (pending ?? []).reduce((s, r: any) => s + Number(r.amount), 0);
-    return totalEarned - totalSpent - pendingAmt;
+    return walletCredits - withdrawn - pendingAmt;
   }
 
   async function refreshPostMine() {
