@@ -230,7 +230,7 @@ function MiningPage() {
 
         <div className="mt-6 flex flex-col items-center gap-3">
           <button
-            onClick={mine}
+            onClick={openConfirm}
             disabled={!canMine || mining || selectedTiers.length === 0}
             className="inline-flex items-center gap-2 rounded-md bg-primary px-8 py-3 text-base font-semibold text-primary-foreground shadow-lg transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
           >
