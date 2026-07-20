@@ -65,7 +65,50 @@ function Dashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user.id]);
 
+  useEffect(() => {
+    const id = setInterval(() => setNowTs(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+
   const available = balance - pending;
+
+  const tierRates: Record<number, number> = { 10: 1.2, 50: 5.2, 100: 11.2 };
+  const ownedTiers = useMemo(() => Array.from(new Set(nfts.map((n) => n.nft_tier))), [nfts]);
+  const dailyRate = ownedTiers.reduce((s, tier) => s + (tierRates[tier] ?? 0), 0);
+  const totalMined = txns.filter((t) => t.type === "mining_reward").reduce((s, t) => s + Number(t.amount), 0);
+  const nextClaimAt = lastClaimAt ? new Date(lastClaimAt).getTime() + 24 * 3600 * 1000 : 0;
+  const cooldownMs = Math.max(0, nextClaimAt - nowTs);
+  const canMine = ownedTiers.length > 0 && cooldownMs === 0;
+
+  function formatCountdown(ms: number) {
+    const s = Math.ceil(ms / 1000);
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    const sec = s % 60;
+    return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
+  }
+
+  async function handleMine() {
+    if (mining || !canMine) return;
+    setMining(true);
+    const key = `mine:${user.id}:${new Date().toISOString().slice(0, 10)}:${Date.now()}`;
+    try {
+      const { data, error } = await supabase.rpc("mine_now", { _user_id: user.id, _idempotency_key: key });
+      if (error) throw error;
+      const amt = Number((data as any)?.amount ?? 0);
+      toast.success(`Mined $${amt.toFixed(2)} — credited to your wallet`);
+      await reload();
+    } catch (e: any) {
+      const msg = String(e?.message ?? "Mining failed");
+      if (msg.includes("cooldown_active")) toast.error("Cooldown active — try again later");
+      else if (msg.includes("no_nfts")) toast.error("Buy an NFT package to start mining");
+      else toast.error(msg);
+    } finally {
+      setMining(false);
+    }
+  }
+
+
 
 
   return (
