@@ -1,13 +1,15 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { createPaymentIntent, checkPaymentIntent, cancelPaymentIntent } from "@/lib/payments.functions";
+import { useQuery } from "@tanstack/react-query";
+import { createPaymentIntent, checkPaymentIntent, cancelPaymentIntent, getPublicPaymentConfig } from "@/lib/payments.functions";
 import { toast } from "sonner";
 import QRCode from "qrcode";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Copy, Loader2, CheckCircle2, XCircle, Clock, QrCode, Wallet, Smartphone, Zap, CreditCard, ChevronLeft, Lock } from "lucide-react";
 import { MetaMaskPay } from "@/components/checkout/MetaMaskPay";
+import { SolanaPay } from "@/components/checkout/SolanaPay";
 
 export const Route = createFileRoute("/_authenticated/packages")({
   component: Packages,
