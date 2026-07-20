@@ -41,6 +41,8 @@ function MiningPage() {
   const [now, setNow] = useState(Date.now());
   const [errorInfo, setErrorInfo] = useState<{ code: string; title: string; detail: string; fix: string } | null>(null);
   const [balance, setBalance] = useState<number | null>(null);
+  const [refCount, setRefCount] = useState(0);
+  const RATES = useMemo(() => computeTierRates(refCount), [refCount]);
 
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 1000);
