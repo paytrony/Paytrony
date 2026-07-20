@@ -191,22 +191,37 @@ function Dashboard() {
           );
         })()}
 
-        {(() => {
-          const tierRates: Record<number, number> = { 10: 1.2, 50: 5.2, 100: 11.2 };
-          const ownedTiers = Array.from(new Set(nfts.map((n) => n.nft_tier)));
-          const dailyRate = ownedTiers.reduce((s, tier) => s + (tierRates[tier] ?? 0), 0);
-          const totalMined = txns.filter((t) => t.type === "mining_reward").reduce((s, t) => s + Number(t.amount), 0);
-          return (
-            <div className="rounded-2xl border border-border bg-card p-6">
-              <div className="font-mono text-xs uppercase text-muted-foreground">Mining</div>
-              <div className="mt-2 text-4xl font-bold text-primary">${dailyRate.toFixed(2)}<span className="text-sm text-muted-foreground font-normal">/day</span></div>
-              <div className="mt-1 text-xs text-muted-foreground">${totalMined.toFixed(2)} mined all-time</div>
-              <Link to="/mining" className="mt-4 inline-block rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground">
-                {dailyRate > 0 ? "Mine now" : "Start mining"}
-              </Link>
-            </div>
-          );
-        })()}
+        <div className="rounded-2xl border border-border bg-card p-6">
+          <div className="flex items-center justify-between">
+            <div className="font-mono text-xs uppercase text-muted-foreground">Mining</div>
+            {ownedTiers.length > 0 && (
+              <span className="font-mono text-[10px] uppercase text-muted-foreground">
+                {ownedTiers.map((t) => `$${t}`).join(" + ")}
+              </span>
+            )}
+          </div>
+          <div className="mt-2 text-4xl font-bold text-primary">
+            ${dailyRate.toFixed(2)}<span className="text-sm text-muted-foreground font-normal">/day</span>
+          </div>
+          <div className="mt-1 text-xs text-muted-foreground">
+            ${totalMined.toFixed(2)} mined all-time
+            {cooldownMs > 0 && ` · next in ${formatCountdown(cooldownMs)}`}
+          </div>
+          {ownedTiers.length === 0 ? (
+            <Link to="/packages" className="mt-4 inline-block rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground">
+              Buy NFT to mine
+            </Link>
+          ) : (
+            <button
+              onClick={handleMine}
+              disabled={!canMine || mining}
+              className="mt-4 inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {mining ? "Mining…" : cooldownMs > 0 ? `Wait ${formatCountdown(cooldownMs)}` : "Mine now"}
+            </button>
+          )}
+        </div>
+
       </div>
 
 
