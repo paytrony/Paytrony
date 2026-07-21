@@ -25,36 +25,71 @@ const WALKTHROUGH_KEY = "paytrony:mining-walkthrough-seen";
 
 function Landing() {
   const [signedIn, setSignedIn] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [hasNfts, setHasNfts] = useState<boolean | null>(null);
   const [walkOpen, setWalkOpen] = useState(false);
   const [walkStep, setWalkStep] = useState(0);
   const autoTriggered = useRef(false);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => setSignedIn(!!data.session));
+    supabase.auth.getSession().then(({ data }) => {
+      setSignedIn(!!data.session);
+      setUserId(data.session?.user.id ?? null);
+    });
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
+      setSignedIn(!!session);
+      setUserId(session?.user.id ?? null);
+    });
+    return () => sub.subscription.unsubscribe();
   }, []);
 
-  // Only auto-open the walkthrough for signed-in users who have already minted an NFT.
-  // Visitors and signed-in users without a purchase get the manual "See how mining works" button.
+  // Background-refresh NFT ownership for the signed-in user via realtime + a
+  // light poll, so the walkthrough can appear immediately after a mint is
+  // confirmed and the purchases row lands.
   useEffect(() => {
-    if (autoTriggered.current) return;
-    if (typeof window === "undefined") return;
-    try {
-      if (window.localStorage.getItem(WALKTHROUGH_KEY)) return;
-    } catch { /* ignore */ }
+    if (!userId) { setHasNfts(null); return; }
     let cancelled = false;
-    (async () => {
-      const { data: sess } = await supabase.auth.getSession();
-      if (!sess.session) return;
+
+    const check = async () => {
       const { count } = await supabase
         .from("purchases")
         .select("id", { count: "exact", head: true })
-        .eq("user_id", sess.session.user.id);
-      if (cancelled || !count || count < 1) return;
-      autoTriggered.current = true;
-      setTimeout(() => setWalkOpen(true), 1200);
-    })();
-    return () => { cancelled = true; };
-  }, []);
+        .eq("user_id", userId);
+      if (cancelled) return;
+      setHasNfts((count ?? 0) > 0);
+    };
+
+    check();
+    const poll = window.setInterval(check, 15000);
+    const channel = supabase
+      .channel(`purchases:${userId}`)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "purchases", filter: `user_id=eq.${userId}` },
+        () => check(),
+      )
+      .subscribe();
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(poll);
+      supabase.removeChannel(channel);
+    };
+  }, [userId]);
+
+  // Auto-open the walkthrough exactly once per user, only after we confirm the
+  // first NFT mint has landed. If they've completed or dismissed it before, we
+  // never auto-open again — the manual button stays available on request.
+  useEffect(() => {
+    if (autoTriggered.current) return;
+    if (!signedIn || hasNfts !== true) return;
+    try {
+      if (window.localStorage.getItem(WALKTHROUGH_KEY)) return;
+    } catch { /* ignore */ }
+    autoTriggered.current = true;
+    const t = window.setTimeout(() => setWalkOpen(true), 800);
+    return () => window.clearTimeout(t);
+  }, [signedIn, hasNfts]);
 
   const openWalkthrough = () => { setWalkStep(0); setWalkOpen(true); };
   const closeWalkthrough = () => {
@@ -62,6 +97,7 @@ function Landing() {
     try { window.localStorage.setItem(WALKTHROUGH_KEY, "1"); } catch { /* ignore */ }
   };
 
+  const walkthroughUnlocked = !signedIn || hasNfts === true;
 
   const primaryCta = signedIn ? (
     <Link to="/dashboard" className="inline-flex items-center gap-2 rounded-full bg-foreground px-6 py-3 text-sm font-semibold text-background transition hover:opacity-90">
@@ -278,13 +314,36 @@ function Landing() {
             <p className="mt-4 text-xs text-muted-foreground">
               Yield scales linearly with referrals — 0 refs mines 10% of the cap, 10+ refs mines the full daily rate.
             </p>
-            <button
-              type="button"
-              onClick={openWalkthrough}
-              className="mt-6 inline-flex items-center gap-2 rounded-full border border-primary/40 bg-primary/10 px-4 py-2 text-sm font-semibold text-primary transition hover:bg-primary/15"
-            >
-              <Sparkles className="h-4 w-4" /> See how mining works in 3 steps
-            </button>
+            {walkthroughUnlocked ? (
+              <button
+                type="button"
+                onClick={openWalkthrough}
+                className="mt-6 inline-flex items-center gap-2 rounded-full border border-primary/40 bg-primary/10 px-4 py-2 text-sm font-semibold text-primary transition hover:bg-primary/15"
+              >
+                <Sparkles className="h-4 w-4" /> See how mining works in 3 steps
+              </button>
+            ) : (
+              <div className="mt-6 rounded-2xl border border-primary/30 bg-primary/5 p-4">
+                <div className="text-sm font-semibold text-foreground">Mint an NFT to unlock mining</div>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  You need at least one Miner NFT to start mining. The 3-step walkthrough unlocks right after your first mint is confirmed.
+                </p>
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <Link
+                    to="/packages"
+                    className="inline-flex items-center gap-2 rounded-full bg-foreground px-4 py-2 text-sm font-semibold text-background transition hover:opacity-90"
+                  >
+                    Buy an NFT <ArrowRight className="h-4 w-4" />
+                  </Link>
+                  <a
+                    href="#tiers"
+                    className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-card/40 px-4 py-2 text-sm font-medium text-foreground hover:bg-card"
+                  >
+                    Learn more
+                  </a>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
