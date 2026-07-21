@@ -310,6 +310,71 @@ function Landing() {
         </div>
       </section>
 
+      {/* Referrals */}
+      <section id="referrals" className="relative mx-auto max-w-7xl px-6 pb-24">
+        <div className="grid gap-10 lg:grid-cols-2 lg:items-center">
+          <div>
+            <div className="text-sm font-semibold text-primary">How referrals work</div>
+            <h2 className="mt-2 text-4xl font-bold tracking-tight md:text-5xl">
+              Invite friends. <span className="bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">Earn instantly.</span>
+            </h2>
+            <p className="mt-4 text-muted-foreground">
+              Every account gets a personal invite link. When someone you invite mints an NFT,
+              a referral bonus lands in your wallet in the same block — withdrawable straight away.
+              Referrals also boost your daily mining rate up to the full tier cap.
+            </p>
+            <ul className="mt-6 space-y-3 text-sm">
+              <li className="flex items-start gap-2">
+                <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" strokeWidth={2.5} />
+                <span>Share your unique link — <code className="rounded bg-muted px-1.5 py-0.5 text-xs">paytrony.com/i/YOURCODE</code></span>
+              </li>
+              <li className="flex items-start gap-2">
+                <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" strokeWidth={2.5} />
+                <span>Friend mints any tier — you get an instant wallet credit.</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" strokeWidth={2.5} />
+                <span>Hit 10 referrals to unlock the full daily mining cap.</span>
+              </li>
+            </ul>
+            <div className="mt-6 flex flex-wrap items-center gap-3">
+              <Link
+                to="/auth"
+                search={{ mode: "signup" }}
+                className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground hover:opacity-90"
+              >
+                Get your invite link <ArrowRight className="h-4 w-4" />
+              </Link>
+              <a
+                href="#tiers"
+                className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-card/60 px-5 py-2.5 text-sm font-semibold text-foreground hover:bg-card"
+              >
+                See full referral details
+              </a>
+            </div>
+          </div>
+
+          <div className="relative overflow-hidden rounded-3xl border border-border/70 bg-card/60 p-6 backdrop-blur">
+            <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-br from-primary/15 via-transparent to-accent/15" />
+            <div className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Example</div>
+            <div className="mt-3 text-lg font-semibold">You invite 3 friends</div>
+            <div className="mt-4 space-y-3 text-sm">
+              <ExRow label="Friend A mints Starter ($10)" value="+ referral bonus" />
+              <ExRow label="Friend B mints Pro ($50)" value="+ referral bonus" />
+              <ExRow label="Friend C mints Elite ($100)" value="+ referral bonus" />
+              <div className="my-3 h-px bg-border/70" />
+              <ExRow label="Your daily mining boost" value="30% of tier cap" highlight />
+              <ExRow label="Wallet credits" value="Instant · withdrawable" highlight />
+            </div>
+            <p className="mt-4 text-[11px] text-muted-foreground">
+              Referral amounts vary by tier. Full breakdown appears in your dashboard after signup.
+            </p>
+          </div>
+        </div>
+      </section>
+
+
+
       {/* Tiers */}
 
       <section id="tiers" className="relative mx-auto max-w-7xl px-6 pb-24">
