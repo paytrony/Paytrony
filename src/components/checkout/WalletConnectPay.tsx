@@ -127,7 +127,10 @@ export function WalletConnectPay({ tier, quantity = 1 }: { tier: 10 | 50 | 100; 
           if (pollRef.current) clearInterval(pollRef.current);
           setStatus("paid");
           clearPersisted(tier);
-          toast.success("Payment confirmed! NFT minted.");
+          toast.success("Payment confirmed! NFT minted.", {
+            description: "The mining walkthrough will open on the home page once ownership is confirmed.",
+          });
+
           setTimeout(() => navigate({ to: "/nfts" }), 1600);
         } else if (r.status === "failed") {
           if (pollRef.current) clearInterval(pollRef.current);
