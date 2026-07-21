@@ -212,6 +212,8 @@ function Landing() {
               width={1280}
               height={960}
               loading="lazy"
+              decoding="async"
+              fetchPriority="low"
               className="w-full rounded-3xl border border-border/70 shadow-2xl"
             />
           </div>
