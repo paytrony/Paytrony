@@ -190,7 +190,7 @@ function Packages() {
               )}
               <div className="font-mono text-xs uppercase text-muted-foreground">{t.tag}</div>
               <div className="mt-2 text-5xl font-bold">${t.p}</div>
-              <div className="mt-2 text-sm text-muted-foreground">{t.desc}</div>
+              
               <div className="mt-4 mx-auto overflow-hidden rounded-xl">
                 <MinerNftArt tier={t.p} size={140} />
               </div>
