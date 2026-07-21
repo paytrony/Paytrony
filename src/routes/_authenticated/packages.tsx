@@ -255,7 +255,11 @@ function Packages() {
         if (cancelled) return;
         if (r.status === "paid") {
           setStatus("paid");
-          toast.success(openQty > 1 ? `Payment received! Minting ${openQty} NFTs…` : "Payment received! NFT minted.");
+          toast.success(
+            openQty > 1 ? `Payment received! Minting ${openQty} NFTs…` : "Payment received! NFT minted.",
+            { description: "The mining walkthrough will open on the home page once ownership is confirmed." },
+          );
+
           setTimeout(() => navigate({ to: "/nfts" }), 2400);
         } else if (r.status === "expired") {
           setStatus("expired");
