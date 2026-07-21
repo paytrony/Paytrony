@@ -108,7 +108,9 @@ export const Route = createFileRoute("/api/public/evm-payment-webhook")({
           _user_id: intent.user_id,
           _amount: intent.tier,
           _idempotency_key: `intent:${intent.id}`,
-        });
+          _quantity: (intent as { quantity?: number }).quantity ?? 1,
+        } as never);
+
         if (rpcErr) return new Response(rpcErr.message, { status: 500 });
         const purchaseId = (purchase as { purchase_id?: string } | null)?.purchase_id ?? null;
 

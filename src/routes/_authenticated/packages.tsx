@@ -7,12 +7,13 @@ import { toast } from "sonner";
 import QRCode from "qrcode";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Copy, Loader2, CheckCircle2, XCircle, Clock, QrCode, Wallet, Smartphone, Zap, CreditCard, ChevronLeft, Lock, Check } from "lucide-react";
+import { Copy, Loader2, CheckCircle2, XCircle, Clock, QrCode, Wallet, Smartphone, Zap, CreditCard, ChevronLeft, Lock, Check, Minus, Plus } from "lucide-react";
 import { TIER_BENEFITS } from "@/lib/tier-benefits";
 import { MetaMaskPay } from "@/components/checkout/MetaMaskPay";
 import { SolanaPay } from "@/components/checkout/SolanaPay";
 import { WalletConnectPay } from "@/components/checkout/WalletConnectPay";
 import { MinerNftArt } from "@/components/MinerNftArt";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/_authenticated/packages")({
   component: Packages,
@@ -24,11 +25,14 @@ const TIERS = [
   { p: 100 as const, tag: "Elite", desc: "Maximum earning power", cls: "border-accent glow-accent" },
 ];
 
+const MAX_QTY = 10;
+
 type Intent = {
   id: string;
   address: string;
   chain: string;
   tier: number;
+  quantity: number;
   expectedAmount: number;
   expiresAt: string;
 };
@@ -58,6 +62,115 @@ function buildTiles(cfg: { walletConnectProjectId: string | null; solanaEnabled:
   ];
 }
 
+/**
+ * MintStatusTracker — visualises the full mint pipeline in real time.
+ *
+ * Steps: (1) Awaiting payment → (2) Payment detected on-chain →
+ * (3) Minting N of Q → (4) All Q NFTs minted.
+ *
+ * We subscribe to the user's `purchases` table via Realtime and count rows
+ * created since the modal opened for the current tier, so the "N of Q"
+ * progress moves the moment the RPC persists each mint.
+ */
+function MintStatusTracker({
+  tier,
+  quantity,
+  paymentStage,
+  startedAt,
+}: {
+  tier: 10 | 50 | 100;
+  quantity: number;
+  paymentStage: "awaiting" | "detected" | "paid";
+  startedAt: number;
+}) {
+  const [minted, setMinted] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    let uid: string | null = null;
+
+    (async () => {
+      const { data: user } = await supabase.auth.getUser();
+      uid = user.user?.id ?? null;
+      if (!uid || cancelled) return;
+
+      // Initial count of purchases matching tier since we started.
+      const initial = await supabase
+        .from("purchases")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", uid)
+        .eq("nft_tier", tier)
+        .gte("created_at", new Date(startedAt - 5_000).toISOString());
+      if (!cancelled) setMinted(initial.count ?? 0);
+    })();
+
+    const channel = supabase
+      .channel(`mint-progress-${tier}-${startedAt}`)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "purchases" },
+        (payload) => {
+          const row = payload.new as { user_id?: string; nft_tier?: number; created_at?: string };
+          if (!uid || row.user_id !== uid) return;
+          if (row.nft_tier !== tier) return;
+          setMinted((n) => Math.min(quantity, n + 1));
+        },
+      )
+      .subscribe();
+
+    return () => {
+      cancelled = true;
+      supabase.removeChannel(channel);
+    };
+  }, [tier, quantity, startedAt]);
+
+  const pct = paymentStage === "paid"
+    ? Math.round((minted / quantity) * 100)
+    : paymentStage === "detected" ? 66 : paymentStage === "awaiting" ? 33 : 0;
+
+  const steps = [
+    { key: "pay", label: "Awaiting payment", done: paymentStage !== "awaiting", active: paymentStage === "awaiting" },
+    { key: "detect", label: "Payment detected on-chain", done: paymentStage === "paid", active: paymentStage === "detected" },
+    { key: "mint", label: quantity > 1 ? `Minting ${minted} of ${quantity} NFTs` : "Minting NFT", done: paymentStage === "paid" && minted >= quantity, active: paymentStage === "paid" && minted < quantity },
+    { key: "done", label: quantity > 1 ? `${quantity} NFTs credited to your wallet` : "NFT credited to your wallet", done: paymentStage === "paid" && minted >= quantity, active: false },
+  ];
+
+  return (
+    <div className="space-y-3 rounded-lg border bg-muted/30 p-3">
+      <div className="flex items-center justify-between text-xs">
+        <span className="font-semibold uppercase tracking-wider text-muted-foreground">Mint status</span>
+        <span className="font-mono text-muted-foreground">{paymentStage === "paid" ? `${minted}/${quantity}` : "—"}</span>
+      </div>
+      <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+        <div
+          className="h-full bg-primary transition-all duration-500"
+          style={{ width: `${pct}%` }}
+          aria-valuenow={pct}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          role="progressbar"
+        />
+      </div>
+      <ol className="space-y-1.5 text-xs">
+        {steps.map((s) => (
+          <li key={s.key} className="flex items-center gap-2">
+            {s.done ? (
+              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+            ) : s.active ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+            ) : (
+              <div className="h-3.5 w-3.5 rounded-full border border-muted-foreground/30" />
+            )}
+            <span className={s.done ? "text-foreground" : s.active ? "text-primary" : "text-muted-foreground"}>
+              {s.label}
+            </span>
+          </li>
+        ))}
+      </ol>
+    </div>
+  );
+}
+
 function Packages() {
   const createIntent = useServerFn(createPaymentIntent);
   const checkIntent = useServerFn(checkPaymentIntent);
@@ -67,6 +180,9 @@ function Packages() {
   const [openTier, setOpenTier] = useState<10 | 50 | 100 | null>(null);
   const [method, setMethod] = useState<Method>("chooser");
   const [expandedBenefits, setExpandedBenefits] = useState<Set<number>>(new Set());
+  const [qtyByTier, setQtyByTier] = useState<Record<10 | 50 | 100, number>>({ 10: 1, 50: 1, 100: 1 });
+  const [openQty, setOpenQty] = useState<number>(1);
+  const [flowStartedAt, setFlowStartedAt] = useState<number>(() => Date.now());
   const cfgFn = useServerFn(getPublicPaymentConfig);
   const { data: publicCfg } = useQuery({ queryKey: ["payment-config"], queryFn: () => cfgFn(), staleTime: 60_000 });
   const tiles = buildTiles(publicCfg);
@@ -86,6 +202,20 @@ function Packages() {
     });
   };
 
+  const bumpQty = (p: 10 | 50 | 100, delta: number) => {
+    setQtyByTier((prev) => {
+      const next = Math.max(1, Math.min(MAX_QTY, (prev[p] ?? 1) + delta));
+      return { ...prev, [p]: next };
+    });
+  };
+
+  function startCheckout(p: 10 | 50 | 100) {
+    setOpenQty(qtyByTier[p] ?? 1);
+    setOpenTier(p);
+    setMethod("chooser");
+    setFlowStartedAt(Date.now());
+  }
+
   // Auto-create Tron intent when Tron method active and none exists.
   useEffect(() => {
     if (openTier === null || method !== "tron" || intent || tronBusy) return;
@@ -93,7 +223,7 @@ function Packages() {
     setTronBusy(true);
     (async () => {
       try {
-        const res = await createIntent({ data: { tier: openTier } });
+        const res = await createIntent({ data: { tier: openTier, quantity: openQty } });
         if (cancelled) return;
         setIntent(res);
         setStatus("pending");
@@ -107,7 +237,7 @@ function Packages() {
       }
     })();
     return () => { cancelled = true; };
-  }, [openTier, method, intent, tronBusy, createIntent]);
+  }, [openTier, openQty, method, intent, tronBusy, createIntent]);
 
   useEffect(() => {
     if (!intent || status !== "pending" || method !== "tron") return;
@@ -118,8 +248,8 @@ function Packages() {
         if (cancelled) return;
         if (r.status === "paid") {
           setStatus("paid");
-          toast.success("Payment received! NFT minted.");
-          setTimeout(() => navigate({ to: "/nfts" }), 1600);
+          toast.success(openQty > 1 ? `Payment received! Minting ${openQty} NFTs…` : "Payment received! NFT minted.");
+          setTimeout(() => navigate({ to: "/nfts" }), 2400);
         } else if (r.status === "expired") {
           setStatus("expired");
         } else if (r.status === "cancelled" || r.status === "failed") {
@@ -133,7 +263,7 @@ function Packages() {
       cancelled = true;
       if (pollRef.current) clearInterval(pollRef.current);
     };
-  }, [intent, status, method, checkIntent, navigate]);
+  }, [intent, status, method, checkIntent, navigate, openQty]);
 
   useEffect(() => {
     if (!intent) return;
@@ -171,16 +301,20 @@ function Packages() {
   const mm = String(Math.floor(remainingMs / 60000)).padStart(2, "0");
   const ss = String(Math.floor((remainingMs % 60000) / 1000)).padStart(2, "0");
 
+  const paymentStage: "awaiting" | "detected" | "paid" =
+    status === "paid" ? "paid" : intent ? "detected" : "awaiting";
+
   return (
     <div className="space-y-8">
       <div>
         <h1 className="text-3xl font-bold">Buy a package</h1>
-        <p className="text-muted-foreground">Pick any payment method — USDT on Tron, MetaMask (6 EVM chains), WalletConnect, Solana Pay, or card. Your referrer earns 100% instantly.</p>
+        <p className="text-muted-foreground">Pick any payment method — USDT on Tron, MetaMask (6 EVM chains), WalletConnect, Solana Pay, or card. Mint 1–{MAX_QTY} NFTs per payment. Your referrer earns 100% instantly.</p>
       </div>
 
       <div className="grid gap-6 md:grid-cols-3">
         {TIERS.map((t) => {
           const info = TIER_BENEFITS[t.p];
+          const qty = qtyByTier[t.p] ?? 1;
           return (
             <div key={t.p} className={`relative flex flex-col rounded-2xl border-2 ${t.cls} bg-card p-8 text-center`}>
               {info.popular && (
@@ -188,8 +322,8 @@ function Packages() {
                   Most popular
                 </div>
               )}
-              
-              
+
+
               <div className="nft-art mt-4 mx-auto overflow-hidden rounded-xl cursor-pointer">
                 <MinerNftArt tier={t.p} size={140} />
               </div>
@@ -213,13 +347,44 @@ function Packages() {
               >
                 {expandedBenefits.has(t.p) ? "Hide benefits" : "See benefits"}
               </button>
+
+              <div className="mt-5 flex items-center justify-between gap-3 rounded-lg border border-border/60 bg-background/40 px-3 py-2">
+                <span className="text-xs uppercase tracking-wider text-muted-foreground">Quantity</span>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => bumpQty(t.p, -1)}
+                    disabled={qty <= 1 || openTier !== null}
+                    aria-label={`Decrease ${t.tag} quantity`}
+                    className="flex h-7 w-7 items-center justify-center rounded-md border border-border bg-card hover:border-primary disabled:opacity-40 disabled:hover:border-border"
+                  >
+                    <Minus className="h-3.5 w-3.5" />
+                  </button>
+                  <span className="w-6 text-center font-mono text-sm font-semibold" aria-live="polite">{qty}</span>
+                  <button
+                    type="button"
+                    onClick={() => bumpQty(t.p, +1)}
+                    disabled={qty >= MAX_QTY || openTier !== null}
+                    aria-label={`Increase ${t.tag} quantity`}
+                    className="flex h-7 w-7 items-center justify-center rounded-md border border-border bg-card hover:border-primary disabled:opacity-40 disabled:hover:border-border"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              </div>
+
               <button
-                onClick={() => { setOpenTier(t.p); setMethod("chooser"); }}
+                onClick={() => startCheckout(t.p)}
                 disabled={openTier !== null}
-                className="mt-6 w-full rounded-md bg-primary py-2.5 font-medium text-primary-foreground disabled:opacity-50"
+                className="mt-4 w-full rounded-md bg-primary py-2.5 font-medium text-primary-foreground disabled:opacity-50"
               >
-                Mint ${t.p}
+                Mint {qty > 1 ? `${qty} × ` : ""}${t.p * qty}
               </button>
+              {qty > 1 && (
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  Mints {qty} {t.p === 10 ? "Pickaxe" : t.p === 50 ? "Rig" : "ASIC"} miners in one payment.
+                </p>
+              )}
             </div>
           );
         })}
@@ -238,22 +403,32 @@ function Packages() {
                status === "expired" ? "Payment window expired" :
                status === "cancelled" ? "Payment cancelled" :
                status === "failed" ? "Payment failed" :
-               method === "chooser" && openTier ? `Choose how to pay $${openTier}` :
-               openTier ? `Pay $${openTier}` : ""}
+               method === "chooser" && openTier ? `Choose how to pay $${(openTier * openQty).toFixed(2)}` :
+               openTier ? `Pay $${(openTier * openQty).toFixed(2)}` : ""}
             </DialogTitle>
             <DialogDescription>
-              {status === "pending" && method === "chooser" && "All methods mint the same NFT — pick whichever is easiest for you."}
+              {status === "pending" && method === "chooser" && `All methods mint the same ${openQty > 1 ? `${openQty} NFTs` : "NFT"} — pick whichever is easiest for you.`}
               {status === "pending" && method !== "chooser" && "Detection is automatic. Don't close this window."}
-              {status === "paid" && "Your NFT has been minted. Redirecting…"}
+              {status === "paid" && (openQty > 1 ? `Your ${openQty} NFTs are being minted. Redirecting when ready…` : "Your NFT has been minted. Redirecting…")}
               {status === "expired" && "No matching transaction found in time. If you already sent, contact support with your tx hash."}
             </DialogDescription>
           </DialogHeader>
 
+          {method !== "chooser" && openTier !== null && (status === "pending" || status === "paid") && (
+            <MintStatusTracker
+              tier={openTier}
+              quantity={openQty}
+              paymentStage={paymentStage}
+              startedAt={flowStartedAt}
+            />
+          )}
+
           {status === "pending" && method === "chooser" && openTier !== null && (
             <div className="space-y-3">
               <div className="rounded-lg border border-primary/30 bg-primary/5 p-3">
-                <div className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-primary">
-                  {TIER_BENEFITS[openTier].tag} · what you get
+                <div className="mb-1.5 flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-primary">
+                  <span>{TIER_BENEFITS[openTier].tag} · what you get</span>
+                  <span className="rounded-full bg-primary/20 px-2 py-0.5 text-[10px]">×{openQty} NFT{openQty > 1 ? "s" : ""}</span>
                 </div>
                 <ul className="space-y-1 text-xs">
                   {TIER_BENEFITS[openTier].benefits.slice(0, 3).map((b) => (
@@ -301,7 +476,7 @@ function Packages() {
                 <div className="rounded-md border bg-muted/40 p-3 text-sm">
                   <div className="flex items-center justify-between gap-2">
                     <div>
-                      <div className="text-muted-foreground text-xs">Send exactly</div>
+                      <div className="text-muted-foreground text-xs">Send exactly{openQty > 1 ? ` (${openQty} × $${openTier})` : ""}</div>
                       <div className="font-mono text-lg font-bold">{intent.expectedAmount} USDT</div>
                     </div>
                     <Button size="sm" variant="outline" onClick={() => copy(String(intent.expectedAmount), "Amount")}>
@@ -329,21 +504,23 @@ function Packages() {
           )}
 
           {status === "pending" && method === "metamask" && openTier !== null && (
-            <MetaMaskPay tier={openTier} />
+            <MetaMaskPay tier={openTier} quantity={openQty} />
           )}
 
           {status === "pending" && method === "solana" && openTier !== null && (
-            <SolanaPay tier={openTier} />
+            <SolanaPay tier={openTier} quantity={openQty} />
           )}
 
           {status === "pending" && method === "walletconnect" && openTier !== null && (
-            <WalletConnectPay tier={openTier} />
+            <WalletConnectPay tier={openTier} quantity={openQty} />
           )}
 
           {status === "paid" && (
-            <div className="flex flex-col items-center gap-2 py-6 text-center">
+            <div className="flex flex-col items-center gap-2 py-4 text-center">
               <CheckCircle2 className="h-12 w-12 text-emerald-500" />
-              <p className="font-medium">NFT minted successfully.</p>
+              <p className="font-medium">
+                {openQty > 1 ? `${openQty} NFTs minted successfully.` : "NFT minted successfully."}
+              </p>
             </div>
           )}
           {(status === "expired" || status === "cancelled" || status === "failed") && (

@@ -17,7 +17,7 @@ type Intent = {
   expiresAt: string;
 };
 
-export function SolanaPay({ tier }: { tier: 10 | 50 | 100 }) {
+export function SolanaPay({ tier, quantity = 1 }: { tier: 10 | 50 | 100; quantity?: number }) {
   const navigate = useNavigate();
   const createIntent = useServerFn(createSplPaymentIntent);
   const checkIntent = useServerFn(checkSplPaymentIntent);
@@ -33,11 +33,11 @@ export function SolanaPay({ tier }: { tier: 10 | 50 | 100 }) {
     let cancelled = false;
     (async () => {
       try {
-        const ix = await createIntent({ data: { tier } });
+        const ix = await createIntent({ data: { tier, quantity } });
         if (cancelled) return;
         setIntent(ix);
         setStatus("pending");
-        const uri = `solana:${ix.address}?amount=${ix.expectedAmount}&spl-token=${ix.mint}&label=PayTrony&message=NFT%20Tier%20${tier}`;
+        const uri = `solana:${ix.address}?amount=${ix.expectedAmount}&spl-token=${ix.mint}&label=PayTrony&message=NFT%20Tier%20${tier}%20x${quantity}`;
         const url = await QRCode.toDataURL(uri, { width: 320, margin: 1 });
         if (!cancelled) setQr(url);
       } catch (e) {
@@ -48,7 +48,8 @@ export function SolanaPay({ tier }: { tier: 10 | 50 | 100 }) {
       }
     })();
     return () => { cancelled = true; };
-  }, [tier, createIntent]);
+  }, [tier, quantity, createIntent]);
+
 
   useEffect(() => {
     if (!intent || status !== "pending") return;

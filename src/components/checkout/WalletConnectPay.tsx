@@ -71,7 +71,7 @@ function clearPersisted(tier: 10 | 50 | 100) {
   try { localStorage.removeItem(persistKey(tier)); } catch { /* ignore */ }
 }
 
-export function WalletConnectPay({ tier }: { tier: 10 | 50 | 100 }) {
+export function WalletConnectPay({ tier, quantity = 1 }: { tier: 10 | 50 | 100; quantity?: number }) {
   const navigate = useNavigate();
   const cfgFn = useServerFn(getPublicPaymentConfig);
   const { data: cfg } = useQuery({ queryKey: ["payment-config"], queryFn: () => cfgFn(), staleTime: 60_000 });
@@ -249,7 +249,7 @@ export function WalletConnectPay({ tier }: { tier: 10 | 50 | 100 }) {
     let ix: Awaited<ReturnType<typeof createIntent>> | null = null;
     try {
       const provider = await getProvider();
-      ix = await createIntent({ data: { tier, chain } });
+      ix = await createIntent({ data: { tier, chain, quantity } });
       setIntentId(ix.id);
       savePersisted(tier, { intentId: ix.id, chain, account });
       await signAndBroadcast(provider, ix, account);
@@ -342,9 +342,10 @@ export function WalletConnectPay({ tier }: { tier: 10 | 50 | 100 }) {
 
       <div className="rounded-md border bg-muted/40 p-3 text-sm">
         <div className="flex items-center justify-between">
-          <span className="text-muted-foreground">Amount</span>
-          <span className="font-mono font-bold">${tier}.00 {explorer.token}</span>
+          <span className="text-muted-foreground">Amount{quantity > 1 ? ` (${quantity} × $${tier})` : ""}</span>
+          <span className="font-mono font-bold">${(tier * quantity).toFixed(2)} {explorer.token}</span>
         </div>
+
         <div className="mt-1 flex items-center justify-between">
           <span className="text-muted-foreground">Wallet</span>
           <span className="font-mono text-xs">{account ? `${account.slice(0, 6)}…${account.slice(-4)}` : "Not connected"}</span>
@@ -402,7 +403,7 @@ export function WalletConnectPay({ tier }: { tier: 10 | 50 | 100 }) {
       ) : (
         <>
           <Button onClick={pay} className="w-full" disabled={status !== "idle" || !!pendingSign}>
-            {status === "idle" && `Pay $${tier} ${explorer.token}`}
+            {status === "idle" && `Pay $${(tier * quantity).toFixed(2)} ${explorer.token}${quantity > 1 ? ` (mint ${quantity})` : ""}`}
             {status === "creating" && (<><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Preparing…</>)}
             {status === "switching" && (<><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Switching network…</>)}
             {status === "signing" && (<><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Confirm in your wallet…</>)}
