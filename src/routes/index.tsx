@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -7,7 +8,9 @@ import {
   MousePointerClick, Pickaxe, Repeat,
 } from "lucide-react";
 import { TIER_BENEFITS } from "@/lib/tier-benefits";
+import { verifyMintConfirmed } from "@/lib/mints.functions";
 import miningHero from "@/assets/mining-hero.webp.asset.json";
+
 import miningTiers from "@/assets/mining-tiers.webp.asset.json";
 import miningRewards from "@/assets/mining-rewards.webp.asset.json";
 
