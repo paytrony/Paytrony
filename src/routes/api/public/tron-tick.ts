@@ -79,7 +79,9 @@ export const Route = createFileRoute("/api/public/tron-tick")({
             _user_id: intent.user_id,
             _amount: intent.tier,
             _idempotency_key: `intent:${intent.id}`,
-          });
+            _quantity: (intent as { quantity?: number }).quantity ?? 1,
+          } as never);
+
           if (rpcErr) continue;
           const purchaseId = (purchase as { purchase_id?: string } | null)?.purchase_id ?? null;
           await supabaseAdmin
