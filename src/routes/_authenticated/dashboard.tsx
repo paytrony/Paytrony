@@ -421,20 +421,22 @@ function ReferralStatus({
 
       {referralCode ? (
         <div className="mt-5 overflow-hidden rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/10 via-primary/5 to-transparent">
-          <div className="flex items-center gap-2 border-b border-primary/20 bg-background/40 px-4 py-2">
-            <span className="inline-flex h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_8px_currentColor]" />
-            <span className="text-[10px] font-mono uppercase tracking-wider text-emerald-400">Secure invite link</span>
-            <span className="ml-auto text-[10px] font-mono uppercase tracking-wider text-muted-foreground">https</span>
+          <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 border-b border-primary/20 bg-background/40 px-4 py-2">
+            <div className="flex min-w-0 items-center gap-2">
+              <span className="inline-flex h-2 w-2 shrink-0 rounded-full bg-emerald-500 shadow-[0_0_8px_currentColor]" />
+              <span className="truncate text-[10px] font-mono uppercase tracking-wider text-emerald-400">Secure invite link</span>
+            </div>
+            <span className="shrink-0 text-[10px] font-mono uppercase tracking-wider text-muted-foreground">https</span>
           </div>
-          <div className="flex flex-wrap items-center gap-3 p-4">
-            <div className="flex flex-1 min-w-0 items-center overflow-hidden rounded-xl border border-border/70 bg-background/70 px-4 py-3">
-              <span className="text-base font-semibold tracking-tight text-foreground">paytrony.com</span>
-              <span className="mx-1 text-base text-muted-foreground/70">/i/</span>
-              <span className="truncate text-base font-bold font-mono tracking-widest text-primary">{referralCode}</span>
+          <div className="grid gap-3 p-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+            <div className="flex min-w-0 items-center overflow-hidden rounded-xl border border-border/70 bg-background/70 px-3 py-3 sm:px-4">
+              <span className="shrink-0 text-sm font-semibold tracking-tight text-foreground sm:text-base">paytrony.com</span>
+              <span className="mx-1 shrink-0 text-sm text-muted-foreground/70 sm:text-base">/i/</span>
+              <span className="min-w-0 truncate text-sm font-bold font-mono tracking-widest text-primary sm:text-base">{referralCode}</span>
             </div>
             <button
               onClick={copyLink}
-              className="rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground shadow-sm transition hover:opacity-90"
+              className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow-sm transition hover:opacity-90 active:scale-95 sm:px-5"
             >
               Copy link
             </button>
