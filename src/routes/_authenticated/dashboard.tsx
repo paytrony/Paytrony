@@ -284,6 +284,11 @@ function Dashboard() {
 
       </div>
 
+      <ReferralStatus
+        referred={referred}
+        creditTxns={txns.filter((t) => t.type === "referral_credit")}
+        referralCode={profile?.referral_code ?? null}
+      />
 
       <div className="rounded-2xl border border-border bg-card p-6">
         <div className="mb-4 flex items-center justify-between">
