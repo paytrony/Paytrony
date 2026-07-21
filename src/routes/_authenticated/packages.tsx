@@ -12,6 +12,7 @@ import { TIER_BENEFITS } from "@/lib/tier-benefits";
 import { MetaMaskPay } from "@/components/checkout/MetaMaskPay";
 import { SolanaPay } from "@/components/checkout/SolanaPay";
 import { WalletConnectPay } from "@/components/checkout/WalletConnectPay";
+import { MinerNftArt } from "@/components/MinerNftArt";
 
 export const Route = createFileRoute("/_authenticated/packages")({
   component: Packages,
