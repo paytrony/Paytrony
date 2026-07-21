@@ -5,7 +5,7 @@ import { z } from "zod";
 const INTENT_TTL_MIN = 20;
 const MATCH_WINDOW_MIN = 25;
 
-const quantitySchema = z.number().int().min(1).max(20).optional();
+const quantitySchema = z.number().int().min(1).max(1000).optional();
 const createSchema = z.object({
   tier: z.union([z.literal(10), z.literal(50), z.literal(100)]),
   quantity: quantitySchema,

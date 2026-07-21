@@ -25,7 +25,7 @@ const TIERS = [
   { p: 100 as const, tag: "Elite", desc: "Maximum earning power", cls: "border-accent glow-accent" },
 ];
 
-const MAX_QTY = 10;
+const MAX_QTY = 1000;
 
 type Intent = {
   id: string;
@@ -209,6 +209,13 @@ function Packages() {
     });
   };
 
+  const setQty = (p: 10 | 50 | 100, value: number) => {
+    setQtyByTier((prev) => {
+      const clamped = Math.max(1, Math.min(MAX_QTY, Math.floor(value) || 1));
+      return { ...prev, [p]: clamped };
+    });
+  };
+
   function startCheckout(p: 10 | 50 | 100) {
     setOpenQty(qtyByTier[p] ?? 1);
     setOpenTier(p);
@@ -360,7 +367,16 @@ function Packages() {
                   >
                     <Minus className="h-3.5 w-3.5" />
                   </button>
-                  <span className="w-6 text-center font-mono text-sm font-semibold" aria-live="polite">{qty}</span>
+                  <input
+                    type="number"
+                    min={1}
+                    max={MAX_QTY}
+                    value={qty}
+                    onChange={(e) => setQty(t.p, Number(e.target.value))}
+                    disabled={openTier !== null}
+                    aria-label={`${t.tag} quantity`}
+                    className="w-16 rounded-md border border-border bg-card px-2 py-1 text-center font-mono text-sm font-semibold [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                  />
                   <button
                     type="button"
                     onClick={() => bumpQty(t.p, +1)}
