@@ -330,7 +330,7 @@ function Landing() {
                 </p>
                 <div className="mt-3 flex flex-wrap items-center gap-2">
                   <Link
-                    to="/packages"
+                    to="/_authenticated/packages"
                     className="inline-flex items-center gap-2 rounded-full bg-foreground px-4 py-2 text-sm font-semibold text-background transition hover:opacity-90"
                   >
                     Buy an NFT <ArrowRight className="h-4 w-4" />
