@@ -20,7 +20,7 @@ export const Route = createFileRoute("/_authenticated/mining")({
   head: () => ({
     meta: [
       { title: "Mining — PayTrony" },
-      { name: "description", content: "Mine daily rewards from your NFT packages. Click once every 24 hours to claim." },
+      { name: "description", content: "Mine daily rewards from your NFTs. Click once every 24 hours to claim." },
     ],
   }),
   component: MiningPage,
