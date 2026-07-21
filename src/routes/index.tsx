@@ -74,6 +74,7 @@ function Landing() {
           <a href="#features" className="hover:text-foreground">Features</a>
           <a href="#mining" className="hover:text-foreground">Mining</a>
           <a href="#tiers" className="hover:text-foreground">Tiers</a>
+          <a href="#referrals" className="hover:text-foreground">Referrals</a>
           <a href="#how" className="hover:text-foreground">How it works</a>
         </nav>
         <div className="flex items-center gap-2">
