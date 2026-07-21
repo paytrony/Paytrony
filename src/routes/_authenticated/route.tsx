@@ -148,7 +148,7 @@ function AuthedLayout() {
   }
 
   const referralUrl = useMemo(
-    () => referralCode ? `${typeof window !== "undefined" ? window.location.origin : ""}/auth?mode=signup&ref=${referralCode}` : "",
+    () => referralCode ? buildInviteUrl(referralCode) : "",
     [referralCode]
   );
 
