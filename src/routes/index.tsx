@@ -267,6 +267,7 @@ function Landing() {
               width={1200}
               height={912}
               loading="lazy"
+              decoding="async"
               className="w-full rounded-2xl"
             />
             <div className="mt-5 text-lg font-semibold">Rewards compound daily.</div>
