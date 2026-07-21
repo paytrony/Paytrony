@@ -12,6 +12,7 @@ import { TIER_BENEFITS } from "@/lib/tier-benefits";
 import { MetaMaskPay } from "@/components/checkout/MetaMaskPay";
 import { SolanaPay } from "@/components/checkout/SolanaPay";
 import { WalletConnectPay } from "@/components/checkout/WalletConnectPay";
+import { MinerNftArt } from "@/components/MinerNftArt";
 
 export const Route = createFileRoute("/_authenticated/packages")({
   component: Packages,
@@ -190,8 +191,12 @@ function Packages() {
               <div className="font-mono text-xs uppercase text-muted-foreground">{t.tag}</div>
               <div className="mt-2 text-5xl font-bold">${t.p}</div>
               <div className="mt-2 text-sm text-muted-foreground">{t.desc}</div>
-              <div className="mt-4 mx-auto flex h-24 w-24 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-accent text-3xl font-bold text-primary-foreground">◆</div>
-              <div className="mt-2 text-xs text-muted-foreground">NFT Tier {t.p}</div>
+              <div className="mt-4 mx-auto overflow-hidden rounded-xl">
+                <MinerNftArt tier={t.p} size={140} />
+              </div>
+              <div className="mt-2 text-xs text-muted-foreground">
+                {t.p === 10 ? "Pickaxe Miner" : t.p === 50 ? "Rig Miner" : "ASIC Miner"} · Tier {t.p}
+              </div>
               {expandedBenefits.has(t.p) ? (
                 <ul className="mt-5 space-y-2 text-left text-sm">
                   {info.benefits.map((b) => (
