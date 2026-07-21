@@ -59,7 +59,10 @@ export function SolanaPay({ tier, quantity = 1 }: { tier: 10 | 50 | 100; quantit
         if (r.status === "paid") {
           if (pollRef.current) clearInterval(pollRef.current);
           setStatus("paid");
-          toast.success("Payment received! NFT minted.");
+          toast.success("Payment received! NFT minted.", {
+            description: "The mining walkthrough will open on the home page once ownership is confirmed.",
+          });
+
           setTimeout(() => navigate({ to: "/nfts" }), 1600);
         } else if (r.status === "expired") {
           if (pollRef.current) clearInterval(pollRef.current);

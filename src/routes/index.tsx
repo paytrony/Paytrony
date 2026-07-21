@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -7,7 +8,9 @@ import {
   MousePointerClick, Pickaxe, Repeat,
 } from "lucide-react";
 import { TIER_BENEFITS } from "@/lib/tier-benefits";
+import { verifyMintConfirmed } from "@/lib/mints.functions";
 import miningHero from "@/assets/mining-hero.webp.asset.json";
+
 import miningTiers from "@/assets/mining-tiers.webp.asset.json";
 import miningRewards from "@/assets/mining-rewards.webp.asset.json";
 
@@ -21,15 +24,21 @@ export const Route = createFileRoute("/")({
 });
 
 
-const WALKTHROUGH_KEY = "paytrony:mining-walkthrough-seen";
+// Per-purchase idempotency: we store the id of the purchase that triggered
+// (or dismissed) the walkthrough. The walkthrough only auto-opens again if a
+// *newer* purchase id appears — a hard guarantee it can't reopen twice for
+// the same mint even if refresh, realtime, and burst-poll all resolve.
+const WALKTHROUGH_SEEN_PURCHASE_KEY = "paytrony:walkthrough-seen-purchase";
 
 function Landing() {
+  const verifyMint = useServerFn(verifyMintConfirmed);
   const [signedIn, setSignedIn] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [hasNfts, setHasNfts] = useState<boolean | null>(null);
+  const [latestPurchaseId, setLatestPurchaseId] = useState<string | null>(null);
   const [walkOpen, setWalkOpen] = useState(false);
   const [walkStep, setWalkStep] = useState(0);
-  const autoTriggered = useRef(false);
+  const autoTriggeredForPurchase = useRef<string | null>(null);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -43,33 +52,29 @@ function Landing() {
     return () => sub.subscription.unsubscribe();
   }, []);
 
-  // Background-refresh NFT ownership for the signed-in user via realtime + a
-  // light poll, so the walkthrough can appear immediately after a mint is
-  // confirmed and the purchases row lands.
+  // Background-refresh NFT ownership via the server-verified `verifyMintConfirmed`
+  // RPC so the walkthrough decision is based on backend-confirmed ownership for
+  // the caller (RLS-scoped), not on trusted client rows. Realtime + burst poll
+  // just nudge the re-check.
   useEffect(() => {
-    if (!userId) { setHasNfts(null); return; }
+    if (!userId) { setHasNfts(null); setLatestPurchaseId(null); return; }
     let cancelled = false;
     let burstStop = 0;
     let burstTimer: number | null = null;
 
     const check = async () => {
-      const { count } = await supabase
-        .from("purchases")
-        .select("id", { count: "exact", head: true })
-        .eq("user_id", userId);
-      if (cancelled) return;
-      const owns = (count ?? 0) > 0;
-      setHasNfts(owns);
-      if (owns && burstTimer !== null) {
-        window.clearInterval(burstTimer);
-        burstTimer = null;
-      }
+      try {
+        const res = await verifyMint({});
+        if (cancelled) return;
+        setHasNfts(res.mintConfirmed);
+        setLatestPurchaseId(res.latestPurchaseId);
+        if (res.mintConfirmed && burstTimer !== null) {
+          window.clearInterval(burstTimer);
+          burstTimer = null;
+        }
+      } catch { /* transient; next tick will retry */ }
     };
 
-    // Fallback burst poll: after a likely-checkout signal (tab focus / return
-    // from payment provider), re-check every 3s for up to 3 minutes so the
-    // walkthrough still appears if the realtime INSERT event arrives late or
-    // is missed entirely.
     const startBurst = () => {
       burstStop = Date.now() + 3 * 60 * 1000;
       if (burstTimer !== null) return;
@@ -86,7 +91,7 @@ function Landing() {
     const onVisibility = () => { if (document.visibilityState === "visible") onFocus(); };
 
     check();
-    startBurst(); // catch the common case: user returns to landing right after paying
+    startBurst();
     const poll = window.setInterval(check, 15000);
     window.addEventListener("focus", onFocus);
     document.addEventListener("visibilitychange", onVisibility);
@@ -108,29 +113,39 @@ function Landing() {
       document.removeEventListener("visibilitychange", onVisibility);
       supabase.removeChannel(channel);
     };
-  }, [userId]);
+  }, [userId, verifyMint]);
 
-  // Auto-open the walkthrough exactly once per user, only after we confirm the
-  // first NFT mint has landed. If they've completed or dismissed it before, we
-  // never auto-open again — the manual button stays available on request.
+  // Auto-open exactly once *per purchase id*. Storing the purchase id (not a
+  // boolean) makes this fully idempotent: repeated refreshes, realtime events,
+  // and burst-poll ticks that all report the same latest mint can never open
+  // the walkthrough a second time. A newer purchase id re-enables it once.
   useEffect(() => {
-    if (autoTriggered.current) return;
-    if (!signedIn || hasNfts !== true) return;
+    if (!signedIn || hasNfts !== true || !latestPurchaseId) return;
+    if (autoTriggeredForPurchase.current === latestPurchaseId) return;
     try {
-      if (window.localStorage.getItem(WALKTHROUGH_KEY)) return;
+      if (window.localStorage.getItem(WALKTHROUGH_SEEN_PURCHASE_KEY) === latestPurchaseId) {
+        autoTriggeredForPurchase.current = latestPurchaseId;
+        return;
+      }
     } catch { /* ignore */ }
-    autoTriggered.current = true;
+    autoTriggeredForPurchase.current = latestPurchaseId;
     const t = window.setTimeout(() => setWalkOpen(true), 800);
     return () => window.clearTimeout(t);
-  }, [signedIn, hasNfts]);
+  }, [signedIn, hasNfts, latestPurchaseId]);
 
   const openWalkthrough = () => { setWalkStep(0); setWalkOpen(true); };
   const closeWalkthrough = () => {
     setWalkOpen(false);
-    try { window.localStorage.setItem(WALKTHROUGH_KEY, "1"); } catch { /* ignore */ }
+    try {
+      window.localStorage.setItem(
+        WALKTHROUGH_SEEN_PURCHASE_KEY,
+        latestPurchaseId ?? "manual",
+      );
+    } catch { /* ignore */ }
   };
 
   const walkthroughUnlocked = !signedIn || hasNfts === true;
+
 
   const primaryCta = signedIn ? (
     <Link to="/dashboard" className="inline-flex items-center gap-2 rounded-full bg-foreground px-6 py-3 text-sm font-semibold text-background transition hover:opacity-90">
