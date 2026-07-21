@@ -314,13 +314,36 @@ function Landing() {
             <p className="mt-4 text-xs text-muted-foreground">
               Yield scales linearly with referrals — 0 refs mines 10% of the cap, 10+ refs mines the full daily rate.
             </p>
-            <button
-              type="button"
-              onClick={openWalkthrough}
-              className="mt-6 inline-flex items-center gap-2 rounded-full border border-primary/40 bg-primary/10 px-4 py-2 text-sm font-semibold text-primary transition hover:bg-primary/15"
-            >
-              <Sparkles className="h-4 w-4" /> See how mining works in 3 steps
-            </button>
+            {walkthroughUnlocked ? (
+              <button
+                type="button"
+                onClick={openWalkthrough}
+                className="mt-6 inline-flex items-center gap-2 rounded-full border border-primary/40 bg-primary/10 px-4 py-2 text-sm font-semibold text-primary transition hover:bg-primary/15"
+              >
+                <Sparkles className="h-4 w-4" /> See how mining works in 3 steps
+              </button>
+            ) : (
+              <div className="mt-6 rounded-2xl border border-primary/30 bg-primary/5 p-4">
+                <div className="text-sm font-semibold text-foreground">Mint an NFT to unlock mining</div>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  You need at least one Miner NFT to start mining. The 3-step walkthrough unlocks right after your first mint is confirmed.
+                </p>
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <Link
+                    to="/packages"
+                    className="inline-flex items-center gap-2 rounded-full bg-foreground px-4 py-2 text-sm font-semibold text-background transition hover:opacity-90"
+                  >
+                    Buy an NFT <ArrowRight className="h-4 w-4" />
+                  </Link>
+                  <a
+                    href="#tiers"
+                    className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-card/40 px-4 py-2 text-sm font-medium text-foreground hover:bg-card"
+                  >
+                    Learn more
+                  </a>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
