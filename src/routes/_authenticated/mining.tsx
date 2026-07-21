@@ -170,7 +170,7 @@ function MiningPage() {
       if (raw.includes("cooldown_active")) {
         info = { code: "cooldown_active", title: "Cooldown still active", detail: raw.replace(/^.*cooldown_active:\s*/, ""), fix: "Wait until the countdown reaches zero, then click Mine again." };
       } else if (raw.includes("no_nfts")) {
-        info = { code: "no_nfts", title: "No mineable NFTs", detail: "Your account has no Starter, Pro, or Elite package.", fix: "Buy a package to unlock daily mining." };
+        info = { code: "no_nfts", title: "No mineable NFTs", detail: "Your account has no Starter, Pro, or Elite NFT.", fix: "Buy an NFT to unlock daily mining." };
       } else if (raw.includes("wallet_error")) {
         info = { code: "wallet_error", title: "Wallet credit failed", detail: raw.replace(/^.*wallet_error:\s*/, ""), fix: "Your claim was not recorded. Click Mine again to retry — you will not be double-charged." };
       } else if (raw.includes("not_authorized")) {
