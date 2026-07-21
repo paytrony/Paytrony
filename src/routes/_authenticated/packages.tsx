@@ -65,6 +65,7 @@ function Packages() {
 
   const [openTier, setOpenTier] = useState<10 | 50 | 100 | null>(null);
   const [method, setMethod] = useState<Method>("chooser");
+  const [expandedBenefits, setExpandedBenefits] = useState<Set<number>>(new Set());
   const cfgFn = useServerFn(getPublicPaymentConfig);
   const { data: publicCfg } = useQuery({ queryKey: ["payment-config"], queryFn: () => cfgFn(), staleTime: 60_000 });
   const tiles = buildTiles(publicCfg);
@@ -74,6 +75,15 @@ function Packages() {
   const [qrDataUrl, setQrDataUrl] = useState<string>("");
   const [now, setNow] = useState(Date.now());
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const toggleBenefits = (p: number) => {
+    setExpandedBenefits((prev) => {
+      const next = new Set(prev);
+      if (next.has(p)) next.delete(p);
+      else next.add(p);
+      return next;
+    });
+  };
 
   // Auto-create Tron intent when Tron method active and none exists.
   useEffect(() => {
