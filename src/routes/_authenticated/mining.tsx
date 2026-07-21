@@ -69,7 +69,8 @@ function MiningPage() {
     const list = (c ?? []) as Claim[];
     setClaims(list);
     setLastClaim(list[0]?.created_at ?? null);
-    setRefCount((refs ?? []).length);
+    // Only count referrals who actually purchased — matches mine_now / mining_daily_rate.
+    setRefCount(((refs ?? []) as { nft_tier: number | null }[]).filter((r) => r.nft_tier != null).length);
     setLoading(false);
   }
 

@@ -215,3 +215,40 @@ export const adminSetUserRole = createServerFn({ method: "POST" })
     );
   });
 
+// -----------------------------------------------------------------------------
+// Reconciliation: on-chain payment succeeded but the mint (purchase row) never
+// landed. `listUnmintedIntents` surfaces the affected intents; `reconcileIntent`
+// re-runs `purchase_package` idempotently and links the resulting purchase.
+// -----------------------------------------------------------------------------
+
+export const listUnmintedIntents = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await requireAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data, error } = await supabaseAdmin.rpc("admin_list_unminted_intents", { _limit: 200 });
+    if (error) throw new Error(error.message);
+    return (data ?? []) as Array<{
+      id: string; user_id: string; tier: number; quantity: number;
+      expected_amount: number; method: string; chain: string; evm_chain: string | null;
+      tx_hash: string | null; status: string; created_at: string; paid_at: string | null;
+      user_email: string | null;
+    }>;
+  });
+
+const reconcileSchema = z.object({ intentId: z.string().uuid() });
+
+export const reconcileIntent = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((d: unknown) => reconcileSchema.parse(d))
+  .handler(async ({ data, context }) => {
+    await requireAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: res, error } = await supabaseAdmin.rpc("admin_reconcile_intent", {
+      _intent_id: data.intentId,
+    });
+    if (error) throw new Error(error.message);
+    return res as { ok: boolean; already_minted?: boolean; reconciled?: boolean; purchase_id: string };
+  });
+
+

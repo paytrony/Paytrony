@@ -382,10 +382,29 @@ export type Database = {
     }
     Functions: {
       admin_expire_intent: { Args: { _intent_id: string }; Returns: undefined }
+      admin_list_unminted_intents: {
+        Args: { _limit?: number }
+        Returns: {
+          chain: string
+          created_at: string
+          evm_chain: string
+          expected_amount: number
+          id: string
+          method: string
+          paid_at: string
+          quantity: number
+          status: string
+          tier: number
+          tx_hash: string
+          user_email: string
+          user_id: string
+        }[]
+      }
       admin_mark_intent_paid: {
         Args: { _intent_id: string; _tx_hash?: string }
         Returns: Json
       }
+      admin_reconcile_intent: { Args: { _intent_id: string }; Returns: Json }
       gen_referral_code: { Args: never; Returns: string }
       get_referred_users: {
         Args: never

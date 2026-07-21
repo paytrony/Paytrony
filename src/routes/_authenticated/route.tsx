@@ -5,6 +5,8 @@ import React, { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { buildInviteUrl } from "@/lib/referral-link";
+import { verifyAdminAccess } from "@/lib/admin.functions";
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
@@ -33,8 +35,11 @@ function AuthedLayout() {
   const [signOutError, setSignOutError] = useState<string | null>(null);
 
   useEffect(() => {
-    supabase.from("user_roles").select("role").eq("user_id", user.id).eq("role", "admin")
-      .then(({ data }) => setIsAdmin(!!(data && data.length)));
+    // Use the same unified admin gate the server RPCs use — role AND pinned admin email.
+    // Prevents drift where a stale user_roles row would surface an Admin link that then 403s.
+    verifyAdminAccess()
+      .then(() => setIsAdmin(true))
+      .catch(() => setIsAdmin(false));
     supabase.from("profiles").select("referral_code").eq("id", user.id).maybeSingle()
       .then(({ data }) => setReferralCode((data as any)?.referral_code ?? ""));
   }, [user.id]);
@@ -143,7 +148,7 @@ function AuthedLayout() {
   }
 
   const referralUrl = useMemo(
-    () => referralCode ? `${typeof window !== "undefined" ? window.location.origin : ""}/auth?mode=signup&ref=${referralCode}` : "",
+    () => referralCode ? buildInviteUrl(referralCode) : "",
     [referralCode]
   );
 

@@ -52,7 +52,8 @@ function Dashboard() {
     setTxns((t ?? []) as Txn[]);
     const refList = (refs ?? []) as ReferredUser[];
     setReferred(refList);
-    setRefCount(refList.length);
+    // Only referrals who actually purchased count toward the mining boost — matches mine_now.
+    setRefCount(refList.filter((r) => r.nft_tier != null).length);
     setNfts((n ?? []) as NftRow[]);
     setLastClaimAt((mc as any)?.created_at ?? null);
   }

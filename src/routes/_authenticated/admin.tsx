@@ -11,6 +11,8 @@ import {
   listAdminUsers,
   adminSetUserRole,
   verifyAdminAccess,
+  listUnmintedIntents,
+  reconcileIntent,
 } from "@/lib/admin.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -197,6 +199,7 @@ function PaymentsTab({ prefilterUser, clearPrefilter }: {
 
   return (
     <div className="space-y-4">
+      <ReconcilePanel onReconciled={load} />
       {prefilterUser && (
         <div className="flex items-center justify-between rounded-md border border-border bg-muted/30 px-3 py-2 text-sm">
           <span>Filtering by user: <span className="font-mono">{prefilterUser.email ?? prefilterUser.id.slice(0, 8)}</span></span>
@@ -506,6 +509,98 @@ function UsersTab({ onViewPayments }: { onViewPayments: (u: { id: string; email?
           </tbody>
         </table>
       </div>
+    </div>
+  );
+}
+
+/* ---------------- Reconcile mints ---------------- */
+
+type UnmintedRow = {
+  id: string; user_id: string; tier: number; quantity: number;
+  expected_amount: number; method: string; chain: string; evm_chain: string | null;
+  tx_hash: string | null; status: string; created_at: string; paid_at: string | null;
+  user_email: string | null;
+};
+
+function ReconcilePanel({ onReconciled }: { onReconciled: () => void }) {
+  const list = useServerFn(listUnmintedIntents);
+  const run = useServerFn(reconcileIntent);
+  const [rows, setRows] = useState<UnmintedRow[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true); setErr(null);
+    try { setRows((await list()) as UnmintedRow[]); }
+    catch (e) { setErr(e instanceof Error ? e.message : "Failed"); }
+    finally { setLoading(false); }
+  }, [list]);
+
+  useEffect(() => { load(); }, [load]);
+
+  async function reconcile(row: UnmintedRow) {
+    if (!confirm(`Retry mint for intent ${row.id.slice(0, 8)} — tier $${row.tier} × ${row.quantity}?`)) return;
+    setBusyId(row.id);
+    try {
+      const res = await run({ data: { intentId: row.id } });
+      toast.success(res.already_minted ? "Already minted — linked" : "Mint reconciled");
+      await load();
+      onReconciled();
+    } catch (e) { toast.error(e instanceof Error ? e.message : "Failed"); }
+    finally { setBusyId(null); }
+  }
+
+  return (
+    <div className="rounded-2xl border border-amber-500/40 bg-amber-500/5 p-4">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <div className="text-sm font-semibold">Payments needing mint reconciliation</div>
+          <div className="text-xs text-muted-foreground">
+            Intents where funds were received on-chain but the NFT purchase row never landed. Retry runs idempotently.
+          </div>
+        </div>
+        <button onClick={load} className="rounded-md border border-border px-3 py-1.5 text-xs">Refresh</button>
+      </div>
+      {err && <div className="mt-3 rounded-md border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive">{err}</div>}
+      {loading && <div className="mt-3 text-xs text-muted-foreground">Loading…</div>}
+      {!loading && rows.length === 0 && <div className="mt-3 text-xs text-muted-foreground">All payments have minted successfully.</div>}
+      {rows.length > 0 && (
+        <div className="mt-3 overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead className="text-muted-foreground">
+              <tr className="text-left">
+                <th className="p-2">Intent</th><th className="p-2">User</th><th className="p-2">Tier × qty</th>
+                <th className="p-2">Status</th><th className="p-2">Tx</th><th className="p-2">Created</th><th className="p-2"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr key={r.id} className="border-t border-border">
+                  <td className="p-2 font-mono">{r.id.slice(0, 8)}…</td>
+                  <td className="p-2">{r.user_email ?? r.user_id.slice(0, 8)}</td>
+                  <td className="p-2">${r.tier} × {r.quantity}</td>
+                  <td className="p-2 capitalize">{r.status}</td>
+                  <td className="p-2 font-mono">
+                    {r.tx_hash ? (
+                      <a href={explorerTxUrl(r.method, r.chain, r.evm_chain, r.tx_hash) ?? "#"} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-primary">
+                        {r.tx_hash.slice(0, 10)}… <ExternalLink className="h-3 w-3" />
+                      </a>
+                    ) : "—"}
+                  </td>
+                  <td className="p-2 text-muted-foreground">{new Date(r.created_at).toLocaleString()}</td>
+                  <td className="p-2 text-right">
+                    <button disabled={busyId === r.id} onClick={() => reconcile(r)}
+                      className="rounded-md bg-primary px-3 py-1 text-primary-foreground disabled:opacity-50">
+                      {busyId === r.id ? "Reconciling…" : "Reconcile"}
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }

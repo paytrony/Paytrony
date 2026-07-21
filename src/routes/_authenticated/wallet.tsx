@@ -48,7 +48,7 @@ function WalletPage() {
     ]);
     setTxns((t ?? []) as Txn[]);
     setWallet(wb);
-    setRefCount((refs ?? []).length);
+    setRefCount(((refs ?? []) as { nft_tier: number | null }[]).filter((r) => r.nft_tier != null).length);
     setLoading(false);
     if (flashOnDone) {
       setFlash(true);
