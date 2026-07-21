@@ -647,3 +647,13 @@ function Feature({
     </div>
   );
 }
+
+function ExRow({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <span className="text-muted-foreground">{label}</span>
+      <span className={highlight ? "font-semibold text-primary" : "font-medium text-foreground"}>{value}</span>
+    </div>
+  );
+}
+
