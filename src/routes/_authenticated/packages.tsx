@@ -209,6 +209,13 @@ function Packages() {
     });
   };
 
+  const setQty = (p: 10 | 50 | 100, value: number) => {
+    setQtyByTier((prev) => {
+      const clamped = Math.max(1, Math.min(MAX_QTY, Math.floor(value) || 1));
+      return { ...prev, [p]: clamped };
+    });
+  };
+
   function startCheckout(p: 10 | 50 | 100) {
     setOpenQty(qtyByTier[p] ?? 1);
     setOpenTier(p);
