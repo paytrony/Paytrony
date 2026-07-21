@@ -35,8 +35,11 @@ function AuthedLayout() {
   const [signOutError, setSignOutError] = useState<string | null>(null);
 
   useEffect(() => {
-    supabase.from("user_roles").select("role").eq("user_id", user.id).eq("role", "admin")
-      .then(({ data }) => setIsAdmin(!!(data && data.length)));
+    // Use the same unified admin gate the server RPCs use — role AND pinned admin email.
+    // Prevents drift where a stale user_roles row would surface an Admin link that then 403s.
+    verifyAdminAccess()
+      .then(() => setIsAdmin(true))
+      .catch(() => setIsAdmin(false));
     supabase.from("profiles").select("referral_code").eq("id", user.id).maybeSingle()
       .then(({ data }) => setReferralCode((data as any)?.referral_code ?? ""));
   }, [user.id]);
