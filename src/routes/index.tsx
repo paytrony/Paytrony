@@ -1,24 +1,56 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import {
   Check, Sparkles, Wallet, Users, Zap, Crown, ArrowRight, Search,
-  TrendingUp, Shield, Layers, Gift, Coins, LineChart,
+  TrendingUp, Shield, Layers, Gift, Coins, LineChart, X,
+  MousePointerClick, Pickaxe, Repeat,
 } from "lucide-react";
 import { TIER_BENEFITS } from "@/lib/tier-benefits";
-import miningHero from "@/assets/mining-hero.jpg.asset.json";
-import miningTiers from "@/assets/mining-tiers.jpg.asset.json";
-import miningRewards from "@/assets/mining-rewards.jpg.asset.json";
+import miningHero from "@/assets/mining-hero.webp.asset.json";
+import miningTiers from "@/assets/mining-tiers.webp.asset.json";
+import miningRewards from "@/assets/mining-rewards.webp.asset.json";
 
 export const Route = createFileRoute("/")({
   component: Landing,
+  head: () => ({
+    links: [
+      { rel: "preload", as: "image", href: miningHero.url, fetchpriority: "low" },
+    ],
+  }),
 });
+
+
+const WALKTHROUGH_KEY = "paytrony:mining-walkthrough-seen";
 
 function Landing() {
   const [signedIn, setSignedIn] = useState(false);
+  const [walkOpen, setWalkOpen] = useState(false);
+  const [walkStep, setWalkStep] = useState(0);
+  const autoTriggered = useRef(false);
+
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setSignedIn(!!data.session));
   }, []);
+
+  useEffect(() => {
+    if (autoTriggered.current) return;
+    if (typeof window === "undefined") return;
+    try {
+      if (!window.localStorage.getItem(WALKTHROUGH_KEY)) {
+        autoTriggered.current = true;
+        const t = setTimeout(() => setWalkOpen(true), 1200);
+        return () => clearTimeout(t);
+      }
+    } catch { /* ignore */ }
+  }, []);
+
+  const openWalkthrough = () => { setWalkStep(0); setWalkOpen(true); };
+  const closeWalkthrough = () => {
+    setWalkOpen(false);
+    try { window.localStorage.setItem(WALKTHROUGH_KEY, "1"); } catch { /* ignore */ }
+  };
+
 
   const primaryCta = signedIn ? (
     <Link to="/dashboard" className="inline-flex items-center gap-2 rounded-full bg-foreground px-6 py-3 text-sm font-semibold text-background transition hover:opacity-90">
@@ -205,6 +237,8 @@ function Landing() {
               width={1280}
               height={960}
               loading="lazy"
+              decoding="async"
+              fetchPriority="low"
               className="w-full rounded-3xl border border-border/70 shadow-2xl"
             />
           </div>
@@ -232,6 +266,13 @@ function Landing() {
             <p className="mt-4 text-xs text-muted-foreground">
               Yield scales linearly with referrals — 0 refs mines 10% of the cap, 10+ refs mines the full daily rate.
             </p>
+            <button
+              type="button"
+              onClick={openWalkthrough}
+              className="mt-6 inline-flex items-center gap-2 rounded-full border border-primary/40 bg-primary/10 px-4 py-2 text-sm font-semibold text-primary transition hover:bg-primary/15"
+            >
+              <Sparkles className="h-4 w-4" /> See how mining works in 3 steps
+            </button>
           </div>
         </div>
 
@@ -240,9 +281,10 @@ function Landing() {
             <img
               src={miningTiers.url}
               alt="Starter, Pro, and Elite NFT tiers"
-              width={1600}
-              height={912}
+              width={1280}
+              height={730}
               loading="lazy"
+              decoding="async"
               className="w-full rounded-2xl"
             />
             <div className="mt-5 text-lg font-semibold">Three tiers. Real NFTs.</div>
@@ -257,6 +299,7 @@ function Landing() {
               width={1200}
               height={912}
               loading="lazy"
+              decoding="async"
               className="w-full rounded-2xl"
             />
             <div className="mt-5 text-lg font-semibold">Rewards compound daily.</div>
@@ -368,9 +411,156 @@ function Landing() {
         </div>
         <div className="mt-2">© PayTrony</div>
       </footer>
+
+      <MiningWalkthrough
+        open={walkOpen}
+        step={walkStep}
+        setStep={setWalkStep}
+        onClose={closeWalkthrough}
+        signedIn={signedIn}
+      />
     </div>
   );
 }
+
+const WALK_STEPS = [
+  {
+    icon: Crown,
+    title: "1. Mint your NFT",
+    body: "Pick Starter ($10), Pro ($50), or Elite ($100). Pay in USDT, USDC, or any EVM wallet — your NFT drops instantly.",
+    hint: "Your tier sets your maximum daily mining rate.",
+  },
+  {
+    icon: Pickaxe,
+    title: "2. Tap Mine every 24 hours",
+    body: "Open your dashboard and hit Mine now. Rewards land in your Mining balance — Tier 10 up to $1.20/day, Tier 100 up to $11.20/day.",
+    hint: "One tap per day. No rigs, no electricity, no setup.",
+  },
+  {
+    icon: Repeat,
+    title: "3. Boost with referrals, then withdraw",
+    body: "New wallets start at 10% of the cap. Invite 10 friends to unlock the full daily rate. Transfer mined rewards to your wallet and withdraw anytime for a flat $1 fee.",
+    hint: "Referral bonuses hit your wallet instantly, in the same block.",
+  },
+] as const;
+
+function MiningWalkthrough({
+  open, step, setStep, onClose, signedIn,
+}: {
+  open: boolean;
+  step: number;
+  setStep: (n: number) => void;
+  onClose: () => void;
+  signedIn: boolean;
+}) {
+  useEffect(() => {
+    if (!open) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+      if (e.key === "ArrowRight" && step < WALK_STEPS.length - 1) setStep(step + 1);
+      if (e.key === "ArrowLeft" && step > 0) setStep(step - 1);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = prev;
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [open, step, setStep, onClose]);
+
+  if (!open) return null;
+  const s = WALK_STEPS[step];
+  const Icon = s.icon;
+  const isLast = step === WALK_STEPS.length - 1;
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="walk-title"
+      className="fixed inset-0 z-50 flex items-end justify-center bg-background/70 p-4 backdrop-blur-sm sm:items-center"
+      onClick={onClose}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="relative w-full max-w-lg rounded-3xl border border-border/70 bg-card p-6 shadow-2xl sm:p-8"
+      >
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close walkthrough"
+          className="absolute right-4 top-4 grid h-8 w-8 place-items-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
+        >
+          <X className="h-4 w-4" />
+        </button>
+
+        <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-primary">
+          <MousePointerClick className="h-3.5 w-3.5" /> How mining works
+        </div>
+
+        <div className="mt-5 flex items-start gap-4">
+          <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-primary/15 text-primary">
+            <Icon className="h-6 w-6" />
+          </div>
+          <div>
+            <h3 id="walk-title" className="text-xl font-bold tracking-tight sm:text-2xl">{s.title}</h3>
+            <p className="mt-2 text-sm text-muted-foreground">{s.body}</p>
+            <p className="mt-3 rounded-lg border border-primary/20 bg-primary/5 px-3 py-2 text-xs text-primary">
+              {s.hint}
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-6 flex items-center gap-1.5" aria-hidden>
+          {WALK_STEPS.map((_, i) => (
+            <button
+              key={i}
+              type="button"
+              onClick={() => setStep(i)}
+              aria-label={`Go to step ${i + 1}`}
+              className={`h-1.5 flex-1 rounded-full transition ${i === step ? "bg-primary" : i < step ? "bg-primary/50" : "bg-border"}`}
+            />
+          ))}
+        </div>
+
+        <div className="mt-6 flex items-center justify-between gap-3">
+          <button
+            type="button"
+            onClick={() => setStep(Math.max(0, step - 1))}
+            disabled={step === 0}
+            className="rounded-full px-4 py-2 text-sm font-medium text-muted-foreground transition hover:text-foreground disabled:opacity-40"
+          >
+            Back
+          </button>
+          {isLast ? (
+            <Link
+              to={signedIn ? "/dashboard" : "/auth"}
+              search={signedIn ? undefined : { mode: "signup" } as never}
+              onClick={onClose}
+              className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground hover:opacity-90"
+            >
+              {signedIn ? "Open dashboard" : "Get started"} <ArrowRight className="h-4 w-4" />
+            </Link>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setStep(step + 1)}
+              className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground hover:opacity-90"
+            >
+              Next <ArrowRight className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+
+        <div className="mt-4 text-center text-[11px] text-muted-foreground">
+          Step {step + 1} of {WALK_STEPS.length} · Use ← → keys
+        </div>
+      </div>
+    </div>
+  );
+}
+
 
 function Feature({
   icon: Icon, title, desc, className = "", accent = "primary",
