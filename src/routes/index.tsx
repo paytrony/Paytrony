@@ -1,18 +1,25 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import {
   Check, Sparkles, Wallet, Users, Zap, Crown, ArrowRight, Search,
-  TrendingUp, Shield, Layers, Gift, Coins, LineChart,
+  TrendingUp, Shield, Layers, Gift, Coins, LineChart, X,
+  MousePointerClick, Pickaxe, Repeat,
 } from "lucide-react";
 import { TIER_BENEFITS } from "@/lib/tier-benefits";
-import miningHero from "@/assets/mining-hero.jpg.asset.json";
-import miningTiers from "@/assets/mining-tiers.jpg.asset.json";
-import miningRewards from "@/assets/mining-rewards.jpg.asset.json";
+import miningHero from "@/assets/mining-hero.webp.asset.json";
+import miningTiers from "@/assets/mining-tiers.webp.asset.json";
+import miningRewards from "@/assets/mining-rewards.webp.asset.json";
 
 export const Route = createFileRoute("/")({
   component: Landing,
+  head: () => ({
+    links: [
+      { rel: "preload", as: "image", href: miningHero.url, fetchpriority: "low" },
+    ],
+  }),
 });
+
 
 function Landing() {
   const [signedIn, setSignedIn] = useState(false);
