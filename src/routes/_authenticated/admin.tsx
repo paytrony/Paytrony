@@ -11,6 +11,8 @@ import {
   listAdminUsers,
   adminSetUserRole,
   verifyAdminAccess,
+  listUnmintedIntents,
+  reconcileIntent,
 } from "@/lib/admin.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
