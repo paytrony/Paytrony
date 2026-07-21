@@ -40,6 +40,7 @@ function Landing() {
         </Link>
         <nav className="hidden items-center gap-8 text-sm text-muted-foreground md:flex">
           <a href="#features" className="hover:text-foreground">Features</a>
+          <a href="#mining" className="hover:text-foreground">Mining</a>
           <a href="#tiers" className="hover:text-foreground">Tiers</a>
           <a href="#how" className="hover:text-foreground">How it works</a>
         </nav>
