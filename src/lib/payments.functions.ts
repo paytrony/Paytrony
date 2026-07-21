@@ -426,7 +426,9 @@ export const checkEvmPaymentIntent = createServerFn({ method: "POST" })
       _user_id: intent.user_id,
       _amount: intent.tier,
       _idempotency_key: `intent:${intent.id}`,
-    });
+      _quantity: (intent as { quantity?: number }).quantity ?? 1,
+    } as never);
+
     if (rpcErr) throw new Error(rpcErr.message);
     const purchaseId = (purchase as { purchase_id?: string } | null)?.purchase_id ?? null;
 
@@ -453,7 +455,9 @@ const SOLANA_RPCS = [
 
 const createSplSchema = z.object({
   tier: z.union([z.literal(10), z.literal(50), z.literal(100)]),
+  quantity: quantitySchema,
 });
+
 
 async function getSolanaReceiver(): Promise<string> {
   const addr = process.env.SOLANA_USDC_ADDRESS;
@@ -468,15 +472,17 @@ export const createSplPaymentIntent = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const address = await getSolanaReceiver();
 
+    const qty = data.quantity ?? 1;
     let lastErr: unknown = null;
     for (let attempt = 0; attempt < 8; attempt++) {
-      const expected = Number((data.tier + randomCents()).toFixed(6));
+      const expected = Number((data.tier * qty + randomCents()).toFixed(6));
       const expires = new Date(Date.now() + INTENT_TTL_MIN * 60_000).toISOString();
       const { data: row, error } = await supabaseAdmin
         .from("payment_intents")
         .insert({
           user_id: context.userId,
           tier: data.tier,
+          quantity: qty,
           expected_amount: expected,
           address,
           chain: "SOLANA",
@@ -492,6 +498,7 @@ export const createSplPaymentIntent = createServerFn({ method: "POST" })
           mint: SOLANA_USDC_MINT,
           tokenSymbol: "USDC",
           tier: row.tier,
+          quantity: (row as { quantity?: number }).quantity ?? qty,
           expectedAmount: Number(row.expected_amount),
           expiresAt: row.expires_at,
         };
@@ -501,6 +508,7 @@ export const createSplPaymentIntent = createServerFn({ method: "POST" })
     }
     throw new Error(lastErr instanceof Error ? lastErr.message : "Could not allocate payment amount, try again");
   });
+
 
 async function solRpc(method: string, params: unknown[]): Promise<unknown> {
   let lastErr: unknown = null;
