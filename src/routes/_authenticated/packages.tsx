@@ -65,6 +65,7 @@ function Packages() {
 
   const [openTier, setOpenTier] = useState<10 | 50 | 100 | null>(null);
   const [method, setMethod] = useState<Method>("chooser");
+  const [expandedBenefits, setExpandedBenefits] = useState<Set<number>>(new Set());
   const cfgFn = useServerFn(getPublicPaymentConfig);
   const { data: publicCfg } = useQuery({ queryKey: ["payment-config"], queryFn: () => cfgFn(), staleTime: 60_000 });
   const tiles = buildTiles(publicCfg);
@@ -74,6 +75,15 @@ function Packages() {
   const [qrDataUrl, setQrDataUrl] = useState<string>("");
   const [now, setNow] = useState(Date.now());
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const toggleBenefits = (p: number) => {
+    setExpandedBenefits((prev) => {
+      const next = new Set(prev);
+      if (next.has(p)) next.delete(p);
+      else next.add(p);
+      return next;
+    });
+  };
 
   // Auto-create Tron intent when Tron method active and none exists.
   useEffect(() => {
@@ -182,14 +192,30 @@ function Packages() {
               <div className="mt-2 text-sm text-muted-foreground">{t.desc}</div>
               <div className="mt-4 mx-auto flex h-24 w-24 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-accent text-3xl font-bold text-primary-foreground">◆</div>
               <div className="mt-2 text-xs text-muted-foreground">NFT Tier {t.p}</div>
-              <ul className="mt-5 space-y-2 text-left text-sm">
-                {info.benefits.map((b) => (
-                  <li key={b} className="flex items-start gap-2">
-                    <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" strokeWidth={2.5} />
-                    <span className="text-foreground/85">{b}</span>
-                  </li>
-                ))}
-              </ul>
+              {expandedBenefits.has(t.p) ? (
+                <ul className="mt-5 space-y-2 text-left text-sm">
+                  {info.benefits.map((b) => (
+                    <li key={b} className="flex items-start gap-2">
+                      <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" strokeWidth={2.5} />
+                      <span className="text-foreground/85">{b}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <div className="mt-5 text-left text-sm text-muted-foreground">
+                  <span className="inline-flex items-center gap-2 rounded-md border border-border bg-muted/30 px-3 py-1.5">
+                    <Check className="h-3.5 w-3.5 text-primary" strokeWidth={2.5} />
+                    {info.benefits.length} benefits included
+                  </span>
+                </div>
+              )}
+              <button
+                onClick={() => toggleBenefits(t.p)}
+                className="mt-3 text-xs font-medium text-primary hover:underline"
+                aria-expanded={expandedBenefits.has(t.p)}
+              >
+                {expandedBenefits.has(t.p) ? "Hide benefits" : "See benefits"}
+              </button>
               <button
                 onClick={() => { setOpenTier(t.p); setMethod("chooser"); }}
                 disabled={openTier !== null}
