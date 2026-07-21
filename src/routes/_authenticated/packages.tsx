@@ -307,7 +307,7 @@ function Packages() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-3xl font-bold">Buy a package</h1>
+        <h1 className="text-3xl font-bold">Buy NFT</h1>
         <p className="text-muted-foreground">Pick any payment method — USDT on Tron, MetaMask (6 EVM chains), WalletConnect, Solana Pay, or card. Mint 1–{MAX_QTY} NFTs per payment. Your referrer earns 100% instantly.</p>
       </div>
 
