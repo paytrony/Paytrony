@@ -5,10 +5,13 @@ import { z } from "zod";
 const INTENT_TTL_MIN = 20;
 const MATCH_WINDOW_MIN = 25;
 
+const quantitySchema = z.number().int().min(1).max(20).optional();
 const createSchema = z.object({
   tier: z.union([z.literal(10), z.literal(50), z.literal(100)]),
+  quantity: quantitySchema,
 });
 const idSchema = z.object({ id: z.string().uuid() });
+
 
 function randomCents(): number {
   // 0.0001 .. 0.0099
@@ -29,15 +32,17 @@ export const createPaymentIntent = createServerFn({ method: "POST" })
     const address = await getReceivingAddress();
 
     // Attempt to allocate a unique pending amount; retry on collision.
+    const qty = data.quantity ?? 1;
     let lastErr: unknown = null;
     for (let attempt = 0; attempt < 8; attempt++) {
-      const expected = Number((data.tier + randomCents()).toFixed(6));
+      const expected = Number((data.tier * qty + randomCents()).toFixed(6));
       const expires = new Date(Date.now() + INTENT_TTL_MIN * 60_000).toISOString();
       const { data: row, error } = await supabaseAdmin
         .from("payment_intents")
         .insert({
           user_id: context.userId,
           tier: data.tier,
+          quantity: qty,
           expected_amount: expected,
           address,
           chain: "TRC20",
@@ -51,17 +56,18 @@ export const createPaymentIntent = createServerFn({ method: "POST" })
           address: row.address,
           chain: row.chain,
           tier: row.tier,
+          quantity: row.quantity ?? qty,
           expectedAmount: Number(row.expected_amount),
           expiresAt: row.expires_at,
           status: row.status,
         };
       }
       lastErr = error;
-      // 23505 unique_violation on the pending-amount index — retry
       if (error?.code !== "23505") break;
     }
     throw new Error(lastErr instanceof Error ? lastErr.message : "Could not allocate payment amount, try again");
   });
+
 
 type TrongridTx = {
   transaction_id: string;
