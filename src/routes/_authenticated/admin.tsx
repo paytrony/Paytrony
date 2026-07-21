@@ -199,6 +199,7 @@ function PaymentsTab({ prefilterUser, clearPrefilter }: {
 
   return (
     <div className="space-y-4">
+      <ReconcilePanel onReconciled={load} />
       {prefilterUser && (
         <div className="flex items-center justify-between rounded-md border border-border bg-muted/30 px-3 py-2 text-sm">
           <span>Filtering by user: <span className="font-mono">{prefilterUser.email ?? prefilterUser.id.slice(0, 8)}</span></span>
