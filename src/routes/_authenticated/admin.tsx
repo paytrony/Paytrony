@@ -583,7 +583,7 @@ function ReconcilePanel({ onReconciled }: { onReconciled: () => void }) {
                   <td className="p-2 capitalize">{r.status}</td>
                   <td className="p-2 font-mono">
                     {r.tx_hash ? (
-                      <a href={explorerTxUrl(r.chain, r.evm_chain, r.tx_hash) ?? "#"} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-primary">
+                      <a href={explorerTxUrl(r.method, r.chain, r.evm_chain, r.tx_hash) ?? "#"} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-primary">
                         {r.tx_hash.slice(0, 10)}… <ExternalLink className="h-3 w-3" />
                       </a>
                     ) : "—"}
