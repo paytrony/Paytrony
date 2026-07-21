@@ -98,6 +98,7 @@ export type Database = {
           method: string
           paid_at: string | null
           purchase_id: string | null
+          quantity: number
           status: Database["public"]["Enums"]["payment_intent_status"]
           stripe_session_id: string | null
           tier: number
@@ -116,6 +117,7 @@ export type Database = {
           method?: string
           paid_at?: string | null
           purchase_id?: string | null
+          quantity?: number
           status?: Database["public"]["Enums"]["payment_intent_status"]
           stripe_session_id?: string | null
           tier: number
@@ -134,6 +136,7 @@ export type Database = {
           method?: string
           paid_at?: string | null
           purchase_id?: string | null
+          quantity?: number
           status?: Database["public"]["Enums"]["payment_intent_status"]
           stripe_session_id?: string | null
           tier?: number
@@ -414,10 +417,24 @@ export type Database = {
             Returns: Json
           }
       mining_daily_rate: { Args: { _user_id: string }; Returns: Json }
-      purchase_package: {
-        Args: { _amount: number; _idempotency_key?: string; _user_id: string }
-        Returns: Json
-      }
+      purchase_package:
+        | {
+            Args: {
+              _amount: number
+              _idempotency_key?: string
+              _user_id: string
+            }
+            Returns: Json
+          }
+        | {
+            Args: {
+              _amount: number
+              _idempotency_key: string
+              _quantity: number
+              _user_id: string
+            }
+            Returns: Json
+          }
       request_account_deletion: {
         Args: { _user_id: string }
         Returns: undefined
