@@ -228,7 +228,7 @@ function MiningPage() {
             <div className="text-xs text-muted-foreground">
               {canMine
                 ? ownedTiers.length === 0
-                  ? "Buy a package to start earning daily rewards."
+                  ? "Buy an NFT to start earning daily rewards."
                   : `Claim your $${totalRate.toFixed(2)} reward before it resets.`
                 : `Available at ${new Date(nextAt).toLocaleString()} — restored automatically after refresh or re-login.`}
             </div>
