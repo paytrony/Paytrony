@@ -6,6 +6,9 @@ import {
   TrendingUp, Shield, Layers, Gift, Coins, LineChart,
 } from "lucide-react";
 import { TIER_BENEFITS } from "@/lib/tier-benefits";
+import miningHero from "@/assets/mining-hero.jpg.asset.json";
+import miningTiers from "@/assets/mining-tiers.jpg.asset.json";
+import miningRewards from "@/assets/mining-rewards.jpg.asset.json";
 
 export const Route = createFileRoute("/")({
   component: Landing,
