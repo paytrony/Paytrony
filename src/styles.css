@@ -96,8 +96,6 @@
   transition: transform 300ms cubic-bezier(0.22, 1, 0.36, 1),
     filter 300ms ease, box-shadow 300ms ease;
   will-change: transform;
-}
-@utility nft-art {
   &::after {
     content: "";
     position: absolute;
