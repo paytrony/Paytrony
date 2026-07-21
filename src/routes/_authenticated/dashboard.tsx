@@ -424,7 +424,7 @@ function ReferralStatus({
           <div className="text-[10px] font-mono uppercase tracking-wider text-primary">Your invite link</div>
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <code className="flex-1 min-w-0 truncate rounded-md border border-border bg-background/60 px-3 py-2 text-xs font-mono">
-              {typeof window !== "undefined" ? `${window.location.origin}/i/${referralCode}` : `/i/${referralCode}`}
+              {buildInviteUrl(referralCode)}
             </code>
             <button
               onClick={copyLink}
