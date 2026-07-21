@@ -40,7 +40,7 @@ function encodeTransfer(to: string, amountRaw: bigint): string {
   return "0xa9059cbb" + padHex(to) + padHex(amountRaw.toString(16));
 }
 
-export function MetaMaskPay({ tier }: { tier: 10 | 50 | 100 }) {
+export function MetaMaskPay({ tier, quantity = 1 }: { tier: 10 | 50 | 100; quantity?: number }) {
   const navigate = useNavigate();
   const createIntent = useServerFn(createEvmPaymentIntent);
   const submitHash = useServerFn(submitEvmTxHash);
@@ -101,7 +101,7 @@ export function MetaMaskPay({ tier }: { tier: 10 | 50 | 100 }) {
     setError(null);
     setStatus("creating");
     try {
-      const ix = await createIntent({ data: { tier, chain } });
+      const ix = await createIntent({ data: { tier, chain, quantity } });
       setIntent(ix);
 
       setStatus("switching");
@@ -177,8 +177,8 @@ export function MetaMaskPay({ tier }: { tier: 10 | 50 | 100 }) {
 
       <div className="rounded-md border bg-muted/40 p-3 text-sm">
         <div className="flex items-center justify-between">
-          <span className="text-muted-foreground">Amount</span>
-          <span className="font-mono font-bold">${tier}.00 {CHAIN_META[chain].token}</span>
+          <span className="text-muted-foreground">Amount{quantity > 1 ? ` (${quantity} × $${tier})` : ""}</span>
+          <span className="font-mono font-bold">${(tier * quantity).toFixed(2)} {CHAIN_META[chain].token}</span>
         </div>
         {intent && (
           <div className="mt-1 flex items-center justify-between">
@@ -191,6 +191,7 @@ export function MetaMaskPay({ tier }: { tier: 10 | 50 | 100 }) {
           <span className="font-mono text-xs">{account ? `${account.slice(0, 6)}…${account.slice(-4)}` : "Not connected"}</span>
         </div>
       </div>
+
 
       {!account ? (
         <Button onClick={connect} className="w-full" disabled={status === "connecting"}>
@@ -223,7 +224,7 @@ export function MetaMaskPay({ tier }: { tier: 10 | 50 | 100 }) {
       ) : (
         <>
           <Button onClick={pay} className="w-full" disabled={status !== "idle"}>
-            {status === "idle" && `Pay $${tier} ${CHAIN_META[chain].token} with MetaMask`}
+            {status === "idle" && `Pay $${(tier * quantity).toFixed(2)} ${CHAIN_META[chain].token} with MetaMask${quantity > 1 ? ` (mint ${quantity})` : ""}`}
             {status === "creating" && (<><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Preparing…</>)}
             {status === "switching" && (<><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Switching network…</>)}
             {status === "signing" && (<><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Confirm in MetaMask…</>)}
