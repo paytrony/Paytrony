@@ -420,18 +420,27 @@ function ReferralStatus({
       </div>
 
       {referralCode ? (
-        <div className="mt-5 rounded-xl border border-primary/30 bg-primary/5 p-4">
-          <div className="text-[10px] font-mono uppercase tracking-wider text-primary">Your invite link</div>
-          <div className="mt-2 flex flex-wrap items-center gap-2">
-            <code className="flex-1 min-w-0 truncate rounded-md border border-border bg-background/60 px-3 py-2 text-xs font-mono">
-              {buildInviteUrl(referralCode)}
-            </code>
+        <div className="mt-5 overflow-hidden rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/10 via-primary/5 to-transparent">
+          <div className="flex items-center gap-2 border-b border-primary/20 bg-background/40 px-4 py-2">
+            <span className="inline-flex h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_8px_currentColor]" />
+            <span className="text-[10px] font-mono uppercase tracking-wider text-emerald-400">Secure invite link</span>
+            <span className="ml-auto text-[10px] font-mono uppercase tracking-wider text-muted-foreground">https</span>
+          </div>
+          <div className="flex flex-wrap items-center gap-3 p-4">
+            <div className="flex flex-1 min-w-0 items-center overflow-hidden rounded-xl border border-border/70 bg-background/70 px-4 py-3">
+              <span className="text-base font-semibold tracking-tight text-foreground">paytrony.com</span>
+              <span className="mx-1 text-base text-muted-foreground/70">/i/</span>
+              <span className="truncate text-base font-bold font-mono tracking-widest text-primary">{referralCode}</span>
+            </div>
             <button
               onClick={copyLink}
-              className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
+              className="rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground shadow-sm transition hover:opacity-90"
             >
-              Copy
+              Copy link
             </button>
+          </div>
+          <div className="border-t border-primary/10 bg-background/30 px-4 py-2 text-[11px] text-muted-foreground">
+            Share this link — you earn a credit the instant your friend mints an NFT.
           </div>
         </div>
       ) : (
@@ -439,6 +448,7 @@ function ReferralStatus({
           Generating your invite link… refresh in a moment.
         </div>
       )}
+
 
       {items.length === 0 ? (
         <div className="mt-5 rounded-xl border border-dashed border-border p-5 text-center">
