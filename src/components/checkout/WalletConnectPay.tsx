@@ -71,7 +71,7 @@ function clearPersisted(tier: 10 | 50 | 100) {
   try { localStorage.removeItem(persistKey(tier)); } catch { /* ignore */ }
 }
 
-export function WalletConnectPay({ tier }: { tier: 10 | 50 | 100 }) {
+export function WalletConnectPay({ tier, quantity = 1 }: { tier: 10 | 50 | 100; quantity?: number }) {
   const navigate = useNavigate();
   const cfgFn = useServerFn(getPublicPaymentConfig);
   const { data: cfg } = useQuery({ queryKey: ["payment-config"], queryFn: () => cfgFn(), staleTime: 60_000 });
@@ -249,7 +249,7 @@ export function WalletConnectPay({ tier }: { tier: 10 | 50 | 100 }) {
     let ix: Awaited<ReturnType<typeof createIntent>> | null = null;
     try {
       const provider = await getProvider();
-      ix = await createIntent({ data: { tier, chain } });
+      ix = await createIntent({ data: { tier, chain, quantity } });
       setIntentId(ix.id);
       savePersisted(tier, { intentId: ix.id, chain, account });
       await signAndBroadcast(provider, ix, account);
