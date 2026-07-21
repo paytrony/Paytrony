@@ -25,7 +25,7 @@ const TIERS = [
   { p: 100 as const, tag: "Elite", desc: "Maximum earning power", cls: "border-accent glow-accent" },
 ];
 
-const MAX_QTY = 10;
+const MAX_QTY = 1000;
 
 type Intent = {
   id: string;
