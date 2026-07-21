@@ -6,6 +6,9 @@ import {
   TrendingUp, Shield, Layers, Gift, Coins, LineChart,
 } from "lucide-react";
 import { TIER_BENEFITS } from "@/lib/tier-benefits";
+import miningHero from "@/assets/mining-hero.jpg.asset.json";
+import miningTiers from "@/assets/mining-tiers.jpg.asset.json";
+import miningRewards from "@/assets/mining-rewards.jpg.asset.json";
 
 export const Route = createFileRoute("/")({
   component: Landing,
@@ -37,6 +40,7 @@ function Landing() {
         </Link>
         <nav className="hidden items-center gap-8 text-sm text-muted-foreground md:flex">
           <a href="#features" className="hover:text-foreground">Features</a>
+          <a href="#mining" className="hover:text-foreground">Mining</a>
           <a href="#tiers" className="hover:text-foreground">Tiers</a>
           <a href="#how" className="hover:text-foreground">How it works</a>
         </nav>
@@ -190,7 +194,81 @@ function Landing() {
         </div>
       </section>
 
+      {/* Mining showcase */}
+      <section id="mining" className="relative mx-auto max-w-7xl px-6 pb-24">
+        <div className="grid gap-10 lg:grid-cols-2 lg:items-center">
+          <div className="relative order-2 lg:order-1">
+            <div className="absolute -inset-6 -z-10 rounded-[2rem] bg-gradient-to-br from-primary/25 via-transparent to-accent/20 blur-2xl" />
+            <img
+              src={miningHero.url}
+              alt="PayTrony NFT mining dashboard preview"
+              width={1280}
+              height={960}
+              loading="lazy"
+              className="w-full rounded-3xl border border-border/70 shadow-2xl"
+            />
+          </div>
+          <div className="order-1 lg:order-2">
+            <div className="text-sm font-semibold text-primary">Daily NFT mining</div>
+            <h2 className="mt-2 text-4xl font-bold tracking-tight md:text-5xl">
+              Your NFT mines <span className="bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">every day</span>
+            </h2>
+            <p className="mt-4 text-muted-foreground">
+              Mint once and tap <strong className="text-foreground">Mine now</strong> every 24 hours. Rewards start small
+              and scale up as you invite friends — up to the full daily cap at 10 referrals.
+            </p>
+            <ul className="mt-6 space-y-3 text-sm">
+              {[
+                "Tier 10 → up to $1.20 / day  ·  up to $36 / month",
+                "Tier 50 → up to $5.20 / day  ·  up to $156 / month",
+                "Tier 100 → up to $11.20 / day  ·  up to $336 / month",
+              ].map((line) => (
+                <li key={line} className="flex items-start gap-2">
+                  <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" strokeWidth={2.5} />
+                  <span className="text-foreground/85">{line}</span>
+                </li>
+              ))}
+            </ul>
+            <p className="mt-4 text-xs text-muted-foreground">
+              Yield scales linearly with referrals — 0 refs mines 10% of the cap, 10+ refs mines the full daily rate.
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-16 grid gap-6 md:grid-cols-2">
+          <div className="overflow-hidden rounded-3xl border border-border/70 bg-card/60 p-6 backdrop-blur">
+            <img
+              src={miningTiers.url}
+              alt="Starter, Pro, and Elite NFT tiers"
+              width={1600}
+              height={912}
+              loading="lazy"
+              className="w-full rounded-2xl"
+            />
+            <div className="mt-5 text-lg font-semibold">Three tiers. Real NFTs.</div>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Starter, Pro and Elite gems — each mints on-chain, each mines daily, each pays instant referral rewards.
+            </p>
+          </div>
+          <div className="overflow-hidden rounded-3xl border border-border/70 bg-card/60 p-6 backdrop-blur">
+            <img
+              src={miningRewards.url}
+              alt="Daily mining rewards chart"
+              width={1200}
+              height={912}
+              loading="lazy"
+              className="w-full rounded-2xl"
+            />
+            <div className="mt-5 text-lg font-semibold">Rewards compound daily.</div>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Watch your balance climb every day. Transfer mined rewards to your wallet and withdraw anytime with a flat $1 fee.
+            </p>
+          </div>
+        </div>
+      </section>
+
       {/* Tiers */}
+
       <section id="tiers" className="relative mx-auto max-w-7xl px-6 pb-24">
         <div className="mx-auto max-w-2xl text-center">
           <div className="text-sm font-semibold text-primary">Choose your tier</div>
