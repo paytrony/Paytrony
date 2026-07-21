@@ -197,7 +197,7 @@ function Packages() {
               <div className="mt-2 text-xs text-muted-foreground">
                 {t.p === 10 ? "Pickaxe Miner" : t.p === 50 ? "Rig Miner" : "ASIC Miner"} · Tier {t.p}
               </div>
-              {expandedBenefits.has(t.p) ? (
+              {expandedBenefits.has(t.p) && (
                 <ul className="mt-5 space-y-2 text-left text-sm">
                   {info.benefits.map((b) => (
                     <li key={b} className="flex items-start gap-2">
@@ -206,13 +206,6 @@ function Packages() {
                     </li>
                   ))}
                 </ul>
-              ) : (
-                <div className="mt-5 text-left text-sm text-muted-foreground">
-                  <span className="inline-flex items-center gap-2 rounded-md border border-border bg-muted/30 px-3 py-1.5">
-                    <Check className="h-3.5 w-3.5 text-primary" strokeWidth={2.5} />
-                    {info.benefits.length} benefits included
-                  </span>
-                </div>
               )}
               <button
                 onClick={() => toggleBenefits(t.p)}
