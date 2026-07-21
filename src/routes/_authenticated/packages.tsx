@@ -367,7 +367,16 @@ function Packages() {
                   >
                     <Minus className="h-3.5 w-3.5" />
                   </button>
-                  <span className="w-6 text-center font-mono text-sm font-semibold" aria-live="polite">{qty}</span>
+                  <input
+                    type="number"
+                    min={1}
+                    max={MAX_QTY}
+                    value={qty}
+                    onChange={(e) => setQty(t.p, Number(e.target.value))}
+                    disabled={openTier !== null}
+                    aria-label={`${t.tag} quantity`}
+                    className="w-16 rounded-md border border-border bg-card px-2 py-1 text-center font-mono text-sm font-semibold [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                  />
                   <button
                     type="button"
                     onClick={() => bumpQty(t.p, +1)}
