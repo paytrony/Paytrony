@@ -249,9 +249,10 @@ function Landing() {
             <img
               src={miningTiers.url}
               alt="Starter, Pro, and Elite NFT tiers"
-              width={1600}
-              height={912}
+              width={1280}
+              height={730}
               loading="lazy"
+              decoding="async"
               className="w-full rounded-2xl"
             />
             <div className="mt-5 text-lg font-semibold">Three tiers. Real NFTs.</div>
