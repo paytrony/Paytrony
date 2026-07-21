@@ -15,6 +15,7 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
 type Profile = { referral_code: string; nft_tier: number | null; email: string };
 type Txn = { id: string; amount: number; type: string; note: string | null; created_at: string };
 type NftRow = { id: string; nft_tier: number; created_at: string };
+type ReferredUser = { id: string; referral_code: string; nft_tier: number | null; created_at: string };
 
 const TIER_META: Record<number, { name: string; tag: string; glyph: string; grad: string; ring: string; badge: string }> = {
   10: { name: "Starter", tag: "Common", glyph: "◆", grad: "from-emerald-400 via-teal-400 to-cyan-500", ring: "shadow-[inset_0_0_60px_-20px_rgb(45,212,191,0.55)]", badge: "bg-teal-500/15 text-teal-300 border-teal-500/30" },
