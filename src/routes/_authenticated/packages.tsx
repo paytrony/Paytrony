@@ -188,7 +188,7 @@ function Packages() {
                   Most popular
                 </div>
               )}
-              <div className="text-5xl font-bold">${t.p}</div>
+              
               
               <div className="nft-art mt-4 mx-auto overflow-hidden rounded-xl cursor-pointer">
                 <MinerNftArt tier={t.p} size={140} />
