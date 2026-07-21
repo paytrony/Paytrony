@@ -133,8 +133,8 @@ function MiningPage() {
       setErrorInfo({
         code: "no_nfts",
         title: "No mineable NFTs",
-        detail: "You need at least one Starter, Pro, or Elite package to mine.",
-        fix: "Buy a package from the Packages page to start earning daily rewards.",
+        detail: "You need at least one Starter, Pro, or Elite NFT to mine.",
+        fix: "Buy an NFT from the Buy NFT page to start earning daily rewards.",
       });
       return;
     }
