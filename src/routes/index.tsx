@@ -33,16 +33,27 @@ function Landing() {
     supabase.auth.getSession().then(({ data }) => setSignedIn(!!data.session));
   }, []);
 
+  // Only auto-open the walkthrough for signed-in users who have already minted an NFT.
+  // Visitors and signed-in users without a purchase get the manual "See how mining works" button.
   useEffect(() => {
     if (autoTriggered.current) return;
     if (typeof window === "undefined") return;
     try {
-      if (!window.localStorage.getItem(WALKTHROUGH_KEY)) {
-        autoTriggered.current = true;
-        const t = setTimeout(() => setWalkOpen(true), 1200);
-        return () => clearTimeout(t);
-      }
+      if (window.localStorage.getItem(WALKTHROUGH_KEY)) return;
     } catch { /* ignore */ }
+    let cancelled = false;
+    (async () => {
+      const { data: sess } = await supabase.auth.getSession();
+      if (!sess.session) return;
+      const { count } = await supabase
+        .from("purchases")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", sess.session.user.id);
+      if (cancelled || !count || count < 1) return;
+      autoTriggered.current = true;
+      setTimeout(() => setWalkOpen(true), 1200);
+    })();
+    return () => { cancelled = true; };
   }, []);
 
   const openWalkthrough = () => { setWalkStep(0); setWalkOpen(true); };
