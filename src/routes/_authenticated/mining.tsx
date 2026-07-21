@@ -326,7 +326,7 @@ function MiningPage() {
           <div className="mt-4 text-sm text-muted-foreground">Loading…</div>
         ) : ownedTiers.length === 0 ? (
           <div className="mt-4 rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
-            You don't own any mineable NFTs yet. Buy a package to start mining.
+            You don't own any mineable NFTs yet. Buy an NFT to start mining.
           </div>
         ) : (
           <div className="mt-4 grid gap-3 sm:grid-cols-3">
