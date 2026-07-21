@@ -214,9 +214,9 @@ function Dashboard() {
                     <span className="text-3xl">+</span>
                   </div>
                   <div className="mt-3 text-sm font-medium">No NFT minted yet</div>
-                  <div className="mt-0.5 text-xs text-muted-foreground">Buy a package to mint your first collectible.</div>
+                  <div className="mt-0.5 text-xs text-muted-foreground">Buy an NFT to mint your first collectible.</div>
                   <Link to="/packages" className="mt-4 inline-block rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground">
-                    Browse packages
+                    Browse NFTs
                   </Link>
                 </>
               )}
