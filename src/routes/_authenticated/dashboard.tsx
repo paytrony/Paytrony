@@ -48,7 +48,9 @@ function Dashboard() {
     if (p) setProfile(p as Profile);
     setWallet(wb);
     setTxns((t ?? []) as Txn[]);
-    setRefCount((refs ?? []).length);
+    const refList = (refs ?? []) as ReferredUser[];
+    setReferred(refList);
+    setRefCount(refList.length);
     setNfts((n ?? []) as NftRow[]);
     setLastClaimAt((mc as any)?.created_at ?? null);
   }
