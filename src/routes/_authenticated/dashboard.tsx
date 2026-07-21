@@ -5,6 +5,8 @@ import { toast } from "sonner";
 import { buildMiningTransferIdempotencyKey } from "@/lib/mining-transfer-idempotency";
 import { tierRates as computeTierRates } from "@/lib/mining-rates";
 import { fetchWalletBalance, EMPTY_WALLET_BALANCE, type WalletBalance } from "@/lib/wallet-balance";
+import { buildInviteUrl } from "@/lib/referral-link";
+
 
 
 
@@ -362,15 +364,15 @@ function ReferralStatus({
   items.sort((a, b) => new Date(b.when).getTime() - new Date(a.when).getTime());
 
   async function copyLink() {
-    if (!referralCode || typeof window === "undefined") return;
-    const url = `${window.location.origin}/i/${referralCode}`;
+    if (!referralCode) return;
     try {
-      await navigator.clipboard.writeText(url);
+      await navigator.clipboard.writeText(buildInviteUrl(referralCode));
       toast.success("Invite link copied");
     } catch {
       toast.error("Copy failed");
     }
   }
+
 
   function fmt(ts: string) {
     const d = new Date(ts);
@@ -422,7 +424,7 @@ function ReferralStatus({
           <div className="text-[10px] font-mono uppercase tracking-wider text-primary">Your invite link</div>
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <code className="flex-1 min-w-0 truncate rounded-md border border-border bg-background/60 px-3 py-2 text-xs font-mono">
-              {typeof window !== "undefined" ? `${window.location.origin}/i/${referralCode}` : `/i/${referralCode}`}
+              {buildInviteUrl(referralCode)}
             </code>
             <button
               onClick={copyLink}
