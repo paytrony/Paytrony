@@ -49,6 +49,8 @@ function Landing() {
   useEffect(() => {
     if (!userId) { setHasNfts(null); return; }
     let cancelled = false;
+    let burstStop = 0;
+    let burstTimer: number | null = null;
 
     const check = async () => {
       const { count } = await supabase
@@ -56,11 +58,39 @@ function Landing() {
         .select("id", { count: "exact", head: true })
         .eq("user_id", userId);
       if (cancelled) return;
-      setHasNfts((count ?? 0) > 0);
+      const owns = (count ?? 0) > 0;
+      setHasNfts(owns);
+      if (owns && burstTimer !== null) {
+        window.clearInterval(burstTimer);
+        burstTimer = null;
+      }
     };
 
+    // Fallback burst poll: after a likely-checkout signal (tab focus / return
+    // from payment provider), re-check every 3s for up to 3 minutes so the
+    // walkthrough still appears if the realtime INSERT event arrives late or
+    // is missed entirely.
+    const startBurst = () => {
+      burstStop = Date.now() + 3 * 60 * 1000;
+      if (burstTimer !== null) return;
+      burstTimer = window.setInterval(() => {
+        if (cancelled || Date.now() > burstStop) {
+          if (burstTimer !== null) { window.clearInterval(burstTimer); burstTimer = null; }
+          return;
+        }
+        check();
+      }, 3000);
+    };
+
+    const onFocus = () => { check(); startBurst(); };
+    const onVisibility = () => { if (document.visibilityState === "visible") onFocus(); };
+
     check();
+    startBurst(); // catch the common case: user returns to landing right after paying
     const poll = window.setInterval(check, 15000);
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVisibility);
+
     const channel = supabase
       .channel(`purchases:${userId}`)
       .on(
@@ -73,6 +103,9 @@ function Landing() {
     return () => {
       cancelled = true;
       window.clearInterval(poll);
+      if (burstTimer !== null) window.clearInterval(burstTimer);
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVisibility);
       supabase.removeChannel(channel);
     };
   }, [userId]);
