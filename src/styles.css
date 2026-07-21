@@ -87,3 +87,56 @@
 @utility glow-accent {
   box-shadow: 0 0 40px oklch(0.7 0.2 320 / 0.35), inset 0 1px 0 oklch(1 0 0 / 0.05);
 }
+
+/* Miner NFT hover/press feel: GPU-only transform + subtle shine sweep. */
+@utility nft-art {
+  position: relative;
+  isolation: isolate;
+  transform: translateZ(0);
+  transition: transform 300ms cubic-bezier(0.22, 1, 0.36, 1),
+    filter 300ms ease, box-shadow 300ms ease;
+  will-change: transform;
+}
+@utility nft-art {
+  &::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    background: linear-gradient(
+      115deg,
+      transparent 30%,
+      oklch(1 0 0 / 0.14) 48%,
+      oklch(1 0 0 / 0.22) 50%,
+      oklch(1 0 0 / 0.14) 52%,
+      transparent 70%
+    );
+    background-size: 250% 100%;
+    background-position: 150% 0;
+    opacity: 0;
+    transition: opacity 250ms ease, background-position 700ms ease;
+    mix-blend-mode: screen;
+  }
+  &:hover {
+    transform: translateY(-3px) scale(1.03);
+    filter: drop-shadow(0 10px 22px oklch(0.82 0.19 155 / 0.28));
+  }
+  &:hover::after {
+    opacity: 1;
+    background-position: -50% 0;
+  }
+  &:active {
+    transform: translateY(-1px) scale(0.985);
+    transition-duration: 120ms;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .nft-art,
+  .nft-art:hover,
+  .nft-art:active {
+    transform: none;
+    filter: none;
+  }
+  .nft-art::after { display: none; }
+}
