@@ -417,20 +417,33 @@ function ReferralStatus({
         </div>
       </div>
 
+      {referralCode ? (
+        <div className="mt-5 rounded-xl border border-primary/30 bg-primary/5 p-4">
+          <div className="text-[10px] font-mono uppercase tracking-wider text-primary">Your invite link</div>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <code className="flex-1 min-w-0 truncate rounded-md border border-border bg-background/60 px-3 py-2 text-xs font-mono">
+              {typeof window !== "undefined" ? `${window.location.origin}/i/${referralCode}` : `/i/${referralCode}`}
+            </code>
+            <button
+              onClick={copyLink}
+              className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
+            >
+              Copy
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="mt-5 rounded-xl border border-dashed border-border p-4 text-center text-xs text-muted-foreground">
+          Generating your invite link… refresh in a moment.
+        </div>
+      )}
+
       {items.length === 0 ? (
         <div className="mt-5 rounded-xl border border-dashed border-border p-5 text-center">
           <div className="text-sm font-medium">No referrals yet</div>
           <div className="mt-1 text-xs text-muted-foreground">
-            Share your invite link — you earn a credit the moment they mint.
+            Share your invite link above — you earn a credit the moment they mint.
           </div>
-          {referralCode && (
-            <button
-              onClick={copyLink}
-              className="mt-3 inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
-            >
-              Copy invite link
-            </button>
-          )}
         </div>
       ) : (
         <ul className="mt-5 divide-y divide-border">
@@ -454,22 +467,6 @@ function ReferralStatus({
             </li>
           ))}
         </ul>
-      )}
-
-      {items.length > 0 && referralCode && (
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-muted/20 p-3 text-xs">
-          <span className="text-muted-foreground">
-            Next step: {pending.length > 0
-              ? `Nudge your ${pending.length} pending friend${pending.length === 1 ? "" : "s"} to mint — credit lands instantly.`
-              : "Invite more friends to keep growing your mining rate."}
-          </span>
-          <button
-            onClick={copyLink}
-            className="rounded-md border border-primary/40 bg-primary/10 px-3 py-1.5 font-medium text-primary hover:bg-primary/20"
-          >
-            Copy invite link
-          </button>
-        </div>
       )}
     </div>
   );
