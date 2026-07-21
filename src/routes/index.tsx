@@ -25,36 +25,71 @@ const WALKTHROUGH_KEY = "paytrony:mining-walkthrough-seen";
 
 function Landing() {
   const [signedIn, setSignedIn] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [hasNfts, setHasNfts] = useState<boolean | null>(null);
   const [walkOpen, setWalkOpen] = useState(false);
   const [walkStep, setWalkStep] = useState(0);
   const autoTriggered = useRef(false);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => setSignedIn(!!data.session));
+    supabase.auth.getSession().then(({ data }) => {
+      setSignedIn(!!data.session);
+      setUserId(data.session?.user.id ?? null);
+    });
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
+      setSignedIn(!!session);
+      setUserId(session?.user.id ?? null);
+    });
+    return () => sub.subscription.unsubscribe();
   }, []);
 
-  // Only auto-open the walkthrough for signed-in users who have already minted an NFT.
-  // Visitors and signed-in users without a purchase get the manual "See how mining works" button.
+  // Background-refresh NFT ownership for the signed-in user via realtime + a
+  // light poll, so the walkthrough can appear immediately after a mint is
+  // confirmed and the purchases row lands.
   useEffect(() => {
-    if (autoTriggered.current) return;
-    if (typeof window === "undefined") return;
-    try {
-      if (window.localStorage.getItem(WALKTHROUGH_KEY)) return;
-    } catch { /* ignore */ }
+    if (!userId) { setHasNfts(null); return; }
     let cancelled = false;
-    (async () => {
-      const { data: sess } = await supabase.auth.getSession();
-      if (!sess.session) return;
+
+    const check = async () => {
       const { count } = await supabase
         .from("purchases")
         .select("id", { count: "exact", head: true })
-        .eq("user_id", sess.session.user.id);
-      if (cancelled || !count || count < 1) return;
-      autoTriggered.current = true;
-      setTimeout(() => setWalkOpen(true), 1200);
-    })();
-    return () => { cancelled = true; };
-  }, []);
+        .eq("user_id", userId);
+      if (cancelled) return;
+      setHasNfts((count ?? 0) > 0);
+    };
+
+    check();
+    const poll = window.setInterval(check, 15000);
+    const channel = supabase
+      .channel(`purchases:${userId}`)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "purchases", filter: `user_id=eq.${userId}` },
+        () => check(),
+      )
+      .subscribe();
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(poll);
+      supabase.removeChannel(channel);
+    };
+  }, [userId]);
+
+  // Auto-open the walkthrough exactly once per user, only after we confirm the
+  // first NFT mint has landed. If they've completed or dismissed it before, we
+  // never auto-open again — the manual button stays available on request.
+  useEffect(() => {
+    if (autoTriggered.current) return;
+    if (!signedIn || hasNfts !== true) return;
+    try {
+      if (window.localStorage.getItem(WALKTHROUGH_KEY)) return;
+    } catch { /* ignore */ }
+    autoTriggered.current = true;
+    const t = window.setTimeout(() => setWalkOpen(true), 800);
+    return () => window.clearTimeout(t);
+  }, [signedIn, hasNfts]);
 
   const openWalkthrough = () => { setWalkStep(0); setWalkOpen(true); };
   const closeWalkthrough = () => {
@@ -62,6 +97,7 @@ function Landing() {
     try { window.localStorage.setItem(WALKTHROUGH_KEY, "1"); } catch { /* ignore */ }
   };
 
+  const walkthroughUnlocked = !signedIn || hasNfts === true;
 
   const primaryCta = signedIn ? (
     <Link to="/dashboard" className="inline-flex items-center gap-2 rounded-full bg-foreground px-6 py-3 text-sm font-semibold text-background transition hover:opacity-90">
