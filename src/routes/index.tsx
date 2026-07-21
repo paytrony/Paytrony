@@ -21,11 +21,36 @@ export const Route = createFileRoute("/")({
 });
 
 
+const WALKTHROUGH_KEY = "paytrony:mining-walkthrough-seen";
+
 function Landing() {
   const [signedIn, setSignedIn] = useState(false);
+  const [walkOpen, setWalkOpen] = useState(false);
+  const [walkStep, setWalkStep] = useState(0);
+  const autoTriggered = useRef(false);
+
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setSignedIn(!!data.session));
   }, []);
+
+  useEffect(() => {
+    if (autoTriggered.current) return;
+    if (typeof window === "undefined") return;
+    try {
+      if (!window.localStorage.getItem(WALKTHROUGH_KEY)) {
+        autoTriggered.current = true;
+        const t = setTimeout(() => setWalkOpen(true), 1200);
+        return () => clearTimeout(t);
+      }
+    } catch { /* ignore */ }
+  }, []);
+
+  const openWalkthrough = () => { setWalkStep(0); setWalkOpen(true); };
+  const closeWalkthrough = () => {
+    setWalkOpen(false);
+    try { window.localStorage.setItem(WALKTHROUGH_KEY, "1"); } catch { /* ignore */ }
+  };
+
 
   const primaryCta = signedIn ? (
     <Link to="/dashboard" className="inline-flex items-center gap-2 rounded-full bg-foreground px-6 py-3 text-sm font-semibold text-background transition hover:opacity-90">
