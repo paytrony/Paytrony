@@ -207,7 +207,7 @@ function MiningPage() {
     <div className="space-y-8">
       <div>
         <h1 className="text-3xl font-bold">Mining</h1>
-        <p className="text-sm text-muted-foreground">Claim daily rewards from your NFT packages. One click every 24 hours.</p>
+        <p className="text-sm text-muted-foreground">Claim daily rewards from your NFTs. One click every 24 hours.</p>
       </div>
 
       <div
