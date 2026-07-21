@@ -259,7 +259,9 @@ export function getEvmChainInfo(chain: EvmChain) {
 const createEvmSchema = z.object({
   tier: z.union([z.literal(10), z.literal(50), z.literal(100)]),
   chain: z.enum(["bsc", "eth", "polygon", "arbitrum", "optimism", "base"]),
+  quantity: quantitySchema,
 });
+
 
 const submitTxSchema = z.object({
   id: z.string().uuid(),
@@ -274,15 +276,17 @@ export const createEvmPaymentIntent = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const cfg = EVM_CHAINS[data.chain];
 
+    const qty = data.quantity ?? 1;
     let lastErr: unknown = null;
     for (let attempt = 0; attempt < 8; attempt++) {
-      const expected = Number((data.tier + randomCents()).toFixed(6));
+      const expected = Number((data.tier * qty + randomCents()).toFixed(6));
       const expires = new Date(Date.now() + INTENT_TTL_MIN * 60_000).toISOString();
       const { data: row, error } = await supabaseAdmin
         .from("payment_intents")
         .insert({
           user_id: context.userId,
           tier: data.tier,
+          quantity: qty,
           expected_amount: expected,
           address: EVM_RECEIVER,
           chain: data.chain.toUpperCase(),
@@ -302,6 +306,7 @@ export const createEvmPaymentIntent = createServerFn({ method: "POST" })
           usdt: cfg.usdt,
           usdtDecimals: cfg.usdtDecimals,
           tier: row.tier,
+          quantity: (row as { quantity?: number }).quantity ?? qty,
           expectedAmount: Number(row.expected_amount),
           expiresAt: row.expires_at,
         };
@@ -311,6 +316,7 @@ export const createEvmPaymentIntent = createServerFn({ method: "POST" })
     }
     throw new Error(lastErr instanceof Error ? lastErr.message : "Could not allocate payment amount, try again");
   });
+
 
 export const submitEvmTxHash = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
