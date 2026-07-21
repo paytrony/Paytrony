@@ -15,6 +15,7 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
 type Profile = { referral_code: string; nft_tier: number | null; email: string };
 type Txn = { id: string; amount: number; type: string; note: string | null; created_at: string };
 type NftRow = { id: string; nft_tier: number; created_at: string };
+type ReferredUser = { id: string; referral_code: string; nft_tier: number | null; created_at: string };
 
 const TIER_META: Record<number, { name: string; tag: string; glyph: string; grad: string; ring: string; badge: string }> = {
   10: { name: "Starter", tag: "Common", glyph: "◆", grad: "from-emerald-400 via-teal-400 to-cyan-500", ring: "shadow-[inset_0_0_60px_-20px_rgb(45,212,191,0.55)]", badge: "bg-teal-500/15 text-teal-300 border-teal-500/30" },
@@ -28,6 +29,7 @@ function Dashboard() {
   const [wallet, setWallet] = useState<WalletBalance>(EMPTY_WALLET_BALANCE);
   const [txns, setTxns] = useState<Txn[]>([]);
   const [refCount, setRefCount] = useState(0);
+  const [referred, setReferred] = useState<ReferredUser[]>([]);
 
   const [nfts, setNfts] = useState<NftRow[]>([]);
   const [lastClaimAt, setLastClaimAt] = useState<string | null>(null);
@@ -46,7 +48,9 @@ function Dashboard() {
     if (p) setProfile(p as Profile);
     setWallet(wb);
     setTxns((t ?? []) as Txn[]);
-    setRefCount((refs ?? []).length);
+    const refList = (refs ?? []) as ReferredUser[];
+    setReferred(refList);
+    setRefCount(refList.length);
     setNfts((n ?? []) as NftRow[]);
     setLastClaimAt((mc as any)?.created_at ?? null);
   }
@@ -280,6 +284,11 @@ function Dashboard() {
 
       </div>
 
+      <ReferralStatus
+        referred={referred}
+        creditTxns={txns.filter((t) => t.type === "referral_credit")}
+        referralCode={profile?.referral_code ?? null}
+      />
 
       <div className="rounded-2xl border border-border bg-card p-6">
         <div className="mb-4 flex items-center justify-between">
@@ -307,3 +316,162 @@ function Dashboard() {
     </div>
   );
 }
+
+function ReferralStatus({
+  referred,
+  creditTxns,
+  referralCode,
+}: {
+  referred: ReferredUser[];
+  creditTxns: Txn[];
+  referralCode: string | null;
+}) {
+  const confirmed = referred.filter((r) => r.nft_tier != null);
+  const pending = referred.filter((r) => r.nft_tier == null);
+  const totalConfirmed = creditTxns.reduce((s, t) => s + Number(t.amount || 0), 0);
+
+  const items: Array<{
+    key: string;
+    status: "confirmed" | "pending";
+    label: string;
+    when: string;
+    amount: number | null;
+    tier: number | null;
+  }> = [];
+
+  for (const t of creditTxns) {
+    items.push({
+      key: `c-${t.id}`,
+      status: "confirmed",
+      label: t.note?.replace(/^Referral bonus from\s*/i, "Friend minted $") ?? "Referral credit",
+      when: t.created_at,
+      amount: Number(t.amount || 0),
+      tier: null,
+    });
+  }
+  for (const r of pending) {
+    items.push({
+      key: `p-${r.id}`,
+      status: "pending",
+      label: "Friend signed up · waiting for first mint",
+      when: r.created_at,
+      amount: null,
+      tier: null,
+    });
+  }
+  items.sort((a, b) => new Date(b.when).getTime() - new Date(a.when).getTime());
+
+  async function copyLink() {
+    if (!referralCode || typeof window === "undefined") return;
+    const url = `${window.location.origin}/i/${referralCode}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      toast.success("Invite link copied");
+    } catch {
+      toast.error("Copy failed");
+    }
+  }
+
+  function fmt(ts: string) {
+    const d = new Date(ts);
+    const diff = Date.now() - d.getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return "just now";
+    if (mins < 60) return `${mins}m ago`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `${hrs}h ago`;
+    const days = Math.floor(hrs / 24);
+    if (days < 7) return `${days}d ago`;
+    return d.toLocaleDateString();
+  }
+
+  return (
+    <div className="rounded-2xl border border-border bg-card p-6">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-semibold">Referral status</h2>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            Credits confirm the moment your friend mints an NFT.
+          </p>
+        </div>
+        <Link to="/referrals" className="text-sm text-primary hover:underline">Manage referrals →</Link>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-3">
+        <div className="rounded-xl border border-primary/30 bg-primary/5 p-4">
+          <div className="font-mono text-[10px] uppercase tracking-wider text-primary">Confirmed</div>
+          <div className="mt-1 text-2xl font-bold text-primary">${totalConfirmed.toFixed(2)}</div>
+          <div className="mt-0.5 text-xs text-muted-foreground">{confirmed.length} friend{confirmed.length === 1 ? "" : "s"} minted</div>
+        </div>
+        <div className="rounded-xl border border-border bg-muted/30 p-4">
+          <div className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">Pending</div>
+          <div className="mt-1 text-2xl font-bold">{pending.length}</div>
+          <div className="mt-0.5 text-xs text-muted-foreground">Signed up · no mint yet</div>
+        </div>
+        <div className="rounded-xl border border-border bg-muted/30 p-4">
+          <div className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">Boost progress</div>
+          <div className="mt-1 text-2xl font-bold">{confirmed.length}/10</div>
+          <div className="mt-0.5 text-xs text-muted-foreground">
+            {confirmed.length >= 10 ? "Max mining rate unlocked" : `${10 - confirmed.length} more to full rate`}
+          </div>
+        </div>
+      </div>
+
+      {items.length === 0 ? (
+        <div className="mt-5 rounded-xl border border-dashed border-border p-5 text-center">
+          <div className="text-sm font-medium">No referrals yet</div>
+          <div className="mt-1 text-xs text-muted-foreground">
+            Share your invite link — you earn a credit the moment they mint.
+          </div>
+          {referralCode && (
+            <button
+              onClick={copyLink}
+              className="mt-3 inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
+            >
+              Copy invite link
+            </button>
+          )}
+        </div>
+      ) : (
+        <ul className="mt-5 divide-y divide-border">
+          {items.slice(0, 6).map((it) => (
+            <li key={it.key} className="flex items-center justify-between gap-3 py-3">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`inline-flex h-2 w-2 rounded-full ${it.status === "confirmed" ? "bg-primary" : "bg-amber-400"}`}
+                    aria-hidden
+                  />
+                  <span className="truncate text-sm">{it.label}</span>
+                </div>
+                <div className="mt-0.5 pl-4 text-xs text-muted-foreground">
+                  {fmt(it.when)} · {it.status === "confirmed" ? "Credited to wallet · withdrawable" : "Next: waiting for their first NFT mint"}
+                </div>
+              </div>
+              <div className={`shrink-0 font-mono text-sm font-semibold ${it.status === "confirmed" ? "text-primary" : "text-muted-foreground"}`}>
+                {it.status === "confirmed" && it.amount != null ? `+$${it.amount.toFixed(2)}` : "—"}
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {items.length > 0 && referralCode && (
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-muted/20 p-3 text-xs">
+          <span className="text-muted-foreground">
+            Next step: {pending.length > 0
+              ? `Nudge your ${pending.length} pending friend${pending.length === 1 ? "" : "s"} to mint — credit lands instantly.`
+              : "Invite more friends to keep growing your mining rate."}
+          </span>
+          <button
+            onClick={copyLink}
+            className="rounded-md border border-primary/40 bg-primary/10 px-3 py-1.5 font-medium text-primary hover:bg-primary/20"
+          >
+            Copy invite link
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
