@@ -29,6 +29,7 @@ function Dashboard() {
   const [wallet, setWallet] = useState<WalletBalance>(EMPTY_WALLET_BALANCE);
   const [txns, setTxns] = useState<Txn[]>([]);
   const [refCount, setRefCount] = useState(0);
+  const [referred, setReferred] = useState<ReferredUser[]>([]);
 
   const [nfts, setNfts] = useState<NftRow[]>([]);
   const [lastClaimAt, setLastClaimAt] = useState<string | null>(null);
