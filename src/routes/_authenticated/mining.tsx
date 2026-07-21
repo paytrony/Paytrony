@@ -20,7 +20,7 @@ export const Route = createFileRoute("/_authenticated/mining")({
   head: () => ({
     meta: [
       { title: "Mining — PayTrony" },
-      { name: "description", content: "Mine daily rewards from your NFT packages. Click once every 24 hours to claim." },
+      { name: "description", content: "Mine daily rewards from your NFTs. Click once every 24 hours to claim." },
     ],
   }),
   component: MiningPage,
@@ -133,8 +133,8 @@ function MiningPage() {
       setErrorInfo({
         code: "no_nfts",
         title: "No mineable NFTs",
-        detail: "You need at least one Starter, Pro, or Elite package to mine.",
-        fix: "Buy a package from the Packages page to start earning daily rewards.",
+        detail: "You need at least one Starter, Pro, or Elite NFT to mine.",
+        fix: "Buy an NFT from the Buy NFT page to start earning daily rewards.",
       });
       return;
     }
@@ -170,7 +170,7 @@ function MiningPage() {
       if (raw.includes("cooldown_active")) {
         info = { code: "cooldown_active", title: "Cooldown still active", detail: raw.replace(/^.*cooldown_active:\s*/, ""), fix: "Wait until the countdown reaches zero, then click Mine again." };
       } else if (raw.includes("no_nfts")) {
-        info = { code: "no_nfts", title: "No mineable NFTs", detail: "Your account has no Starter, Pro, or Elite package.", fix: "Buy a package to unlock daily mining." };
+        info = { code: "no_nfts", title: "No mineable NFTs", detail: "Your account has no Starter, Pro, or Elite NFT.", fix: "Buy an NFT to unlock daily mining." };
       } else if (raw.includes("wallet_error")) {
         info = { code: "wallet_error", title: "Wallet credit failed", detail: raw.replace(/^.*wallet_error:\s*/, ""), fix: "Your claim was not recorded. Click Mine again to retry — you will not be double-charged." };
       } else if (raw.includes("not_authorized")) {
@@ -207,7 +207,7 @@ function MiningPage() {
     <div className="space-y-8">
       <div>
         <h1 className="text-3xl font-bold">Mining</h1>
-        <p className="text-sm text-muted-foreground">Claim daily rewards from your NFT packages. One click every 24 hours.</p>
+        <p className="text-sm text-muted-foreground">Claim daily rewards from your NFTs. One click every 24 hours.</p>
       </div>
 
       <div
@@ -228,7 +228,7 @@ function MiningPage() {
             <div className="text-xs text-muted-foreground">
               {canMine
                 ? ownedTiers.length === 0
-                  ? "Buy a package to start earning daily rewards."
+                  ? "Buy an NFT to start earning daily rewards."
                   : `Claim your $${totalRate.toFixed(2)} reward before it resets.`
                 : `Available at ${new Date(nextAt).toLocaleString()} — restored automatically after refresh or re-login.`}
             </div>
@@ -326,7 +326,7 @@ function MiningPage() {
           <div className="mt-4 text-sm text-muted-foreground">Loading…</div>
         ) : ownedTiers.length === 0 ? (
           <div className="mt-4 rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
-            You don't own any mineable NFTs yet. Buy a package to start mining.
+            You don't own any mineable NFTs yet. Buy an NFT to start mining.
           </div>
         ) : (
           <div className="mt-4 grid gap-3 sm:grid-cols-3">
@@ -391,7 +391,7 @@ function MiningPage() {
         <p className="mt-1 text-xs text-muted-foreground">How each owned tier contributes to your total daily payout.</p>
         {ownedTiers.length === 0 ? (
           <div className="mt-4 rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
-            No owned tiers yet. Contributions will appear once you buy a package.
+            No owned tiers yet. Contributions will appear once you buy an NFT.
           </div>
         ) : (
           <div className="mt-4 overflow-hidden rounded-xl border border-border">
