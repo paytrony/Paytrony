@@ -362,15 +362,15 @@ function ReferralStatus({
   items.sort((a, b) => new Date(b.when).getTime() - new Date(a.when).getTime());
 
   async function copyLink() {
-    if (!referralCode || typeof window === "undefined") return;
-    const url = `${window.location.origin}/i/${referralCode}`;
+    if (!referralCode) return;
     try {
-      await navigator.clipboard.writeText(url);
+      await navigator.clipboard.writeText(buildInviteUrl(referralCode));
       toast.success("Invite link copied");
     } catch {
       toast.error("Copy failed");
     }
   }
+
 
   function fmt(ts: string) {
     const d = new Date(ts);
