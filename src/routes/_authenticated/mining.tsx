@@ -391,7 +391,7 @@ function MiningPage() {
         <p className="mt-1 text-xs text-muted-foreground">How each owned tier contributes to your total daily payout.</p>
         {ownedTiers.length === 0 ? (
           <div className="mt-4 rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
-            No owned tiers yet. Contributions will appear once you buy a package.
+            No owned tiers yet. Contributions will appear once you buy an NFT.
           </div>
         ) : (
           <div className="mt-4 overflow-hidden rounded-xl border border-border">
