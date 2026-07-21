@@ -1,0 +1,2 @@
+REVOKE EXECUTE ON FUNCTION public.purchase_package(uuid, numeric, text) FROM authenticated, anon, PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.purchase_package(uuid, numeric, text, integer) FROM authenticated, anon, PUBLIC;
