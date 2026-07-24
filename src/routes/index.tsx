@@ -193,9 +193,6 @@ function Landing() {
 
         <div className="mx-auto grid max-w-7xl grid-cols-1 items-center gap-12 px-6 pb-20 pt-10 lg:grid-cols-2 lg:pt-16">
           <div>
-            <div className="inline-flex items-center gap-2 rounded-full border border-border/70 bg-card/60 px-3 py-1 text-xs text-muted-foreground backdrop-blur">
-              <Sparkles className="h-3.5 w-3.5 text-primary" /> Instant 100% referral rewards
-            </div>
             <h1 className="mt-6 text-5xl font-bold leading-[1.05] tracking-tight md:text-7xl">
               Discover onchain <br />
               <span className="bg-gradient-to-r from-primary via-primary to-accent bg-clip-text text-transparent">rewards</span> with one app
