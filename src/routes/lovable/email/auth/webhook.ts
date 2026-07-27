@@ -9,7 +9,7 @@ import { EmailChangeEmail } from '@/lib/email-templates/email-change'
 import { ReauthenticationEmail } from '@/lib/email-templates/reauthentication'
 
 // Configuration
-const SITE_NAME = "paytronygg"
+const SITE_NAME = "PayTrony"
 const SENDER_DOMAIN = "notify.paytrony.com"
 const ROOT_DOMAIN = "paytrony.com"
 const FROM_DOMAIN = "paytrony.com"

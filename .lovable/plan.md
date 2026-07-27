@@ -1,25 +1,30 @@
-# Restyle `/auth` to match the Polymarket-style modal
+## Finish auth email setup
 
-Visual-only restyle of `src/routes/auth.tsx`. No auth logic, routing, or business changes.
+Three focused fixes to the existing auth email pipeline. No new tables, no infra changes.
 
-## Layout (single centered card, dark)
+### 1. Brand the auth email templates (Aurora / PayTrony look)
 
-- Center a `max-w-md` card on a dimmed backdrop. Rounded-2xl, subtle border, elevated shadow, uses existing dark tokens (`bg-card`, `border-border`) — no hardcoded colors.
-- Header: bold "Welcome to PayTrony" (swap to "Create your PayTrony account" in signup mode). Remove the current subtitle line.
-- Order inside the card:
-  1. Primary **Continue with Google** button (full-width, brand-blue via `bg-primary`, `G` mark from `lucide-react`). Wires to the existing Google handler if present; otherwise a stub calling `lovable.auth.signInWithOAuth("google", …)` — no new flow, just the button styling. *(If Google isn't already wired here, I'll leave the existing email form as the primary and drop this item — confirm below if needed; otherwise I'll add the Google button using the existing managed helper since it is already used elsewhere in the app.)*
-  2. **OR** divider (thin rule with centered muted "OR").
-  3. Email + inline **Continue** button row. On submit, reveals the password field and (in signup mode) the referral field, then a final **Sign in / Create account** button. Same submit handler, unchanged.
-  4. **Coming soon** icon grid: 2 rows × 4 tiles — Telegram, Steam, MetaMask, Brave, Discord, Twitch, GitHub, and a `…` more tile. Disabled buttons with `cursor-not-allowed opacity-60`, tooltip "Coming soon" on hover (shadcn `Tooltip`).
-  5. Footer: centered small `Terms · Privacy` links (keep existing routes). Signup-mode disclaimer line stays but shrinks to one row.
+Update all six templates in `src/lib/email-templates/` (`signup.tsx`, `magic-link.tsx`, `recovery.tsx`, `invite.tsx`, `email-change.tsx`, `reauthentication.tsx`) to match the app's dark-brand aesthetic while keeping `Body` background `#ffffff` (email deliverability rule).
 
-## Behavior preserved
+- Add a top brand header inside a rounded dark card: "PayTrony" wordmark with a small diamond glyph, on a dark navy panel (`#0F172A`-ish, matching app `--background`).
+- Body copy on white below the card for max compatibility.
+- Primary CTA button: green Aurora accent (`#22C55E`-ish, mapped from `--primary` oklch(0.82 0.19 155)), white text, 8px radius, ample padding.
+- Inline links use the same green.
+- Small muted footer: "PayTrony • paytrony.com" + a plain-text note that this email was sent to the recipient's address.
+- Keep the reauthentication code style monospaced but boxed with a subtle border, brand-tinted.
+- All colors inline (no `<style>` tags, no external CSS). No images/logos requiring hosting — use inline SVG or plain text wordmark.
 
-- `validateSearch`, `mode` toggle, `ref` prefill, `getSession` redirect, `onSubmit` for signIn/signUp, "Forgot password" link, and mode-switch link all unchanged.
-- No new dependencies; icons from `lucide-react`, tooltip from existing shadcn `ui/tooltip`.
+### 2. Fix the sender name
 
-## Files touched
+In `src/routes/lovable/email/auth/webhook.ts`, change `SITE_NAME` from `"paytronygg"` to `"PayTrony"`. This fixes both the visible From line (`PayTrony <noreply@paytrony.com>`) and the `{siteName}` interpolations inside every template.
 
-- `src/routes/auth.tsx` — replace the card JSX with the new layout; keep imports/logic intact and add the icon grid + tooltip imports.
+### 3. Raise the auth email rate limit
 
-No DB, no backend, no other routes affected.
+Default GoTrue cap is low and will trip `over_email_send_rate_limit` at real signup volume. Call `supabase--configure_auth` with `rate_limit_email_sent: 1000` (max), keeping other current auth settings unchanged. Requires email sending to be active — the domain is configured, so this should go through; if it rejects because DNS is still verifying, retry after verification.
+
+### Technical notes
+
+- No changes to the webhook handler logic — only the `SITE_NAME` constant.
+- Template prop shapes are unchanged; only JSX/styles are edited.
+- No package installs, no migrations, no edge-function deploys (modern stack — routes deploy on publish).
+- After edits, the dev preview at `/lovable/email/auth/preview` can be spot-checked for each type.
