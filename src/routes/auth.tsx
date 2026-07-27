@@ -147,7 +147,7 @@ function AuthPage() {
                 {loading ? "Sending…" : "Send code"}
               </button>
               <p className="text-center text-[11px] text-muted-foreground">
-                We'll email you a 6-digit code. No password needed.
+                We'll email you a login code. No password needed.
               </p>
             </form>
           )}
@@ -162,12 +162,13 @@ function AuthPage() {
                 inputMode="numeric"
                 pattern="[0-9]*"
                 autoComplete="one-time-code"
-                maxLength={6}
+                maxLength={10}
                 value={code}
-                onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                placeholder="123456"
-                className="w-full rounded-lg border border-input bg-input/60 px-3.5 py-3 text-center font-mono text-lg tracking-[0.5em] outline-none focus:ring-2 focus:ring-ring"
+                onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 10))}
+                placeholder="Enter code"
+                className="w-full rounded-lg border border-input bg-input/60 px-3.5 py-3 text-center font-mono text-lg tracking-[0.4em] outline-none focus:ring-2 focus:ring-ring"
               />
+
               <button
                 type="submit"
                 disabled={loading || code.length < 6}
