@@ -15,9 +15,10 @@ export const MagicLinkEmail = ({ siteName, token }: MagicLinkEmailProps) => (
       <Shell>
         <Text style={h1}>Your login code</Text>
         <Text style={text}>
-          Enter this 6-digit code in {siteName} to sign in. The code expires shortly and can
+          Enter this code in {siteName} to sign in. The code expires shortly and can
           only be used once.
         </Text>
+
         <Text style={codeStyle}>{token}</Text>
         <Text style={footer}>
           If you didn't request this code, you can safely ignore this email.
