@@ -26,7 +26,7 @@ export const SignupEmail = ({
           <Link href={siteUrl} style={link}>
             <strong>{siteName}</strong>
           </Link>
-          . Enter this 6-digit code to activate your account ({recipient}):
+          . Enter this code to activate your account ({recipient}):
         </Text>
         <Text style={codeStyle}>{token}</Text>
         <Text style={footer}>
