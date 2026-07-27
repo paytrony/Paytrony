@@ -1,28 +1,26 @@
 import * as React from 'react'
-import { Body, Button, Head, Html, Preview, Text } from '@react-email/components'
-import { Shell, main, h1, text, button, footer } from './_brand'
+import { Body, Head, Html, Preview, Text } from '@react-email/components'
+import { Shell, main, h1, text, codeStyle, footer } from './_brand'
 
 interface MagicLinkEmailProps {
   siteName: string
-  confirmationUrl: string
+  token: string
 }
 
-export const MagicLinkEmail = ({ siteName, confirmationUrl }: MagicLinkEmailProps) => (
+export const MagicLinkEmail = ({ siteName, token }: MagicLinkEmailProps) => (
   <Html lang="en" dir="ltr">
     <Head />
-    <Preview>Your login link for {siteName}</Preview>
+    <Preview>Your {siteName} login code</Preview>
     <Body style={main}>
       <Shell>
-        <Text style={h1}>Your login link</Text>
+        <Text style={h1}>Your login code</Text>
         <Text style={text}>
-          Click the button below to sign in to {siteName}. This link expires shortly and can
+          Enter this 6-digit code in {siteName} to sign in. The code expires shortly and can
           only be used once.
         </Text>
-        <Button style={button} href={confirmationUrl}>
-          Log in
-        </Button>
+        <Text style={codeStyle}>{token}</Text>
         <Text style={footer}>
-          If you didn't request this link, you can safely ignore this email.
+          If you didn't request this code, you can safely ignore this email.
         </Text>
       </Shell>
     </Body>

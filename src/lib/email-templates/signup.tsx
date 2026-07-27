@@ -1,19 +1,19 @@
 import * as React from 'react'
-import { Body, Button, Head, Html, Link, Preview, Text } from '@react-email/components'
-import { Shell, main, h1, text, button, link, footer } from './_brand'
+import { Body, Head, Html, Link, Preview, Text } from '@react-email/components'
+import { Shell, main, h1, text, link, codeStyle, footer } from './_brand'
 
 interface SignupEmailProps {
   siteName: string
   siteUrl: string
   recipient: string
-  confirmationUrl: string
+  token: string
 }
 
 export const SignupEmail = ({
   siteName,
   siteUrl,
   recipient,
-  confirmationUrl,
+  token,
 }: SignupEmailProps) => (
   <Html lang="en" dir="ltr">
     <Head />
@@ -26,11 +26,9 @@ export const SignupEmail = ({
           <Link href={siteUrl} style={link}>
             <strong>{siteName}</strong>
           </Link>
-          . Confirm your address ({recipient}) to activate your account.
+          . Enter this 6-digit code to activate your account ({recipient}):
         </Text>
-        <Button style={button} href={confirmationUrl}>
-          Verify email
-        </Button>
+        <Text style={codeStyle}>{token}</Text>
         <Text style={footer}>
           If you didn't create an account, you can safely ignore this email.
         </Text>
