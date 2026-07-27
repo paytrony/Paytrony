@@ -88,7 +88,7 @@ function AuthPage() {
 
   async function verifyCode(e: React.FormEvent) {
     e.preventDefault();
-    if (code.length < 6) return toast.error("Enter the 6-digit code");
+    if (code.length < 6) return toast.error("Enter the code from your email");
     setLoading(true);
     try {
       const { error } = await supabase.auth.verifyOtp({
@@ -105,6 +105,7 @@ function AuthPage() {
       setLoading(false);
     }
   }
+
 
   return (
     <div className="relative flex min-h-screen items-center justify-center px-4 py-10">
