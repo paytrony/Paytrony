@@ -88,7 +88,7 @@ function AuthPage() {
 
   async function verifyCode(e: React.FormEvent) {
     e.preventDefault();
-    if (code.length < 6) return toast.error("Enter the code from your email");
+    if (code.length < 8) return toast.error("Enter the 8-digit code from your email");
     setLoading(true);
     try {
       const { error } = await supabase.auth.verifyOtp({
@@ -162,16 +162,16 @@ function AuthPage() {
                 inputMode="numeric"
                 pattern="[0-9]*"
                 autoComplete="one-time-code"
-                maxLength={10}
+                maxLength={8}
                 value={code}
-                onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 10))}
-                placeholder="Enter code"
+                onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 8))}
+                placeholder="8-digit code"
                 className="w-full rounded-lg border border-input bg-input/60 px-3.5 py-3 text-center font-mono text-lg tracking-[0.4em] outline-none focus:ring-2 focus:ring-ring"
               />
 
               <button
                 type="submit"
-                disabled={loading || code.length < 6}
+                disabled={loading || code.length < 8}
                 className="glow w-full rounded-lg bg-primary py-2.5 font-medium text-primary-foreground disabled:opacity-50"
               >
                 {loading ? "Verifying…" : "Verify & continue"}
