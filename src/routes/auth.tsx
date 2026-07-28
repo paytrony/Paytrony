@@ -88,7 +88,7 @@ function AuthPage() {
 
   async function verifyCode(e: React.FormEvent) {
     e.preventDefault();
-    if (code.length < 6) return toast.error("Enter the code from your email");
+    if (code.length < 8) return toast.error("Enter the 8-digit code from your email");
     setLoading(true);
     try {
       const { error } = await supabase.auth.verifyOtp({
